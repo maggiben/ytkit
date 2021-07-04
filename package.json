@@ -12,7 +12,11 @@
     "@oclif/command": "^1",
     "@oclif/config": "^1",
     "@oclif/plugin-help": "^3",
-    "tslib": "^1"
+    "cli-ux": "^5.6.2",
+    "sanitize-filename": "^1.6.3",
+    "streamspeed": "^2.0.1",
+    "tslib": "^1",
+    "ytdl-core": "^4.8.3"
   },
   "devDependencies": {
     "@commitlint/cli": "^12.1.4",
@@ -22,6 +26,7 @@
     "@oclif/test": "^1.2.8",
     "@salesforce/dev-config": "^2.1.2",
     "@salesforce/prettier-config": "^0.0.2",
+    "@salesforce/ts-types": "^1.5.17",
     "@types/chai": "^4",
     "@types/mocha": "^5",
     "@types/node": "^10",
