@@ -58,7 +58,9 @@ export const tmpl = (str: string, objs: any[]): string => {
     for (let result of objs) {
       let j = 0;
       let myprop = propArray[j];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       while (myprop != null && result[myprop] != null) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         result = result[myprop];
         if (propArray.length === ++j) {
           return sanitizeName(result, { replacement: '-' });

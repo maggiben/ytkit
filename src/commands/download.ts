@@ -1,4 +1,5 @@
 import { Readable } from 'stream';
+import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Command, flags as flagsConfig } from '@oclif/command';
@@ -6,14 +7,16 @@ import { OutputArgs, OutputFlags } from '@oclif/parser';
 import cli from 'cli-ux';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
-import { ensureString, AnyJson, Dictionary, get, isBoolean, JsonMap, Optional } from '@salesforce/ts-types';
-import * as util from '../util';
+import { ensureString, get, JsonMap } from '@salesforce/ts-types';
+import { SingleBar } from '@types/cli-progress';
+import * as util from '../utils/utils';
 
 export interface IFlags {
   url: string;
   quality: string;
   filter: string;
   range: string;
+  ['filter-container']: string;
   begin: string;
   urlonly: boolean;
   output: string;
@@ -37,17 +40,16 @@ export function throttle<T extends (...args: any) => any>(func: T, limit: number
   let lastResult: ReturnType<T>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function (this: any, ...args): ReturnType<T> {
+    const context = this;
     if (!inThrottle) {
       inThrottle = true;
-
       setTimeout(() => (inThrottle = false), limit);
-
       lastResult = func.apply(context, args);
     }
-
     return lastResult;
   };
 }
+
 const sleep = async (delay: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(() => {
@@ -60,15 +62,15 @@ export default class Download extends Command {
   protected get statics(): typeof Download {
     return this.constructor as typeof Download;
   }
-  public static description = 'download';
-  public static examples = [
+  public static readonly description = 'download';
+  public static readonly examples = [
     `$ ytdl download 
 hello world from ./src/hello.ts!
 `,
   ];
 
   // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
-  public static flags = {
+  public static readonly flags = {
     help: flagsConfig.help({ char: 'h' }),
     url: flagsConfig.string({
       char: 'u',
@@ -78,7 +80,6 @@ hello world from ./src/hello.ts!
     quality: flagsConfig.string({
       char: 'q',
       description: 'Video quality to download, default: highest',
-      default: 'highest',
     }),
     filter: flagsConfig.enum({
       description: 'Can be video, videoonly, audio, audioonly',
@@ -87,6 +88,9 @@ hello world from ./src/hello.ts!
     range: flagsConfig.string({
       char: 'r',
       description: 'Byte range to download, ie 10355705-12452856',
+    }),
+    'filter-container': flagsConfig.string({
+      description: 'Filter in format container',
     }),
     begin: flagsConfig.string({
       char: 'b',
@@ -99,12 +103,8 @@ hello world from ./src/hello.ts!
       char: 'o',
       description: 'Save to file, template by {prop}, default: stdout or {title}',
     }),
-    name: flagsConfig.string({
-      char: 'n',
-      description: 'name to print',
-    }),
-    force: flagsConfig.boolean({
-      char: 'f',
+    info: flagsConfig.boolean({
+      description: 'Print video info without downloading',
     }),
   };
 
@@ -112,10 +112,15 @@ hello world from ./src/hello.ts!
   protected args!: OutputArgs<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   // The parsed varargs for easy reference by this command
   protected varargs?: JsonMap;
-  protected readStream?: Readable;
-  protected ytdlOptions?: ytdl.downloadOptions;
+  protected readStream!: Readable;
+  protected ytdlOptions!: ytdl.downloadOptions;
   // The parsed flags for easy reference by this command; assigned in init
   protected flags!: OutputFlags<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  protected output!: string;
+  protected extension?: string;
+  // protected readonly stdoutMutable: boolean = Boolean(
+  //   process.stdout && process.stdout.cursorTo && process.stdout.clearLine
+  // );
 
   public async run(): Promise<void> {
     // Turn off strict parsing if varargs are set.  Otherwise use static strict setting.
@@ -129,8 +134,17 @@ hello world from ./src/hello.ts!
     this.flags = flags;
     this.args = args;
 
+    this.setOutput(this.flags.output);
+
+    cli.styledObject(this.flags);
+
     if (this.flags.urlonly) {
       cli.log(await this.getDownloadUrl());
+      process.exit(0);
+    }
+
+    if (this.flags.info) {
+      await this.showVideoInfo();
       process.exit(0);
     }
 
@@ -159,7 +173,7 @@ hello world from ./src/hello.ts!
     cli.log(`avg rating: ${info.videoDetails.averageRating}`);
     cli.log(`views: ${info.videoDetails.viewCount}`);
     if (!live) {
-      // cli.log('length: ') + util.toHumanTime(info.videoDetails.lengthSeconds));
+      cli.log(`length: ${util.toHumanTime(parseInt(info.videoDetails.lengthSeconds, 10))}`);
     }
   }
 
@@ -183,12 +197,40 @@ hello world from ./src/hello.ts!
         quality: format.qualityLabel || '',
         codecs: format.codecs,
         bitrate: format.qualityLabel ? util.toHumanSize(format.bitrate ?? 0) : '',
-        // 'audio bitrate': format.audioBitrate ? format.audioBitrate + 'KB' : '',
-        // size: format.contentLength ? util.toHumanSize(format.contentLength) : '',
+        'audio bitrate': format.audioBitrate ? `${format.audioBitrate}KB` : '',
+        size: format.contentLength ? util.toHumanSize(parseInt(format.contentLength, 10) ?? 0) : '',
       }));
-      console.log('FORMATES', formats);
+      cli.table(formats, {
+        itag: {},
+        container: {},
+        quality: {},
+        codecs: {},
+        bitrate: {},
+        'audio bitrate': {},
+        size: {},
+      });
     }
-    return;
+  }
+
+  protected getFlag<T>(flagName: string, defaultVal?: unknown): T {
+    return get(this.flags, flagName, defaultVal) as T;
+  }
+
+  private setOutput(output: string): void {
+    this.output = output;
+    const regexp = new RegExp(/(\.\w+)?$/);
+    this.extension = regexp
+      .exec(output ?? '')
+      ?.slice(1, 2)
+      .pop();
+
+    if (output) {
+      if (this.extension && !this.flags.quality && !this.flags['filter-container']) {
+        this.flags['filter-container'] = `^${this.extension.slice(1)}$`;
+      }
+    } else if (process.stdout.isTTY) {
+      this.output = '{videoDetails.title}';
+    }
   }
 
   /**
@@ -198,9 +240,13 @@ hello world from ./src/hello.ts!
    */
   private buildDownloadOptions(): ytdl.downloadOptions {
     const options: ytdl.downloadOptions = {};
-    const quality = /,/.test(this.flags.quality) ? this.flags.quality.split(',') : this.flags.quality;
-    if (this.flags?.range) {
-      const ranges = this.flags?.range.split('-').map((range: string) => parseInt(range, 10));
+    const qualityFlag = this.getFlag<string>('quality');
+    const isMultiple = /,/.test(qualityFlag);
+    const quality = isMultiple ? qualityFlag.split(',') : qualityFlag;
+
+    const range = this.getFlag<string>('range');
+    if (range) {
+      const ranges = range.split('-').map((r: string) => parseInt(r, 10));
       options.range = { start: ranges[0], end: ranges[1] };
     }
     return {
@@ -209,22 +255,19 @@ hello world from ./src/hello.ts!
     };
   }
 
-  private setListeners(readStream: Readable) {
+  private setListeners(readStream: Readable): void {
     const onError = (error: Error): void => this.onError(error);
 
-    readStream.on('info', (info, format) => {
+    readStream.on('info', (info: ytdl.videoInfo, format: ytdl.videoFormat) => {
       if (!this.flags.output) {
         readStream.pipe(process.stdout).on('error', onError);
         return;
       }
 
-      // output = util.tmpl(output, [info, format]);
-      // if (!ext && format.container) {
-      //   output += '.' + format.container;
-      // }
-
-      let output = this.flags.output ?? 'myvide.mp4';
-
+      let output = util.tmpl(this.output, [info, format]);
+      if (!this.extension && format.container) {
+        output += '.' + format.container;
+      }
       // Parses & sanitises output filename for any illegal characters
       const parsedOutput = path.parse(output);
       output = path.format({
@@ -237,30 +280,18 @@ hello world from ./src/hello.ts!
       // Print information about the video if not streaming to stdout.
       this.printVideoInfo(info, format.isLive);
 
-      // Print format information.
-      // console.log(label('itag: ') + format.itag);
-      // console.log(label('container: ') + format.container);
-      if (format.qualityLabel) {
-        // console.log(label('quality: ') + format.qualityLabel);
-        // console.log(label('video bitrate: ') + util.toHumanSize(format.bitrate));
-      }
-      if (format.audioBitrate) {
-        // console.log(label('audio bitrate: ') + format.audioBitrate + 'KB');
-      }
-      // console.log(label('codecs: ') + format.codecs);
-      // console.log(label('output: ') + output);
-
-      // Print an incremental size if format size is unknown.
-      const sizeUnknown = !format.clen && (format.isLive || format.isHLS || format.isDashMPD);
+      const sizeUnknown = !('clen' in format) && (format.isLive || format.isHLS || format.isDashMPD);
 
       if (sizeUnknown) {
         this.printLiveVideoSize(readStream);
       } else if (format.contentLength) {
         this.printVideoSize(readStream, parseInt(format.contentLength, 10));
       } else {
-        readStream.once('response', (res) => {
-          if (res.headers['content-length']) {
-            const size = parseInt(res.headers['content-length'], 10);
+        readStream.once('response', (response) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (response.headers['content-length']) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            const size = parseInt(response.headers['content-length'], 10);
             this.printVideoSize(readStream, size);
           } else {
             this.printLiveVideoSize(readStream);
@@ -332,17 +363,20 @@ hello world from ./src/hello.ts!
    * Prints size of a live video, playlist, or video format that does not
    * have a content size either in its format metadata or its headers.
    */
-  private printLiveVideoSize(readStream: Readable) {
+  private printLiveVideoSize(readStream: Readable): void {
     let dataRead = 0;
     const updateProgress = throttle(() => {
+      readline.cursorTo(process.stdout, 0);
+      readline.clearLine(process.stdout, 1);
       let line = `size: ${util.toHumanSize(dataRead)}`;
       if (dataRead >= 1024) {
         line += ` (${dataRead} bytes)`;
       }
       process.stdout.write(line);
-    }, 500);
+    }, 250);
 
     readStream.on('data', (data) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       dataRead += data.length;
       updateProgress();
     });
@@ -350,20 +384,21 @@ hello world from ./src/hello.ts!
     readStream.on('end', () => {
       cli.log(`downloaded: ${util.toHumanSize(dataRead)}`);
     });
-  };
+  }
+
   /**
    * Prints video size with a progress bar as it downloads.
    *
    * @param {number} size
    */
-  private printVideoSize(readStream: Readable, size?: number): void {
-    const bar = cli.progress({
+  private printVideoSize(readStream: Readable, size: number): void {
+    const bar: SingleBar = cli.progress({
       format: '[{bar}] {percentage}% | Speed: {speed}',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
       total: size,
-    });
-    bar.start(size);
+    }) as SingleBar;
+    bar.start(size, 0);
     const streamSpeed = new StreamSpeed();
     streamSpeed.add(readStream);
     // Keep track of progress.
@@ -372,6 +407,7 @@ hello world from ./src/hello.ts!
     });
 
     readStream.on('data', (data) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       bar.increment(data.length, getSpeed());
     });
 
@@ -387,7 +423,7 @@ hello world from ./src/hello.ts!
     });
   }
 
-  private onError(error: Error) {
+  private onError(error: Error): void {
     cli.error(error.message);
     process.exit(1);
   }
