@@ -40,7 +40,6 @@ describe('video info', () => {
       print: true,
     })
     .command(['info', '--url', 'https://www.youtube.com/watch?v=MglX7zcg0gw', '--json'])
-    .exit(1)
     .it('runs info', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as AnyJson;
       expect(jsonResponse).to.deep.equal({ result: videoInfo, status: 0 });

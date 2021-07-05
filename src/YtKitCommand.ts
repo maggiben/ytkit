@@ -34,10 +34,12 @@
  */
 
 import { Command } from '@oclif/command';
-import { OutputFlags } from '@oclif/parser';
+import { OutputArgs, OutputFlags } from '@oclif/parser';
 import * as chalk from 'chalk';
-import { get, AnyJson, Optional } from '@salesforce/ts-types';
+import { cli } from 'cli-ux';
+import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
 import UX, { TableOptions } from './Ux';
+import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
 
 export interface YtKitResult {
   data?: AnyJson;
@@ -74,23 +76,53 @@ export class Result implements YtKitResult {
   }
 }
 
+/**
+ * Defines a varargs configuration. If set to true, there will be no
+ * validation and varargs will not be required.  The validator function
+ * should throw an error if validation fails.
+ */
+export type VarargsConfig =
+  | {
+      required: boolean;
+      validator?: (name: string, value: string) => void;
+    }
+  | boolean;
+
 export default abstract class YtKitCommand extends Command {
   // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
   protected get statics(): typeof YtKitCommand {
     return this.constructor as typeof YtKitCommand;
   }
+  // Property to inherit, override, and configure flags
+  protected static flagsConfig: FlagsConfig;
   // Convenience property for simple command output table formating.
   protected static tableColumnData: TableOptions;
   // Use for full control over command output formating and display, or to override
   // certain pieces of default display behavior.
   protected static result: YtKitResult = {};
+  // Use to enable or configure varargs style (key=value) parameters.
+  protected static varargs: VarargsConfig = false;
+
   // The parsed flags for easy reference by this command; assigned in init
   protected flags!: OutputFlags<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-  // The parsed flags for easy reference by this command; assigned in init
+
+  // The parsed args for easy reference by this command; assigned in init
+  protected args!: OutputArgs<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+  // The parsed varargs for easy reference by this command
+  protected varargs?: JsonMap;
+
   // The command output and formatting; assigned in _run
   protected ux!: UX; // assigned in init
   protected result!: Result;
   private isJson = false;
+  // Overrides @oclif/command static flags property.  Adds username flags
+  // if the command supports them.  Builds flags defined by the command's
+  // flagsConfig static property.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // public static get flags(): Flags.Input<any> {
+  //   return buildYtKitFlags(this.flagsConfig);
+  // }
 
   public async _run<T>(): Promise<Optional<T>> {
     // If a result is defined for the command, use that.  Otherwise check for a
@@ -135,11 +167,26 @@ export default abstract class YtKitCommand extends Command {
     this.isJson = this.argv.includes('--json');
     // Finally invoke the super init.
     await super.init();
-    const { flags } = this.parse({
+    // Turn off strict parsing if varargs are set.  Otherwise use static strict setting.
+    const strict = this.statics.varargs ? !this.statics.varargs : this.statics.strict;
+
+    // Init ux
+    this.ux = new UX(!this.isJson);
+
+    const { args, flags, argv } = this.parse({
       flags: this.statics.flags,
+      args: this.statics.args,
+      strict,
     });
     this.flags = flags;
-    this.ux = new UX(!this.isJson);
+    this.args = args;
+
+    // If this command supports varargs, parse them from argv.
+    if (this.statics.varargs) {
+      const argVals = Object.values(args) as string[];
+      const varargs = argv.filter((val) => !argVals.includes(val));
+      this.varargs = this.parseVarargs(varargs);
+    }
   }
 
   protected getFlag<T>(flagName: string, defaultVal?: unknown): T {
@@ -165,7 +212,9 @@ export default abstract class YtKitCommand extends Command {
 
     if (this.isJson) {
       // This should default to true, which will require a major version bump.
-      this.ux.cli.styledJSON(userDisplayError);
+      // this.ux.cli.styledJSON(userDisplayError);
+      console.log('UX: ', this.ux);
+      cli.styledJSON(userDisplayError);
     } else {
       // eslint-disable-next-line no-console
       console.error(...this.formatError(error ?? new Error('Undefined error')));
@@ -183,6 +232,42 @@ export default abstract class YtKitCommand extends Command {
         this.result.display();
       }
     }
+  }
+
+  protected parseVarargs(args: string[] = []): JsonMap {
+    const varargs: Dictionary<string> = {};
+    const descriptor = this.statics.varargs;
+
+    // If this command requires varargs, throw if none are provided.
+    if (!args.length && !isBoolean(descriptor) && descriptor.required) {
+      throw new Error();
+      // throw SfdxError.create('@salesforce/command', 'command', 'VarargsRequired');
+    }
+
+    // Validate the format of the varargs
+    args.forEach((arg) => {
+      const split = arg.split('=');
+
+      if (split.length !== 2) {
+        throw new Error();
+        // throw SfdxError.create('@salesforce/command', 'command', 'InvalidVarargsFormat', [arg]);
+      }
+
+      const [name, value] = split;
+
+      if (varargs[name]) {
+        throw new Error();
+        // throw SfdxError.create('@salesforce/command', 'command', 'DuplicateVararg', [name]);
+      }
+
+      if (!isBoolean(descriptor) && descriptor.validator) {
+        descriptor.validator(name, value);
+      }
+
+      varargs[name] = value || undefined;
+    });
+
+    return varargs;
   }
 
   /**

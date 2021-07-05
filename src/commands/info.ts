@@ -33,12 +33,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import { flags as flagsConfig } from '@oclif/command';
-import { OutputFlags } from '@oclif/parser';
 import ytdl = require('ytdl-core');
 import { get } from '@salesforce/ts-types';
 import * as util from '../utils/utils';
 import YtKitCommand from '../YtKitCommand';
+import { flags, FlagsConfig } from '../YtKitFlags';
 
 export default class Info extends YtKitCommand {
   // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
@@ -48,20 +47,15 @@ export default class Info extends YtKitCommand {
   public static readonly description = 'display information about a video';
   public static readonly examples = ['$ ytdl info -u https://www.youtube.com/watch?v=ABC1234'];
 
-  // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
-  public static readonly flags = {
-    url: flagsConfig.string({
+  public static readonly flagsConfig: FlagsConfig = {
+    url: flags.string({
       char: 'u',
       description: 'Youtube video or playlist url',
       required: true,
     }),
-    json: flagsConfig.boolean({
-      description: 'output as json',
-    }),
   };
+
   private static readonly cache: Map<string, ytdl.videoInfo> = new Map();
-  // The parsed flags for easy reference by this command; assigned in init
-  protected flags!: OutputFlags<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   public async run(): Promise<ytdl.videoInfo | undefined> {
     await this.showVideoInfo();
@@ -113,15 +107,6 @@ export default class Info extends YtKitCommand {
       const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
       this.ux.table(formats, headers);
     }
-  }
-
-  protected async init(): Promise<void> {
-    // invoke the super init.
-    await super.init();
-    const { flags } = this.parse({
-      flags: this.statics.flags,
-    });
-    this.flags = flags;
   }
 
   protected getFlag<T>(flagName: string, defaultVal?: unknown): T {
