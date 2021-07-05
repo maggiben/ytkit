@@ -1,14 +1,49 @@
+/*
+ * @file         : download.ts
+ * @summary      : video download command
+ * @version      : 1.0.0
+ * @project      : YtKit
+ * @description  : downloads a video or videos given a video or playlist url
+ * @author       : Benjamin Maggi
+ * @email        : benjaminmaggi@gmail.com
+ * @date         : 05 Jul 2021
+ * @license:     : MIT
+ *
+ * Copyright 2021 Benjamin Maggi <benjaminmaggi@gmail.com>
+ *
+ *
+ * License:
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files
+ * (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to permit
+ * persons to whom the Software is furnished to do so, subject to the
+ * following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 import { Readable } from 'stream';
 import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Command, flags as flagsConfig } from '@oclif/command';
+import { flags as flagsConfig } from '@oclif/command';
 import { OutputArgs, OutputFlags } from '@oclif/parser';
-import cli from 'cli-ux';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
-import { ensureString, get, JsonMap } from '@salesforce/ts-types';
-import { SingleBar } from '@types/cli-progress';
+import { get, JsonMap } from '@salesforce/ts-types';
+import { SingleBar } from 'cli-progress';
+import YtKitCommand from '../YtKitCommand';
 import * as util from '../utils/utils';
 
 export interface IFlags {
@@ -27,49 +62,14 @@ export interface IFlags {
 export interface IFilter {
   [name: string]: (format: Record<string, string>) => boolean;
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ThrottledFunction<T extends (...args: any) => any> = (...args: Parameters<T>) => ReturnType<T>;
 
-/**
- * Creates a throttled function that only invokes the provided function (`func`) at most once per within a given number of milliseconds
- * (`limit`)
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function throttle<T extends (...args: any) => any>(func: T, limit: number): ThrottledFunction<T> {
-  let inThrottle: boolean;
-  let lastResult: ReturnType<T>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function (this: any, ...args): ReturnType<T> {
-    const context = this;
-    if (!inThrottle) {
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
-      lastResult = func.apply(context, args);
-    }
-    return lastResult;
-  };
-}
-
-const sleep = async (delay: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      return resolve();
-    }, delay);
-  });
-
-export default class Download extends Command {
+export default class Download extends YtKitCommand {
   // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
   protected get statics(): typeof Download {
     return this.constructor as typeof Download;
   }
-  public static readonly description = 'download';
-  public static readonly examples = [
-    `$ ytdl download 
-hello world from ./src/hello.ts!
-`,
-  ];
-
-  // eslint-disable-next-line @typescript-eslint/explicit-member-accessibility
+  public static readonly description = 'download video';
+  public static readonly examples = ['$ ytdl download -u '];
   public static readonly flags = {
     help: flagsConfig.help({ char: 'h' }),
     url: flagsConfig.string({
@@ -92,19 +92,31 @@ hello world from ./src/hello.ts!
     'filter-container': flagsConfig.string({
       description: 'Filter in format container',
     }),
+    'filter-resolution': flagsConfig.string({
+      description: 'Filter in format resolution',
+    }),
+    'filter-codecs': flagsConfig.string({
+      description: 'Filter in format codecs',
+    }),
+    'unfilter-container': flagsConfig.string({
+      description: 'Filter out format container',
+    }),
+    'unfilter-resolution': flagsConfig.string({
+      description: 'Filter out format container',
+    }),
+    'unfilter-codecs': flagsConfig.string({
+      description: 'Filter out format resolution',
+    }),
     begin: flagsConfig.string({
       char: 'b',
       description: 'Time to begin video, format by 1:30.123 and 1m30s',
     }),
     urlonly: flagsConfig.boolean({
-      description: 'Print direct download URL'
+      description: 'Print direct download URL',
     }),
     output: flagsConfig.string({
       char: 'o',
       description: 'Save to file, template by {prop}, default: stdout or {title}',
-    }),
-    info: flagsConfig.boolean({
-      description: 'Print video info without downloading',
     }),
   };
 
@@ -133,22 +145,21 @@ hello world from ./src/hello.ts!
     });
     this.flags = flags;
     this.args = args;
+    this.ytdlOptions = this.buildDownloadOptions();
 
+    this.setFilters();
     this.setOutput(this.flags.output);
 
-    cli.styledObject(this.flags);
+    this.ux.styledObject(this.flags);
 
     if (this.flags.urlonly) {
-      cli.log(await this.getDownloadUrl());
+      const url = await this.getDownloadUrl();
+      if (url) {
+        this.ux.cli.url(url, url);
+      }
       process.exit(0);
     }
 
-    if (this.flags.info) {
-      await this.showVideoInfo();
-      process.exit(0);
-    }
-
-    this.ytdlOptions = this.buildDownloadOptions();
     this.readStream = ytdl(this.flags.url, this.ytdlOptions ?? {});
     this.setListeners(this.readStream);
   }
@@ -168,47 +179,12 @@ hello world from ./src/hello.ts!
    * @param {boolean} live
    */
   public printVideoInfo(info: ytdl.videoInfo, live: boolean): void {
-    cli.log(`title: ${info.videoDetails.title}`);
-    cli.log(`author: ${info.videoDetails.author.name}`);
-    cli.log(`avg rating: ${info.videoDetails.averageRating}`);
-    cli.log(`views: ${info.videoDetails.viewCount}`);
+    this.ux.log(`title: ${info.videoDetails.title}`);
+    this.ux.log(`author: ${info.videoDetails.author.name}`);
+    this.ux.log(`avg rating: ${info.videoDetails.averageRating}`);
+    this.ux.log(`views: ${info.videoDetails.viewCount}`);
     if (!live) {
-      cli.log(`length: ${util.toHumanTime(parseInt(info.videoDetails.lengthSeconds, 10))}`);
-    }
-  }
-
-  /**
-   * Prints basic video information.
-   *
-   * @param {Object} info
-   * @param {boolean} live
-   */
-  public async showVideoInfo(): Promise<void> {
-    if (this.flags?.url) {
-      const info = await ytdl.getInfo(this.flags?.url);
-      this.printVideoInfo(
-        info,
-        info.formats.some((f) => f.isLive)
-      );
-
-      const formats = info.formats.map((format) => ({
-        itag: format.itag,
-        container: format.container,
-        quality: format.qualityLabel || '',
-        codecs: format.codecs,
-        bitrate: format.qualityLabel ? util.toHumanSize(format.bitrate ?? 0) : '',
-        'audio bitrate': format.audioBitrate ? `${format.audioBitrate}KB` : '',
-        size: format.contentLength ? util.toHumanSize(parseInt(format.contentLength, 10) ?? 0) : '',
-      }));
-      cli.table(formats, {
-        itag: {},
-        container: {},
-        quality: {},
-        codecs: {},
-        bitrate: {},
-        'audio bitrate': {},
-        size: {},
-      });
+      this.ux.log(`length: ${util.toHumanTime(parseInt(info.videoDetails.lengthSeconds, 10))}`);
     }
   }
 
@@ -301,11 +277,10 @@ hello world from ./src/hello.ts!
     });
   }
 
-  private init(): string[] {
+  private setFilters(): void {
     // Create filters.
     // ((format: Record<string, string>) => boolean))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filters: any[] = [];
+    const filters: Array<[string, (format: ytdl.videoFormat) => boolean]> = [];
 
     /**
      * @param {string} name
@@ -313,50 +288,57 @@ hello world from ./src/hello.ts!
      * @param {string} regexpStr
      * @param {boolean|undefined} negated
      */
-    const createFilter = (name: string, field: string, regexpStr: string, negated?: boolean) => {
+    const createFilter = (name: string, field: string, regexpStr: string, negated?: boolean): void => {
       const regexp = new RegExp(regexpStr, 'i');
-      filters.push([name, (format: Record<string, string>): boolean => negated !== regexp.test(format[field])]);
+      // (format: Record<string, string>): boolean => Boolean(negated !== regexp.test(format[field])),
+      filters.push([
+        name,
+        (format: ytdl.videoFormat): boolean =>
+          Boolean(negated !== regexp.test(format[field as keyof ytdl.videoFormat] as string)),
+      ]);
     };
 
-    // ['container', 'resolution:qualityLabel', 'encoding'].forEach((field) => {
-    //   // eslint-disable-next-line prefer-const
-    //   let [fieldName, fieldKey] = field.split(':');
-    //   fieldKey = fieldKey || fieldName;
-    //   let optsKey = 'filter' + fieldName[0].toUpperCase() + fieldName.slice(1);
-    //   const value = this.options[optsKey];
-    //   let name = `${fieldName}=${value}`;
-    //   if (opts[optsKey]) {
-    //     createFilter(name, fieldKey, value, false);
-    //   }
-    //   optsKey = 'un' + optsKey;
-    //   if (opts[optsKey]) {
-    //     createFilter(name, fieldKey, value, true);
-    //   }
-    // });
+    ['container', 'resolution:qualityLabel', 'encoding'].forEach((field) => {
+      // eslint-disable-next-line prefer-const
+      let [fieldName, fieldKey] = field.split(':');
+      fieldKey = fieldKey || fieldName;
+      let optsKey = `filter-${fieldName}`;
+      const value = this.getFlag<string>(optsKey);
+      const name = `${fieldName}=${value}`;
+      if (this.getFlag<string>(optsKey)) {
+        createFilter(name, fieldKey, value, false);
+      }
+      optsKey = 'un' + optsKey;
+      if (this.getFlag<string>(optsKey)) {
+        createFilter(name, fieldKey, value, true);
+      }
+    });
 
     // Support basic ytdl-core filters manually, so that other
     // cli filters are supported when used together.
-    // const hasVideo = (format) => !!format.qualityLabel;
-    // const hasAudio = (format) => !!format.audioBitrate;
+    const hasVideo = (format: ytdl.videoFormat): boolean => !!format.qualityLabel;
+    const hasAudio = (format: ytdl.videoFormat): boolean => !!format.audioBitrate;
 
-    // switch (this.flags.filter) {
-    //   case 'video':
-    //     filters.push(['video', hasVideo]);
-    //     break;
-    //   case 'videoonly':
-    //     filters.push(['videoonly', (format) => hasVideo(format) && !hasAudio(format)]);
-    //     break;
-    //   case 'audio':
-    //     filters.push(['audio', hasAudio]);
-    //     break;
-    //   case 'audioonly':
-    //     filters.push(['audioonly', (format) => !hasVideo(format) && hasAudio(format)]);
-    //     break;
-    // }
+    switch (this.flags.filter) {
+      case 'video':
+        filters.push(['video', hasVideo]);
+        break;
+      case 'videoonly':
+        filters.push(['videoonly', (format: ytdl.videoFormat): boolean => hasVideo(format) && !hasAudio(format)]);
+        break;
+      case 'audio':
+        filters.push(['audio', hasAudio]);
+        break;
+      case 'audioonly':
+        filters.push(['audioonly', (format: ytdl.videoFormat): boolean => !hasVideo(format) && hasAudio(format)]);
+        break;
+    }
 
-    // this.ytdlOptions.filter = (format) => {
-    //   return filters.every(filter => filter[1](format));
-    // };
+    this.ytdlOptions.filter = (format: ytdl.videoFormat): boolean => {
+      return filters.every((filter) => filter[1](format));
+    };
+
+    this.ux.styledObject(this.ytdlOptions as Record<string, unknown>);
   }
 
   /**
@@ -365,7 +347,7 @@ hello world from ./src/hello.ts!
    */
   private printLiveVideoSize(readStream: Readable): void {
     let dataRead = 0;
-    const updateProgress = throttle(() => {
+    const updateProgress = util.throttle(() => {
       readline.cursorTo(process.stdout, 0);
       readline.clearLine(process.stdout, 1);
       let line = `size: ${util.toHumanSize(dataRead)}`;
@@ -375,14 +357,13 @@ hello world from ./src/hello.ts!
       process.stdout.write(line);
     }, 250);
 
-    readStream.on('data', (data) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    readStream.on('data', (data: Buffer) => {
       dataRead += data.length;
       updateProgress();
     });
 
     readStream.on('end', () => {
-      cli.log(`downloaded: ${util.toHumanSize(dataRead)}`);
+      this.ux.log(`downloaded: ${util.toHumanSize(dataRead)}`);
     });
   }
 
@@ -392,7 +373,7 @@ hello world from ./src/hello.ts!
    * @param {number} size
    */
   private printVideoSize(readStream: Readable, size: number): void {
-    const bar: SingleBar = cli.progress({
+    const bar = this.ux.cli.progress({
       format: '[{bar}] {percentage}% | Speed: {speed}',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
@@ -406,8 +387,7 @@ hello world from ./src/hello.ts!
       speed: StreamSpeed.toHuman(streamSpeed.getSpeed(), { timeUnit: 's', precision: 3 }),
     });
 
-    readStream.on('data', (data) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    readStream.on('data', (data: Buffer) => {
       bar.increment(data.length, getSpeed());
     });
 
@@ -424,7 +404,7 @@ hello world from ./src/hello.ts!
   }
 
   private onError(error: Error): void {
-    cli.error(error.message);
+    this.ux.error(error.message);
     process.exit(1);
   }
 }
