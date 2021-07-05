@@ -1,7 +1,7 @@
 {
   "name": "ytdl",
   "description": "Youtube downloader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Benjamin Maggi @maggiben",
   "bin": {
     "test": "./scripts/test.js",
@@ -102,13 +102,6 @@
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
     "version": "oclif-dev readme && git add README.md",
     "lint": "node ./scripts/lint.js"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "node ./scripts/husky-pre-commit.js",
-      "commit-msg": "node ./scripts/husky-commit-msg.js",
-      "pre-push": "node ./scripts/husky-pre-push.js"
-    }
   },
   "publishConfig": {
     "access": "public"
