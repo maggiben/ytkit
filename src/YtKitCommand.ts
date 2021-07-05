@@ -35,7 +35,6 @@
 
 import { Command } from '@oclif/command';
 import { OutputFlags } from '@oclif/parser';
-import cli from 'cli-ux';
 import * as chalk from 'chalk';
 import { get, AnyJson, Optional } from '@salesforce/ts-types';
 import UX, { TableOptions } from './Ux';
@@ -125,10 +124,14 @@ export default abstract class YtKitCommand extends Command {
    */
   public errorJson(obj: AnyJson): void {
     const error = JSON.stringify(obj, null, 4);
-    cli.error(error);
+    this.ux.error(error);
   }
 
   protected async init(): Promise<void> {
+    // If we made it to the init method, the exit code should not be set yet. It will be
+    // successful unless the base init or command throws an error.
+    process.exitCode = 0;
+
     this.isJson = this.argv.includes('--json');
     // Finally invoke the super init.
     await super.init();
@@ -153,9 +156,16 @@ export default abstract class YtKitCommand extends Command {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/require-await
   protected async catch(error: Optional<Error>): Promise<void> {
     process.exitCode = process.exitCode || 1;
+
+    const userDisplayError = Object.assign(this.getJsonResultObject(), {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+    });
+
     if (this.isJson) {
       // This should default to true, which will require a major version bump.
-      cli.error(JSON.stringify(error, null, 2));
+      this.ux.cli.styledJSON(userDisplayError);
     } else {
       // eslint-disable-next-line no-console
       console.error(...this.formatError(error ?? new Error('Undefined error')));
@@ -168,7 +178,7 @@ export default abstract class YtKitCommand extends Command {
     if (!error) {
       if (this.isJson) {
         const output = this.getJsonResultObject();
-        cli.styledJSON(output);
+        this.ux.cli.styledJSON(output);
       } else {
         this.result.display();
       }
