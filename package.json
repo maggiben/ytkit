@@ -1,7 +1,7 @@
 {
   "name": "ytdl",
   "description": "Youtube downloader",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Benjamin Maggi @maggiben",
   "bin": {
     "test": "./scripts/test.js",
@@ -50,7 +50,7 @@
     "mocha": "^5",
     "nyc": "^14",
     "prettier": "^2.3.2",
-    "prettier-quick": "^0.0.5",
+    "pretty-quick": "^3.1.1",
     "shelljs": "^0.8.4",
     "ts-node": "^8",
     "typescript": "^3.3"
