@@ -2,4 +2,4 @@
 . "$(dirname "$0")/_/husky.sh"
 
 yarn lint;
-yarn prettier-quick --staged;
+yarn pretty-quick --staged;
