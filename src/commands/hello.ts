@@ -1,4 +1,4 @@
-import { flags, FlagsConfig } from '../YtKitFlags';
+import YtKitCommand from '../YtKitCommand';
 
 const sleep = (delay = 1000): Promise<void> => {
   return new Promise((resolve) => {
@@ -8,9 +8,7 @@ const sleep = (delay = 1000): Promise<void> => {
   });
 };
 
-import TemplateCommand from '../TemplateCommand';
-
-export default class Hello extends TemplateCommand {
+export default class Hello extends YtKitCommand {
   public static readonly description = 'display hello world';
   public static readonly examples = ['$ ytdl hello'];
 

@@ -120,9 +120,9 @@ export default abstract class YtKitCommand extends Command {
   // if the command supports them.  Builds flags defined by the command's
   // flagsConfig static property.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // public static get flags(): Flags.Input<any> {
-  //   return buildYtKitFlags(this.flagsConfig);
-  // }
+  public static get flags(): Flags.Input<any> {
+    return buildYtKitFlags(this.flagsConfig);
+  }
 
   public async _run<T>(): Promise<Optional<T>> {
     // If a result is defined for the command, use that.  Otherwise check for a

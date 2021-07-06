@@ -37,13 +37,13 @@ import { Readable } from 'stream';
 import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
-import { flags as flagsConfig } from '@oclif/command';
 import { OutputArgs, OutputFlags } from '@oclif/parser';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
 import { get, JsonMap } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import YtKitCommand from '../YtKitCommand';
+import { flags, FlagsConfig } from '../YtKitFlags';
 import * as util from '../utils/utils';
 
 export interface IFlags {
@@ -65,56 +65,53 @@ export interface IFilter {
 
 export default class Download extends YtKitCommand {
   // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
-  protected get statics(): typeof Download {
-    return this.constructor as typeof Download;
-  }
   public static readonly description = 'download video';
   public static readonly examples = ['$ ytdl download -u '];
-  public static readonly flags = {
-    help: flagsConfig.help({ char: 'h' }),
-    url: flagsConfig.string({
+  public static readonly flagsConfig: FlagsConfig = {
+    help: flags.help({ char: 'h' }),
+    url: flags.string({
       char: 'u',
       description: 'Youtube video or playlist url',
       required: true,
     }),
-    quality: flagsConfig.string({
+    quality: flags.string({
       char: 'q',
       description: 'Video quality to download, default: highest',
     }),
-    filter: flagsConfig.enum({
+    filter: flags.enum({
       description: 'Can be video, videoonly, audio, audioonly',
       options: ['video', 'videoonly', 'audio', 'audioonly'],
     }),
-    range: flagsConfig.string({
+    range: flags.string({
       char: 'r',
       description: 'Byte range to download, ie 10355705-12452856',
     }),
-    'filter-container': flagsConfig.string({
+    'filter-container': flags.string({
       description: 'Filter in format container',
     }),
-    'filter-resolution': flagsConfig.string({
+    'filter-resolution': flags.string({
       description: 'Filter in format resolution',
     }),
-    'filter-codecs': flagsConfig.string({
+    'filter-codecs': flags.string({
       description: 'Filter in format codecs',
     }),
-    'unfilter-container': flagsConfig.string({
+    'unfilter-container': flags.string({
       description: 'Filter out format container',
     }),
-    'unfilter-resolution': flagsConfig.string({
+    'unfilter-resolution': flags.string({
       description: 'Filter out format container',
     }),
-    'unfilter-codecs': flagsConfig.string({
+    'unfilter-codecs': flags.string({
       description: 'Filter out format resolution',
     }),
-    begin: flagsConfig.string({
+    begin: flags.string({
       char: 'b',
       description: 'Time to begin video, format by 1:30.123 and 1m30s',
     }),
-    urlonly: flagsConfig.boolean({
+    urlonly: flags.boolean({
       description: 'Print direct download URL',
     }),
-    output: flagsConfig.string({
+    output: flags.string({
       char: 'o',
       description: 'Save to file, template by {prop}, default: stdout or {title}',
     }),
@@ -127,24 +124,10 @@ export default class Download extends YtKitCommand {
   protected readStream!: Readable;
   protected ytdlOptions!: ytdl.downloadOptions;
   // The parsed flags for easy reference by this command; assigned in init
-  protected flags!: OutputFlags<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   protected output!: string;
   protected extension?: string;
-  // protected readonly stdoutMutable: boolean = Boolean(
-  //   process.stdout && process.stdout.cursorTo && process.stdout.clearLine
-  // );
 
   public async run(): Promise<void> {
-    // Turn off strict parsing if varargs are set.  Otherwise use static strict setting.
-    const strict = this.varargs ? !this.varargs : this.statics.strict;
-
-    const { args, flags } = this.parse({
-      flags: this.statics.flags,
-      args: this.statics.args,
-      strict,
-    });
-    this.flags = flags;
-    this.args = args;
     this.ytdlOptions = this.buildDownloadOptions();
 
     this.setFilters();

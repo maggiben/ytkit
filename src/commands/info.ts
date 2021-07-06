@@ -40,10 +40,6 @@ import YtKitCommand from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 
 export default class Info extends YtKitCommand {
-  // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
-  protected get statics(): typeof Info {
-    return this.constructor as typeof Info;
-  }
   public static readonly description = 'display information about a video';
   public static readonly examples = ['$ ytdl info -u https://www.youtube.com/watch?v=ABC1234'];
 
