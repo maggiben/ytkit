@@ -117,7 +117,7 @@ function isBuiltin(flag: Record<string, unknown>): flag is flags.Builtin {
 function validateCustomFlag<T>(key: string, flag: flags.Any<T>): flags.Any<T> {
   if (!/^(?!(?:[-]|[0-9]*$))[a-z0-9-]+$/.test(key)) {
     // throw SfdxError.create('@salesforce/command', 'flags', 'InvalidFlagName', [key]);
-    throw new Error(`The flag ${key}'s name must be a lowercase string that may contain numbers and hyphens.`)
+    throw new Error(`The flag ${key}'s name must be a lowercase string that may contain numbers and hyphens.`);
   }
   if (flag.char && (flag.char.length !== 1 || !/[a-zA-Z]/.test(flag.char))) {
     throw new Error(`The flag ${key}'s char attribute must be one alphabetical character long.`);
