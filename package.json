@@ -1,7 +1,7 @@
 {
   "name": "ytkit",
   "description": "Youtube downloader",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "Benjamin Maggi @maggiben",
   "bin": {
     "test": "./scripts/test.js",
