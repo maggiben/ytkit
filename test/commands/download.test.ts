@@ -4,7 +4,6 @@ import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
 import ytdl = require('ytdl-core');
 
-
 const buffer = Buffer.from('DEADBEEF', 'base64');
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
 const stream = new Readable({
