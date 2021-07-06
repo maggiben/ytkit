@@ -37,7 +37,7 @@ import { Readable } from 'stream';
 import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
-import { OutputArgs, OutputFlags } from '@oclif/parser';
+import { OutputArgs } from '@oclif/parser';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
 import { get, JsonMap } from '@salesforce/ts-types';

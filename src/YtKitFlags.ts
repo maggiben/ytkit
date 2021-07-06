@@ -57,16 +57,26 @@ export type FlagsConfig = {
   [key: string]: Optional<IBooleanFlag<unknown> | IOptionFlag<unknown> | flags.Builtin>;
 };
 
+function buildBuiltin(options: Partial<flags.Builtin> = {}): flags.Builtin {
+  return { ...options, type: 'builtin' };
+}
+
 export const flags = {
   // oclif
   ...OclifFlags,
+  /**
+   * Declares a flag definition to be one of the builtin types, for automatic configuration.
+   */
+  builtin: buildBuiltin,
 };
 
 export namespace flags {
   export type Any<T> = Partial<IFlag<T>>;
-  export type Builtin = { type: 'builtin' };
+  export type Builtin = { type: 'builtin' } & Partial<YtKitProperties>;
   export type Kind = keyof typeof flags;
+  export type Describable = { description: string; longDescription?: string };
   export type Input<T extends Parser.flags.Output> = OclifFlags.Input<T>;
+  export type YtKitProperties = Describable;
 }
 
 export const requiredBuiltinFlags = {
