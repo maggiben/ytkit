@@ -1,7 +1,17 @@
+import { Readable } from 'stream';
 import { expect, test } from '@oclif/test';
 import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
 import ytdl = require('ytdl-core');
+
+
+const buffer = Buffer.from('DEADBEEF', 'base64');
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+const stream = new Readable({
+  read() {
+    this.push(buffer);
+  },
+});
 
 describe('video download', () => {
   const formats = [
@@ -31,6 +41,7 @@ describe('video download', () => {
   // let ytdlGetInfoStub: sinon.SinonStub;
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').resolves(videoInfo);
+    sandbox.stub({ ytdl }, 'ytdl').returns(stream);
   });
   afterEach(() => {
     sandbox.restore();
@@ -38,28 +49,9 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['info', '--url', 'https://www.youtube.com/watch?v=MglX7zcg0gw', '--json'])
-    .it('runs info', (ctx) => {
+    .command(['download', '--url', 'https://www.youtube.com/watch?v=MglX7zcg0gw', '--json'])
+    .it('downloads a video', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
-      expect(jsonResponse).to.deep.equal({ result: videoInfo, status: 0 });
-    });
-});
-
-describe('video download error', () => {
-  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
-  const errorMessage = 'Not a YouTube domain';
-  beforeEach(() => {
-    sandbox.stub(ytdl, 'getInfo').rejects(new Error(errorMessage));
-  });
-  afterEach(() => {
-    sandbox.restore();
-  });
-
-  test
-    .stdout()
-    .command(['info', '--url', 'https://www.wrong.domain.com', '--json'])
-    .it('runs info on an unsupported domain and returns error', (ctx) => {
-      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
-      expect(jsonResponse.message).to.equal(errorMessage);
+      expect(jsonResponse).to.deep.equal({ status: 0 });
     });
 });
