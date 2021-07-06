@@ -70,8 +70,8 @@ workflows:
   'ytdl':
     jobs:
       - node-latest
+      - node-14
       - node-12
-      - node-10
       - cache:
           filters:
             tags:
@@ -80,7 +80,9 @@ workflows:
               ignore: /.*/
       - deploy:
           requires:
-            - test
+            - node-latest
+            - node-14
+            - node-12
           filters:
             tags:
               only: /^v.*/
