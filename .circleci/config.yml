@@ -11,8 +11,6 @@ jobs:
       - image: node:latest
     working_directory: ~/cli
     steps:
-      - attach_workspace:
-          at: ~/cli
       - checkout
       - restore_cache: &restore_cache
           keys:
@@ -32,8 +30,9 @@ jobs:
           paths:
             - ~/cli/node_modules
       - persist_to_workspace:
-          root: ~/cli
-          paths: .
+          root: .
+          paths: 
+            - .
   node-14:
     <<: *test
     docker:
@@ -59,7 +58,7 @@ jobs:
     <<: *test
     steps:
       - attach_workspace:
-          at: ~/cli
+          at: .
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/cli/.npmrc
