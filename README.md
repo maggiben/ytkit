@@ -4,7 +4,7 @@ Youtube downloader
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/ytkit.svg)](https://npmjs.org/package/ytkit)
-[![CircleCI](https://circleci.com/gh/maggiben/ytkit.svg?style=svg)](https://circleci.com/gh/maggiben/ytkit/tree/master)
+[![CircleCI](https://img.shields.io/circleci/build/github/maggiben/ytkit)](https://circleci.com/gh/maggiben/ytkit/tree/master)
 [![Downloads/week](https://img.shields.io/npm/dw/ytkit.svg)](https://npmjs.org/package/ytkit)
 [![License](https://img.shields.io/npm/l/ytkit.svg)](https://github.com/maggiben/ytkit/blob/master/package.json)
 
@@ -71,7 +71,7 @@ EXAMPLE
   $ ytdl download -u
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.0.2/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.0.10/src/commands/download.ts)_
 
 ## `ytkit hello`
 
@@ -89,7 +89,7 @@ EXAMPLE
   $ ytdl hello
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.0.2/src/commands/hello.ts)_
+_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.0.10/src/commands/hello.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -117,6 +117,7 @@ USAGE
   $ ytkit info
 
 OPTIONS
+  -f, --formats  Display available video formats
   -u, --url=url  (required) Youtube video or playlist url
   --json         format output as json
 
@@ -124,6 +125,6 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.0.2/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.0.10/src/commands/info.ts)_
 
 <!-- commandsstop -->
