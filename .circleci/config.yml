@@ -1,4 +1,9 @@
----
+# Javascript Node CircleCI 2.0 configuration file
+#
+# Check {{ '/2.0/language-javascript/' | docs_url }} for more details
+#
+# deploy reference: https://circleci.com/blog/publishing-npm-packages-using-circleci-2-0/
+#
 version: 2
 jobs:
   node-latest: &test
@@ -19,14 +24,23 @@ jobs:
       - run:
           name: Testing
           command: yarn test
+      - save_cache:
+          paths:
+            - node_modules
+          keys:
+            - v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
+            - v1-npm-{{checksum ".circleci/config.yml"}}
+      - persist_to_workspace:
+          root: ~/repo
+          paths: .
+  node-14:
+    <<: *test
+    docker:
+      - image: node:14
   node-12:
     <<: *test
     docker:
       - image: node:12
-  node-10:
-    <<: *test
-    docker:
-      - image: node:10
   cache:
     <<: *test
     steps:
@@ -40,15 +54,33 @@ jobs:
             - ~/cli/node_modules
             - /usr/local/share/.cache/yarn
             - /usr/local/share/.config/yarn
-
+  deploy:
+    <<: *test
+    steps:
+      - attach_workspace:
+          at: ~/repo
+      - run:
+          name: Authenticate with registry
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
+      - run:
+          name: Publish package
+          command: npm publish
 workflows:
   version: 2
-  "ytdl":
+  'ytdl':
     jobs:
       - node-latest
       - node-12
       - node-10
       - cache:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - deploy:
+          requires:
+            - test
           filters:
             tags:
               only: /^v.*/

@@ -10,6 +10,7 @@ Youtube downloader
 
 <!-- toc -->
 
+- [ytkit](#ytkit)
 - [Usage](#usage)
 - [Commands](#commands)
 <!-- tocstop -->
@@ -23,7 +24,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.0.0 darwin-x64 node-v16.4.0
+ytkit/1.0.3 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -36,28 +37,59 @@ USAGE
 
 <!-- commands -->
 
-- [`ytkit hello [FILE]`](#ytkit-hello-file)
+- [`ytkit download`](#ytkit-download)
+- [`ytkit hello`](#ytkit-hello)
 - [`ytkit help [COMMAND]`](#ytkit-help-command)
+- [`ytkit info`](#ytkit-info)
 
-## `ytkit hello [FILE]`
+## `ytkit download`
 
-describe the command here
+download video
 
 ```
 USAGE
-  $ ytkit hello [FILE]
+  $ ytkit download
 
 OPTIONS
-  -f, --force
-  -h, --help       show CLI help
-  -n, --name=name  name to print
+  -b, --begin=begin                           Time to begin video, format by 1:30.123 and 1m30s
+  -h, --help                                  show CLI help
+  -o, --output=output                         Save to file, template by {prop}, default: stdout or {title}
+  -q, --quality=quality                       Video quality to download, default: highest
+  -r, --range=range                           Byte range to download, ie 10355705-12452856
+  -u, --url=url                               (required) Youtube video or playlist url
+  --filter=(video|videoonly|audio|audioonly)  Can be video, videoonly, audio, audioonly
+  --filter-codecs=filter-codecs               Filter in format codecs
+  --filter-container=filter-container         Filter in format container
+  --filter-resolution=filter-resolution       Filter in format resolution
+  --json                                      format output as json
+  --unfilter-codecs=unfilter-codecs           Filter out format resolution
+  --unfilter-container=unfilter-container     Filter out format container
+  --unfilter-resolution=unfilter-resolution   Filter out format container
+  --urlonly                                   Print direct download URL
 
 EXAMPLE
-  $ ytkit hello
-  hello world from ./src/hello.ts!
+  $ ytdl download -u
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.0.0/src/commands/hello.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.0.2/src/commands/download.ts)_
+
+## `ytkit hello`
+
+display hello world
+
+```
+USAGE
+  $ ytkit hello
+
+OPTIONS
+  --json   format output as json
+  --quiet  nothing emitted stdout
+
+EXAMPLE
+  $ ytdl hello
+```
+
+_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.0.2/src/commands/hello.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -75,5 +107,23 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v3.2.2/src/commands/help.ts)_
+
+## `ytkit info`
+
+display information about a video
+
+```
+USAGE
+  $ ytkit info
+
+OPTIONS
+  -u, --url=url  (required) Youtube video or playlist url
+  --json         format output as json
+
+EXAMPLE
+  $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
+```
+
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.0.2/src/commands/info.ts)_
 
 <!-- commandsstop -->
