@@ -12,7 +12,7 @@ jobs:
     working_directory: ~/cli
     steps:
       - attach_workspace:
-        at: ~/cli
+          at: ~/cli
       - checkout
       - restore_cache: &restore_cache
           keys:
