@@ -29,10 +29,6 @@ jobs:
           key: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
           paths:
             - ~/cli/node_modules
-      - persist_to_workspace:
-          root: .
-          paths: 
-            - .
   node-14:
     <<: *test
     docker:
@@ -54,11 +50,14 @@ jobs:
             - ~/cli/node_modules
             - /usr/local/share/.cache/yarn
             - /usr/local/share/.config/yarn
+      - persist_to_workspace:
+          root: ~/cli
+          paths: .
   deploy:
     <<: *test
     steps:
       - attach_workspace:
-          at: .
+          at: ~/cli
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/cli/.npmrc
