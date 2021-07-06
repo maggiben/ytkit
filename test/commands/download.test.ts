@@ -38,7 +38,7 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['download', '--url', 'https://www.youtube.com/watch?v=MglX7zcg0gw', '--json'])
+    .command(['info', '--url', 'https://www.youtube.com/watch?v=MglX7zcg0gw', '--json'])
     .it('runs info', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(jsonResponse).to.deep.equal({ result: videoInfo, status: 0 });
