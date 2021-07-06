@@ -34,7 +34,6 @@
  */
 
 import ytdl = require('ytdl-core');
-import { get } from '@salesforce/ts-types';
 import * as util from '../utils/utils';
 import YtKitCommand from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
@@ -49,66 +48,83 @@ export default class Info extends YtKitCommand {
       description: 'Youtube video or playlist url',
       required: true,
     }),
+    formats: flags.boolean({
+      char: 'f',
+      description: 'Display available video formats',
+    }),
   };
 
   private static readonly cache: Map<string, ytdl.videoInfo> = new Map();
 
   public async run(): Promise<ytdl.videoInfo | undefined> {
-    await this.showVideoInfo();
-    return await this.getVideoInfo();
+    const videoInfo = await this.getVideoInfo();
+    await this.showVideoInfo(videoInfo);
+    return videoInfo;
   }
 
   /**
-   * Prints basic video information.
+   * Prints video metadata information.
    *
    * @param {videoInfo} info
    * @param {boolean} live
    * @returns {void}
    */
-  public printVideoInfo(info: ytdl.videoInfo, live: boolean): void {
-    this.ux.log(`title: ${info.videoDetails.title}`);
-    this.ux.log(`author: ${info.videoDetails.author.name}`);
-    this.ux.log(`avg rating: ${info.videoDetails.averageRating}`);
-    this.ux.log(`views: ${info.videoDetails.viewCount}`);
-    this.ux.log(`publish date: ${info.videoDetails.publishDate}`);
+  public printVideoMeta(videoInfo: ytdl.videoInfo, live: boolean): void {
+    this.ux.log(`title: ${videoInfo.videoDetails.title}`);
+    this.ux.log(`author: ${videoInfo.videoDetails.author.name}`);
+    this.ux.log(`avg rating: ${videoInfo.videoDetails.averageRating}`);
+    this.ux.log(`views: ${videoInfo.videoDetails.viewCount}`);
+    this.ux.log(`publish date: ${videoInfo.videoDetails.publishDate}`);
     if (!live) {
-      this.ux.log(`length: ${util.toHumanTime(parseInt(info.videoDetails.lengthSeconds, 10))}`);
+      this.ux.log(`length: ${util.toHumanTime(parseInt(videoInfo.videoDetails.lengthSeconds, 10))}`);
     }
+  }
+
+  /**
+   * Prints video format information.
+   *
+   * @param {Object} videoInfo the video info object
+   * @returns {Promise<void>}
+   */
+  public printVideoFormats(videoInfo: ytdl.videoInfo): void {
+    const result = videoInfo.formats.map((format) => ({
+      itag: format.itag,
+      container: format.container,
+      quality: format.qualityLabel || '',
+      codecs: format.codecs,
+      bitrate: format.qualityLabel ? util.toHumanSize(format.bitrate ?? 0) : '',
+      'audio bitrate': format.audioBitrate ? `${format.audioBitrate}KB` : '',
+      size: format.contentLength ? util.toHumanSize(parseInt(format.contentLength, 10) ?? 0) : '',
+    }));
+    const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+    this.ux.table(result, headers);
   }
 
   /**
    * Prints basic video information.
    *
-   * @param {Object} info
-   * @param {boolean} live
-   * @returns {void}
+   * @param {Object} videoInfo the video info object
+   * @returns {Promise<void>}
    */
-  public async showVideoInfo(): Promise<void> {
-    const info = await this.getVideoInfo();
+  public async showVideoInfo(videoInfo?: ytdl.videoInfo): Promise<void> {
+    const info = videoInfo ?? (await this.getVideoInfo());
     if (info) {
-      this.printVideoInfo(
-        info,
-        info.formats.some((f) => f.isLive)
-      );
-
-      const formats = info.formats.map((format) => ({
-        itag: format.itag,
-        container: format.container,
-        quality: format.qualityLabel || '',
-        codecs: format.codecs,
-        bitrate: format.qualityLabel ? util.toHumanSize(format.bitrate ?? 0) : '',
-        'audio bitrate': format.audioBitrate ? `${format.audioBitrate}KB` : '',
-        size: format.contentLength ? util.toHumanSize(parseInt(format.contentLength, 10) ?? 0) : '',
-      }));
-      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
-      this.ux.table(formats, headers);
+      if (this.flags.formats) {
+        this.printVideoFormats(info);
+      } else {
+        this.printVideoMeta(
+          info,
+          info.formats.some((f) => f.isLive)
+        );
+      }
     }
   }
 
-  protected getFlag<T>(flagName: string, defaultVal?: unknown): T {
-    return get(this.flags, flagName, defaultVal) as T;
-  }
-
+  /**
+   * Gets info from a video additional formats and deciphered URLs.
+   *
+   * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
+   */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
     const url = this.getFlag<string>('url');
     if (!Info.cache.has(url)) {

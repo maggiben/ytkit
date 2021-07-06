@@ -1,10 +1,26 @@
-import YtKitCommand from '../YtKitCommand';
+import { JsonArray } from '@salesforce/ts-types';
+import YtKitCommand, { YtKitResult } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 
-const sleep = (delay = 1000): Promise<void> => {
+const users = [
+  {
+    name: 'Anna',
+  },
+  {
+    name: 'Pedro',
+  },
+  {
+    name: 'Steve',
+  },
+  {
+    name: 'Laura',
+  },
+];
+
+const sleep = (delay = 1000): Promise<JsonArray> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      return resolve();
+      return resolve(users);
     }, delay);
   });
 };
@@ -12,6 +28,9 @@ const sleep = (delay = 1000): Promise<void> => {
 export default class Hello extends YtKitCommand {
   public static readonly description = 'display hello world';
   public static readonly examples = ['$ ytdl hello'];
+  public static readonly result: YtKitResult = {
+    tableColumnData: ['name'],
+  };
 
   public static readonly flagsConfig: FlagsConfig = {
     quiet: flags.builtin({
@@ -19,11 +38,7 @@ export default class Hello extends YtKitCommand {
     }),
   };
 
-  public async run(): Promise<void> {
-    await sleep(2000);
-    // eslint-disable-next-line no-console
-    console.log('hello world', JSON.stringify(this.flags));
-    // eslint-disable-next-line no-console
-    console.log('hello world', JSON.stringify(Hello.flagsConfig));
+  public async run(): Promise<JsonArray> {
+    return await sleep(2000);
   }
 }

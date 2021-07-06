@@ -42,7 +42,7 @@ import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
 
 export interface YtKitResult {
   data?: AnyJson;
-  tableColumnData?: TableOptions;
+  tableColumnData?: TableOptions | string[];
   display?: (this: Result) => void;
 }
 
@@ -54,7 +54,7 @@ export interface YtKitResult {
  */
 export class Result implements YtKitResult {
   public data!: AnyJson; // assigned in Command._run
-  public tableColumnData?: TableOptions;
+  public tableColumnData?: TableOptions | string[];
   public ux!: UX; // assigned in YtKitCommand.init
 
   public constructor(config: YtKitResult = {}) {
@@ -113,6 +113,7 @@ export default abstract class YtKitCommand extends Command {
 
   // The command output and formatting; assigned in _run
   protected ux!: UX; // assigned in init
+  // The command output and formatting; assigned in _run
   protected result!: Result;
   private isJson = false;
   // Overrides @oclif/command static flags property.  Adds username flags
@@ -170,7 +171,12 @@ export default abstract class YtKitCommand extends Command {
     const strict = this.statics.varargs ? !this.statics.varargs : this.statics.strict;
 
     // Init ux
-    this.ux = new UX(!this.isJson);
+    if (!this.ux) {
+      this.ux = new UX(!this.isJson);
+    }
+    if (this.result && !this.result.ux) {
+      this.result.ux = this.ux;
+    }
 
     const { args, flags, argv } = this.parse({
       flags: this.statics.flags,
