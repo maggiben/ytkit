@@ -35,6 +35,7 @@ describe('video info', () => {
   afterEach(() => {
     sandbox.restore();
   });
+
   test
     .stdout({
       print: true,
@@ -44,11 +45,29 @@ describe('video info', () => {
       const jsonResponse = JSON.parse(ctx.stdout) as AnyJson;
       expect(jsonResponse).to.deep.equal({ result: videoInfo, status: 0 });
     });
+});
 
-  // test
-  //   .stdout()
-  //   .command(['info', '--name', 'jeff'])
-  //   .it('runs info --name jeff', (ctx) => {
-  //     expect(ctx.stdout).to.contain('info jeff');
-  //   });
+describe('video info', () => {
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  beforeEach(() => {
+    sandbox.stub(ytdl, 'getInfo').rejects('Not a YouTube domain');
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['info', '--url', 'https://www.wrong.domain.com', '--json'])
+    .it('runs info on an unsupported domain and returns error', (ctx) => {
+      const error = {
+        status: 1,
+        name: 'Error',
+        message: 'Not a YouTube domain',
+      }
+      const jsonResponse = JSON.parse(ctx.stdout) as AnyJson;
+      expect(jsonResponse).to.deep.equal({ result: {}, status: 1 });
+    });
 });

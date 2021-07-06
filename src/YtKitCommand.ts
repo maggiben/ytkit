@@ -36,7 +36,6 @@
 import { Command } from '@oclif/command';
 import { OutputArgs, OutputFlags } from '@oclif/parser';
 import * as chalk from 'chalk';
-import { cli } from 'cli-ux';
 import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
 import UX, { TableOptions } from './Ux';
 import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
@@ -200,7 +199,7 @@ export default abstract class YtKitCommand extends Command {
     return { status, result };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/require-await
+  // eslint-disable-next-line @typescript-eslint/require-await
   protected async catch(error: Optional<Error>): Promise<void> {
     process.exitCode = process.exitCode || 1;
 
@@ -211,10 +210,7 @@ export default abstract class YtKitCommand extends Command {
     });
 
     if (this.isJson) {
-      // This should default to true, which will require a major version bump.
-      // this.ux.cli.styledJSON(userDisplayError);
-      console.log('UX: ', this.ux);
-      cli.styledJSON(userDisplayError);
+      this.ux.cli.styledJSON(userDisplayError);
     } else {
       // eslint-disable-next-line no-console
       console.error(...this.formatError(error ?? new Error('Undefined error')));
