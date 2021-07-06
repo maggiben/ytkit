@@ -64,7 +64,7 @@ export const toHumanTime = (seconds: number): string => {
 };
 
 /**
- * Converst bytes to human readable unit.
+ * Converts bytes to human readable unit.
  * Thank you Amir from StackOverflow.
  *
  * @param {number} bytes
