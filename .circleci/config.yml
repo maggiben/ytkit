@@ -16,6 +16,7 @@ jobs:
           keys:
             - v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
             - v1-npm-{{checksum ".circleci/config.yml"}}
+            - v1-npm-
       - run:
           name: Install dependencies
           command: yarn
@@ -27,9 +28,9 @@ jobs:
       - save_cache:
           paths:
             - node_modules
-          keys: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
+          keys: v1-npm-{{checksum "yarn.lock"}}
       - persist_to_workspace:
-          root: ~/repo
+          root: ~/cli
           paths: .
   node-14:
     <<: *test
@@ -56,7 +57,7 @@ jobs:
     <<: *test
     steps:
       - attach_workspace:
-          at: ~/repo
+          at: ~/cli
       - run:
           name: Authenticate with registry
           command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/repo/.npmrc
