@@ -25,10 +25,6 @@ jobs:
       - run:
           name: Testing
           command: yarn test
-      - save_cache:
-          paths:
-            - node_modules
-          key: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
       - persist_to_workspace:
           root: ~/cli
           paths: .
@@ -79,6 +75,7 @@ workflows:
               ignore: /.*/
       - deploy:
           requires:
+            - cache
             - node-latest
             - node-14
             - node-12
@@ -87,3 +84,4 @@ workflows:
               only: /^v.*/
             branches:
               ignore: /.*/
+
