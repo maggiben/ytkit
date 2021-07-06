@@ -1,6 +1,6 @@
 import { expect, test } from '@oclif/test';
 import * as sinon from 'sinon';
-import { AnyJson } from '@salesforce/ts-types';
+import { JsonMap } from '@salesforce/ts-types';
 import ytdl = require('ytdl-core');
 
 describe('video info', () => {
@@ -37,37 +37,29 @@ describe('video info', () => {
   });
 
   test
-    .stdout({
-      print: true,
-    })
+    .stdout()
     .command(['info', '--url', 'https://www.youtube.com/watch?v=MglX7zcg0gw', '--json'])
     .it('runs info', (ctx) => {
-      const jsonResponse = JSON.parse(ctx.stdout) as AnyJson;
+      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(jsonResponse).to.deep.equal({ result: videoInfo, status: 0 });
     });
 });
 
-describe('video info', () => {
+describe('video info error', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  const errorMessage = 'Not a YouTube domain';
   beforeEach(() => {
-    sandbox.stub(ytdl, 'getInfo').rejects('Not a YouTube domain');
+    sandbox.stub(ytdl, 'getInfo').rejects(new Error(errorMessage));
   });
   afterEach(() => {
     sandbox.restore();
   });
 
   test
-    .stdout({
-      print: true,
-    })
+    .stdout()
     .command(['info', '--url', 'https://www.wrong.domain.com', '--json'])
     .it('runs info on an unsupported domain and returns error', (ctx) => {
-      const error = {
-        status: 1,
-        name: 'Error',
-        message: 'Not a YouTube domain',
-      }
-      const jsonResponse = JSON.parse(ctx.stdout) as AnyJson;
-      expect(jsonResponse).to.deep.equal({ result: {}, status: 1 });
+      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
+      expect(jsonResponse.message).to.equal(errorMessage);
     });
 });

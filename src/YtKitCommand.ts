@@ -236,8 +236,9 @@ export default abstract class YtKitCommand extends Command {
 
     // If this command requires varargs, throw if none are provided.
     if (!args.length && !isBoolean(descriptor) && descriptor.required) {
-      throw new Error();
-      // throw SfdxError.create('@salesforce/command', 'command', 'VarargsRequired');
+      throw new Error(
+        'Provide required name=value pairs for the command. Enclose any values that contain spaces in double quotes.'
+      );
     }
 
     // Validate the format of the varargs
@@ -245,15 +246,15 @@ export default abstract class YtKitCommand extends Command {
       const split = arg.split('=');
 
       if (split.length !== 2) {
-        throw new Error();
-        // throw SfdxError.create('@salesforce/command', 'command', 'InvalidVarargsFormat', [arg]);
+        throw new Error(
+          `Setting variables must be in the format <key>=<value> or <key>="<value with spaces>" but found ${arg}.`
+        );
       }
 
       const [name, value] = split;
 
       if (varargs[name]) {
-        throw new Error();
-        // throw SfdxError.create('@salesforce/command', 'command', 'DuplicateVararg', [name]);
+        throw new Error(`Cannot set variable name '${name}' twice for the same command.`);
       }
 
       if (!isBoolean(descriptor) && descriptor.validator) {
