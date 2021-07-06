@@ -297,9 +297,7 @@ export default abstract class YtKitCommand extends Command {
    * Actual command run code goes here.
    *
    * @returns {Promise<any>} Returns a promise
-   * @throws {Error | SfdxError} Throws an error. If the error is not an SfdxError, it will
-   * be wrapped in an SfdxError. If the error contains exitCode field, process.exitCode
-   * will set to it.
+   * @throws {Error} Throws an error.
    */
   public abstract async run(): Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 }

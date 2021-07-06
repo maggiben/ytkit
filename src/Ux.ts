@@ -139,7 +139,7 @@ export default class UX {
    * stream output is enabled.
    *
    * @param {object[]} rows The rows of data to be output in table format.
-   * @param {SfdxTableOptions} options The {@link SfdxTableOptions} to use for formatting.
+   * @param {TableOptions} options The {@link TableOptions} to use for formatting.
    * @returns {UX}
    */
   // (allow any because matches oclif)

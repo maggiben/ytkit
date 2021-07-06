@@ -40,9 +40,9 @@ import { definiteEntriesOf, isString, hasString, isKeyOf, Optional } from '@sale
 import { Dictionary } from '@salesforce/ts-types';
 
 /**
- * The configuration of flags for an {@link SfdxCommand} class, except for the following:
+ * The configuration of flags for an {@link YtKitCommand} class, except for the following:
  *
- * * `json` is configured automatically for all {@link SfdxCommand} classes.
+ * * `json` is configured automatically for all {@link YtKitCommand} classes.
  *
  * ```
  * public static flagsConfig: FlagsConfig = {
@@ -110,21 +110,18 @@ function isBuiltin(flag: Record<string, unknown>): flag is flags.Builtin {
  * - If a char attribute is provided, it is one alphabetical character in length.
  * - If a long description is provided, it is a string.
  *
- * @param {SfdxFlagDefinition} flag The flag configuration.
  * @param {string} key The flag name.
- * @throws SfdxError If the criteria is not meet.
+ * @param {flags.Any<T>} flag The flag configuration.
+ * @throws Error If the criteria is not meet.
  */
 function validateCustomFlag<T>(key: string, flag: flags.Any<T>): flags.Any<T> {
   if (!/^(?!(?:[-]|[0-9]*$))[a-z0-9-]+$/.test(key)) {
-    // throw SfdxError.create('@salesforce/command', 'flags', 'InvalidFlagName', [key]);
     throw new Error(`The flag ${key}'s name must be a lowercase string that may contain numbers and hyphens.`);
   }
   if (flag.char && (flag.char.length !== 1 || !/[a-zA-Z]/.test(flag.char))) {
     throw new Error(`The flag ${key}'s char attribute must be one alphabetical character long.`);
-    // throw SfdxError.create('@salesforce/command', 'flags', 'InvalidFlagChar', [key]);
   }
   if (!flag.description || !isString(flag.description)) {
-    // throw SfdxError.create('@salesforce/command', 'flags', 'MissingOrInvalidFlagDescription', [key]);
     throw new Error(`The flag ${key}s is missing the description attribute, or the description is not a string.`);
   }
   return flag;
@@ -132,7 +129,7 @@ function validateCustomFlag<T>(key: string, flag: flags.Any<T>): flags.Any<T> {
 
 /**
  * Builds flags for a command given a configuration object.  Supports the following use cases:
- * 1. Enabling common SFDX flags. E.g., { verbose: true }
+ * 1. Enabling common YTKIT flags. E.g., { verbose: true }
  * 2. Defining typed flags. E.g., { myFlag: Flags.array({ char: '-a' }) }
  * 3. Defining custom typed flags. E.g., { myFlag: Flags.custom({ parse: (val) => parseInt(val, 10) }) }
  *
@@ -143,7 +140,7 @@ function validateCustomFlag<T>(key: string, flag: flags.Any<T>): flags.Any<T> {
  */
 export function buildYtKitFlags(flagsConfig: FlagsConfig): Output {
   const output: Dictionary<flags.Any<unknown>> = {};
-  // Required flag options for all SFDX commands
+  // Required flag options for all YTKIT commands
   output.json = requiredBuiltinFlags.json();
   // Process configuration for custom and builtin flags
   definiteEntriesOf(flagsConfig).forEach(([key, flag]) => {
