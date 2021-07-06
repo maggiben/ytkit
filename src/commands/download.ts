@@ -320,8 +320,6 @@ export default class Download extends YtKitCommand {
     this.ytdlOptions.filter = (format: ytdl.videoFormat): boolean => {
       return filters.every((filter) => filter[1](format));
     };
-
-    this.ux.styledObject(this.ytdlOptions as Record<string, unknown>);
   }
 
   /**
