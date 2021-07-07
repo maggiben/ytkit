@@ -19,6 +19,7 @@ import { cloneJson } from '../src/utils/utils';
 interface TestCommandMeta {
   cmd: typeof YtKitCommand; // the command constructor props
   cmdInstance: YtKitCommand; // the command instance props
+  data?: AnyJson;
 }
 // An object to keep track of what is set on the test command constructor and instance by YtKitCommand
 let testCommandMeta: TestCommandMeta;
@@ -173,6 +174,59 @@ describe('YtKitCommand', () => {
       x.display.call(resultStub);
       expect(result).to.have.property('foo', 'bar');
     }
+  });
+
+  /*
+  class BaseTestCommand extends YtKitCommand {
+    public static id = '1';
+    public static output: string | JsonArray = 'default test output';
+    public static flagsConfig: FlagsConfig = {
+      flag1: flags.string({ char: 'f', description: 'my desc' }),
+    };
+    public static result: Dictionary;
+    protected get statics(): typeof BaseTestCommand {
+      return this.constructor as typeof BaseTestCommand;
+    }
+
+    public async run() {
+      testCommandMeta = {
+        cmdInstance: this,
+        cmd: this.statics,
+      };
+      return this.statics.output;
+    }
+  }
+  */
+
+  it('getFlag', async () => {
+    const myValue = 'MyValue';
+    // Run the command
+    class TestCommand extends BaseTestCommand {
+      public static output: string | JsonArray = 'default test output';
+      public static readonly flagsConfig: FlagsConfig = {
+        myflag: flags.string({
+          char: 'm',
+          description: 'foo',
+        }),
+      };
+      protected get statics(): typeof TestCommand {
+        return this.constructor as typeof TestCommand;
+      }
+      public async run() {
+        testCommandMeta = {
+          cmdInstance: this,
+          cmd: this.statics,
+          data: this.getFlag<string>('myflag'),
+        };
+        return this.statics.output;
+      }
+    }
+    // Run the command
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const output = (await TestCommand.run(['--myflag', myValue])) as string;
+    expect(output).to.equal(TestCommand.output);
+    verifyCmdFlags({ myflag: { type: 'option' } });
+    expect(testCommandMeta.data).to.equal(myValue);
   });
 
   it('should always add YtKitCommand required flags --json', async () => {
