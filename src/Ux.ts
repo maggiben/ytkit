@@ -35,8 +35,7 @@
 
 /* eslint-disable no-console */
 
-import { isArray, isBoolean } from '@salesforce/ts-types';
-import * as chalk from 'chalk';
+import { AnyJson, isArray, isBoolean } from '@salesforce/ts-types';
 import { cli } from 'cli-ux';
 
 export interface Column extends Record<string, unknown> {
@@ -90,24 +89,6 @@ export default class UX {
   }
 
   /**
-   * Logs a warning as `WARN` level and conditionally writes to `stderr` if the log
-   * level is `WARN` or above and stream output is enabled.  The message is added
-   * to the static {@link UX.warnings} set if stream output is _not_ enabled, for later
-   * consumption and manipulation.
-   *
-   * @param {string} message The warning message to output.
-   * @returns {UX}
-   * @see UX.warnings
-   */
-  public warn(message: string): UX {
-    const warning: string = chalk.yellow('WARNING:');
-    if (this.isOutputEnabled) {
-      console.warn(`${warning} ${message}`);
-    }
-    return this;
-  }
-
-  /**
    * Logs an error at `ERROR` level and conditionally writes to `stderr` if stream
    * output is enabled.
    *
@@ -155,8 +136,7 @@ export default class UX {
    * @returns {UX}
    */
   // (allow any because matches oclif)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public table(rows: any[], options: TableOptions | string[]): UX {
+  public table(rows: AnyJson, options: TableOptions | string[] = {}): UX {
     if (this.isOutputEnabled) {
       // This is either an array of column names or an already built Partial<OclifTableOptions>
       if (isArray(options)) {
@@ -168,9 +148,11 @@ export default class UX {
             },
           };
         }, {});
-        this.cli.table(rows, columns);
+        // eslint-disable-next-line @typescript-eslint/ban-types
+        this.cli.table(rows as object[], columns);
       } else {
-        this.cli.table(rows, options);
+        // eslint-disable-next-line @typescript-eslint/ban-types
+        this.cli.table(rows as object[], options);
       }
     }
     return this;
@@ -187,20 +169,6 @@ export default class UX {
   public styledObject(obj: Record<string, unknown>, keys?: string[]): UX {
     if (this.isOutputEnabled) {
       this.cli.styledObject(obj, keys);
-    }
-    return this;
-  }
-
-  /**
-   * Log at `INFO` level and conditionally write to `stdout` in styled JSON format if
-   * stream output is enabled.
-   *
-   * @param {object} obj The object to be styled for stdout.
-   * @returns {UX}
-   */
-  public styledJSON(obj: Record<string, unknown>): UX {
-    if (this.isOutputEnabled) {
-      this.cli.styledJSON(obj);
     }
     return this;
   }

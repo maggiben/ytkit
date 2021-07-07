@@ -64,7 +64,6 @@ const UX_OUTPUT_BASE = {
   error: new Array<string[]>(),
   errorJson: new Array<AnyJson>(),
   table: new Array<string[]>(),
-  warn: new Array<string[]>(),
   logJson: new Array<string[]>(),
 };
 
@@ -119,8 +118,6 @@ describe('YtKitCommand', () => {
     sandbox.stub(UX.prototype, 'errorJson').callsFake((args: any) => UX_OUTPUT.errorJson.push(args) as unknown as UX);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
     sandbox.stub(UX.prototype, 'table').callsFake((args: any) => UX_OUTPUT.table.push(args) as unknown as UX);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-    sandbox.stub(UX.prototype, 'warn').callsFake((args: any) => UX_OUTPUT.warn.push(args) as unknown as UX);
 
     // Ensure BaseTestCommand['result'] is not defined before all tests
     BaseTestCommand.result = {};
