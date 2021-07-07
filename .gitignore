@@ -21,6 +21,7 @@ lib
 *unitcoverage
 .nyc_output
 coverage
+*.lcov
 test_session*
 
 # generated docs

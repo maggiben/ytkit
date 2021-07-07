@@ -40,7 +40,7 @@ import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
-import { get, JsonMap } from '@salesforce/ts-types';
+import { JsonMap } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import YtKitCommand from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';

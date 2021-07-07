@@ -25,6 +25,9 @@ jobs:
       - run:
           name: Testing
           command: yarn test
+      - run:
+          name: Report coverage
+          command: yarn report-coverage
       - save_cache:
           key: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
           paths:
@@ -88,4 +91,3 @@ workflows:
               only: /^v.*/
             branches:
               ignore: /.*/
-
