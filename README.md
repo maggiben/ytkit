@@ -7,7 +7,6 @@ Youtube downloader
 [![CircleCI](https://img.shields.io/circleci/build/github/maggiben/ytkit)](https://circleci.com/gh/maggiben/ytkit/tree/master)
 [![Downloads/week](https://img.shields.io/npm/dw/ytkit.svg)](https://npmjs.org/package/ytkit)
 [![License](https://img.shields.io/npm/l/ytkit.svg)](https://github.com/maggiben/ytkit/blob/master/package.json)
-[![Build, Test and maybe Publish](https://github.com/maggiben/ytkit/actions/workflows/push.yml/badge.svg)](https://github.com/maggiben/ytkit/actions/workflows/push.yml)
 [![codecov.io](https://img.shields.io/codecov/c/github/maggiben/ytkit)](https://codecov.io/github/maggiben/ytkit?branch=master)
 
 <!-- toc -->
@@ -26,7 +25,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.2.3 darwin-x64 node-v16.4.0
+ytkit/1.2.4 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -73,7 +72,7 @@ EXAMPLE
   $ ytdl download -u
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.2.3/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.2.4/src/commands/download.ts)_
 
 ## `ytkit hello`
 
@@ -91,7 +90,7 @@ EXAMPLE
   $ ytdl hello
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.2.3/src/commands/hello.ts)_
+_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.2.4/src/commands/hello.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -127,6 +126,6 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.2.3/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.2.4/src/commands/info.ts)_
 
 <!-- commandsstop -->

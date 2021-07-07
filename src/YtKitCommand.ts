@@ -151,18 +151,6 @@ export default abstract class YtKitCommand extends Command {
     }
   }
 
-  /**
-   * Logs an object as JSON at `ERROR` level and to `stderr`.
-   *
-   * @param {object} obj The error object to log -- must be serializable as JSON.
-   * @returns {UX}
-   * @throws {TypeError} If the object is not JSON-serializable.
-   */
-  public errorJson(obj: AnyJson): void {
-    const error = JSON.stringify(obj, null, 4);
-    this.ux.error(error);
-  }
-
   protected shouldEmitHelp(): boolean {
     // If -h was given and this command does not define its own flag with `char: 'h'`,
     // indicate that help should be emitted.
@@ -336,16 +324,6 @@ export default abstract class YtKitCommand extends Command {
     colorizedArgs.push(chalk.red(error.message));
 
     return colorizedArgs;
-  }
-
-  /**
-   * Sets an exit code on the process that marks success or failure
-   * after successful command execution.
-   *
-   * @param {number} code The exit code to set on the process.
-   */
-  protected setExitCode(code: number): void {
-    process.exitCode = code;
   }
 
   /**
