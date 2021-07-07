@@ -23,7 +23,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.2.0 darwin-x64 node-v16.4.0
+ytkit/1.2.2 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -68,7 +68,7 @@ EXAMPLE
   $ ytdl download -u
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.2.0/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.2.2/src/commands/download.ts)_
 
 ## `ytkit hello`
 
@@ -86,7 +86,7 @@ EXAMPLE
   $ ytdl hello
 ```
 
-_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.2.0/src/commands/hello.ts)_
+_See code: [src/commands/hello.ts](https://github.com/maggiben/ytkit/blob/v1.2.2/src/commands/hello.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -122,5 +122,5 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.2.0/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.2.2/src/commands/info.ts)_
 <!-- commandsstop -->

@@ -122,6 +122,18 @@ export default class UX {
   }
 
   /**
+   * Log JSON to stdout and to the log file with log level info.
+   *
+   * @param {object} obj The object to log -- must be serializable as JSON.
+   * @returns {UX}
+   * @throws {TypeError} If the object is not JSON-serializable.
+   */
+  public logJson(obj: Record<string, unknown>): UX {
+    this.cli.styledJSON(obj);
+    return this;
+  }
+
+  /**
    * Logs an object as JSON at `ERROR` level and to `stderr`.
    *
    * @param {object} obj The error object to log -- must be serializable as JSON.

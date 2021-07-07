@@ -39,6 +39,7 @@ import * as chalk from 'chalk';
 import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
 import UX, { TableOptions } from './Ux';
 import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
+import { Env } from './utils/Env';
 
 export interface YtKitResult {
   data?: AnyJson;
@@ -92,10 +93,11 @@ export default abstract class YtKitCommand extends Command {
   protected get statics(): typeof YtKitCommand {
     return this.constructor as typeof YtKitCommand;
   }
+
   // Property to inherit, override, and configure flags
   protected static flagsConfig: FlagsConfig;
   // Convenience property for simple command output table formating.
-  protected static tableColumnData: TableOptions;
+  protected static tableColumnData: TableOptions | string[];
   // Use for full control over command output formating and display, or to override
   // certain pieces of default display behavior.
   protected static result: YtKitResult = {};
@@ -116,6 +118,8 @@ export default abstract class YtKitCommand extends Command {
   // The command output and formatting; assigned in _run
   protected result!: Result;
   private isJson = false;
+  // Environment variables accessor helper
+  private env!: Env;
   // Overrides @oclif/command static flags property.  Adds username flags
   // if the command supports them.  Builds flags defined by the command's
   // flagsConfig static property.
@@ -159,24 +163,44 @@ export default abstract class YtKitCommand extends Command {
     this.ux.error(error);
   }
 
+  protected shouldEmitHelp(): boolean {
+    // If -h was given and this command does not define its own flag with `char: 'h'`,
+    // indicate that help should be emitted.
+    if (!this.argv.includes('-h')) {
+      // If -h was not given, nothing else to do here.
+      return false;
+    }
+    // Check each flag config to see if -h has been overridden...
+    const flags = this.statics.flags || {};
+    for (const k of Object.keys(flags)) {
+      if (k !== 'help' && flags[k].char === 'h') {
+        // If -h is configured for anything but help, the subclass should handle it itself.
+        return false;
+      }
+    }
+    // Otherwise, -h was either not overridden by the subclass, or the subclass includes a specific help flag config.
+    return true;
+  }
+
   protected async init(): Promise<void> {
     // If we made it to the init method, the exit code should not be set yet. It will be
     // successful unless the base init or command throws an error.
     process.exitCode = 0;
 
     this.isJson = this.argv.includes('--json');
+
+    // Init ux
+    this.initUx();
+
+    // If the -h flag is set in argv and not overridden by the subclass, emit help and exit.
+    if (this.shouldEmitHelp()) {
+      // eslint-disable-next-line no-underscore-dangle
+      this._help();
+    }
     // Finally invoke the super init.
     await super.init();
     // Turn off strict parsing if varargs are set.  Otherwise use static strict setting.
     const strict = this.statics.varargs ? !this.statics.varargs : this.statics.strict;
-
-    // Init ux
-    if (!this.ux) {
-      this.ux = new UX(!this.isJson);
-    }
-    if (this.result && !this.result.ux) {
-      this.result.ux = this.ux;
-    }
 
     const { args, flags, argv } = this.parse({
       flags: this.statics.flags,
@@ -194,6 +218,29 @@ export default abstract class YtKitCommand extends Command {
     }
   }
 
+  /**
+   * Initialize ux for the command
+   */
+  protected initUx(): void {
+    if (!this.ux) {
+      this.ux = new UX(!this.isJson);
+    }
+    if (this.result && !this.result.ux) {
+      this.result.ux = this.ux;
+    }
+    if (!this.env) {
+      this.env = new Env();
+    }
+  }
+
+  /**
+   * Helper method used to retrieve a typed value of a flag from
+   * the flags object
+   *
+   * @param {string} flagName the name of the flag
+   * @param {unknown} an optional default value
+   * @returns {T} the returned type
+   */
   protected getFlag<T>(flagName: string, defaultVal?: unknown): T {
     return get(this.flags, flagName, defaultVal) as T;
   }
@@ -209,6 +256,9 @@ export default abstract class YtKitCommand extends Command {
   protected async catch(error: Optional<Error>): Promise<void> {
     process.exitCode = process.exitCode || 1;
 
+    // Init ux
+    this.initUx();
+
     const userDisplayError = Object.assign(this.getJsonResultObject(), {
       name: error?.name,
       message: error?.message,
@@ -216,10 +266,9 @@ export default abstract class YtKitCommand extends Command {
     });
 
     if (this.isJson) {
-      this.ux.cli.styledJSON(userDisplayError);
+      this.ux.logJson(userDisplayError);
     } else {
-      // eslint-disable-next-line no-console
-      console.error(...this.formatError(error ?? new Error('Undefined error')));
+      this.ux.error(this.formatError(error ?? new Error('Undefined error')));
     }
   }
 
@@ -229,7 +278,7 @@ export default abstract class YtKitCommand extends Command {
     if (!error) {
       if (this.isJson) {
         const output = this.getJsonResultObject();
-        this.ux.cli.styledJSON(output);
+        this.ux.logJson(output);
       } else {
         this.result.display();
       }
@@ -283,7 +332,7 @@ export default abstract class YtKitCommand extends Command {
   protected formatError(error: Error): string[] {
     const colorizedArgs: string[] = [];
     // We should remove error.commandName since we should always use the actual command id.
-    colorizedArgs.push(chalk.bold(`ERROR ${this.id}: `));
+    colorizedArgs.push(chalk.bold(`ERROR ${this.id}`));
     colorizedArgs.push(chalk.red(error.message));
 
     return colorizedArgs;

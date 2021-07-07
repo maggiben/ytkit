@@ -122,7 +122,7 @@ function validateCustomFlag<T>(key: string, flag: flags.Any<T>): flags.Any<T> {
     throw new Error(`The flag ${key}'s char attribute must be one alphabetical character long.`);
   }
   if (!flag.description || !isString(flag.description)) {
-    throw new Error(`The flag ${key}s is missing the description attribute, or the description is not a string.`);
+    throw new Error(`The flag ${key}'s is missing the description attribute, or the description is not a string.`);
   }
   return flag;
 }

@@ -131,3 +131,16 @@ export function throttle<T extends (...args: any) => any>(func: T, limit: number
     return lastResult;
   };
 }
+
+/**
+ * Perform a deep clone of an object or array compatible with JSON stringification.
+ * Object fields that are not compatible with stringification will be omitted. Array
+ * entries that are not compatible with stringification will be censored as `null`.
+ *
+ * @param obj A JSON-compatible object or array to clone.
+ * @throws {Error} If the object contains circular references or causes
+ * other JSON stringification errors.
+ */
+export function cloneJson<T extends Record<string, unknown>>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj)) as T;
+}

@@ -171,10 +171,6 @@ export default class Download extends YtKitCommand {
     }
   }
 
-  protected getFlag<T>(flagName: string, defaultVal?: unknown): T {
-    return get(this.flags, flagName, defaultVal) as T;
-  }
-
   private setOutput(output: string): void {
     this.output = output;
     const regexp = new RegExp(/(\.\w+)?$/);
