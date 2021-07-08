@@ -108,7 +108,7 @@ _See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.2.4/
 <!-- commandsstop -->
 ## Contributing
 
-If you are interested in contributing, please take a look at the [CONTRIBUTING]https://github.com/maggiben/ytkit/blob/main/CONTRIBUTING.md) guide.
+If you are interested in contributing, please take a look at the [CONTRIBUTING](https://github.com/maggiben/ytkit/blob/main/CONTRIBUTING.md) guide.
 
 ## Development
 
