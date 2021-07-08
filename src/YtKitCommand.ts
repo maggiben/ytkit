@@ -37,7 +37,7 @@ import { Command } from '@oclif/command';
 import { OutputArgs, OutputFlags } from '@oclif/parser';
 import * as chalk from 'chalk';
 import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
-import UX, { TableOptions } from './Ux';
+import { UX, TableOptions } from './Ux';
 import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
 import { Env } from './utils/Env';
 
@@ -88,7 +88,7 @@ export type VarargsConfig =
     }
   | boolean;
 
-export default abstract class YtKitCommand extends Command {
+export abstract class YtKitCommand extends Command {
   // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
   protected get statics(): typeof YtKitCommand {
     return this.constructor as typeof YtKitCommand;
@@ -332,5 +332,5 @@ export default abstract class YtKitCommand extends Command {
    * @returns {Promise<any>} Returns a promise
    * @throws {Error} Throws an error.
    */
-  public abstract async run(): Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  public abstract run(): Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 }

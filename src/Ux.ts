@@ -60,7 +60,7 @@ export interface TableOptions {
 /**
  * Utilities for interacting with terminal I/O.
  */
-export default class UX {
+export class UX {
   public cli: typeof cli;
   private isOutputEnabled: boolean;
 

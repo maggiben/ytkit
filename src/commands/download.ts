@@ -42,7 +42,7 @@ import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
 import { JsonMap } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
-import YtKitCommand from '../YtKitCommand';
+import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as util from '../utils/utils';
 
@@ -64,7 +64,7 @@ export interface IFilter {
 }
 
 export default class Download extends YtKitCommand {
-  public static readonly description = 'download video';
+  public static readonly description = 'download video to a file or to stdout';
   public static readonly examples = ['$ ytdl download -u '];
   public static readonly flagsConfig: FlagsConfig = {
     help: flags.help({ char: 'h' }),
@@ -151,7 +151,7 @@ export default class Download extends YtKitCommand {
       await this.setVideInfoAndVideoFormat();
       if (this.videoInfo && this.videoFormat) {
         this.setVideoOutputAndErrorHandler();
-        if (!this.flags.json) {
+        if (!this.flags.json && this.flags.output) {
           this.outputHuman();
         }
         return this.videoInfo;
@@ -254,14 +254,15 @@ export default class Download extends YtKitCommand {
     });
   }
 
-  private setVideoOutputAndErrorHandler(): string {
+  private setVideoOutputAndErrorHandler(): void {
     const onError = (error: Error): void => this.onError(error);
     if (!this.output) {
       this.readStream.pipe(process.stdout).on('error', onError);
+    } else {
+      const output = this.getOutputFile();
+      this.readStream.pipe(fs.createWriteStream(output)).on('error', onError);
     }
-    const output = this.getOutputFile();
-    this.readStream.pipe(fs.createWriteStream(output)).on('error', onError);
-    return output;
+    return;
   }
 
   private outputHuman(): void {

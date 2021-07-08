@@ -2,7 +2,7 @@ import * as sinon from 'sinon';
 import cli from 'cli-ux';
 import { expect } from 'chai';
 import { Optional, Dictionary } from '@salesforce/ts-types';
-import UX from '../src/Ux';
+import { UX } from '../src/Ux';
 
 describe('UX', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();

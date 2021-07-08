@@ -35,7 +35,7 @@
 
 import ytdl = require('ytdl-core');
 import * as util from '../utils/utils';
-import YtKitCommand from '../YtKitCommand';
+import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 
 export default class Info extends YtKitCommand {

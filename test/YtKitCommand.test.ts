@@ -11,9 +11,9 @@ import { stubInterface } from '@salesforce/ts-sinon';
 import { AnyJson, Dictionary, ensureJsonMap, JsonArray, JsonMap, keysOf, Optional } from '@salesforce/ts-types';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import YtKitCommand, { Result, YtKitResult } from '../src/YtKitCommand';
+import { YtKitCommand, Result, YtKitResult } from '../src/YtKitCommand';
 import { flags, FlagsConfig } from '../src/YtKitFlags';
-import UX from '../src/Ux';
+import { UX } from '../src/Ux';
 import { cloneJson } from '../src/utils/utils';
 
 interface TestCommandMeta {
@@ -79,7 +79,8 @@ async function mockStdout(test: (outLines: string[]) => Promise<void>) {
   // @ts-ignore
   process.stdout.write = (message) => {
     if (message) {
-      lines.push(message);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      lines.push(message.toString());
     }
   };
 

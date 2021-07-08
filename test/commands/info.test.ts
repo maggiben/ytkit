@@ -3,7 +3,7 @@ import { expect, test } from '@oclif/test';
 import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
 import ytdl = require('ytdl-core');
-import UX from '../../src/Ux';
+import { UX } from '../../src/Ux';
 import * as util from '../../src/utils/utils';
 
 describe('video info', () => {

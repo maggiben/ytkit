@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { PassThrough } from 'stream';
 import { expect, test } from '@oclif/test';
 import * as sinon from 'sinon';
@@ -17,6 +18,7 @@ const stream = new PassThrough({
 });
 
 describe('video download', () => {
+  const output = 'MyVideo.mp4';
   const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
   const format = {
     itag: '123',
@@ -41,7 +43,13 @@ describe('video download', () => {
     formats,
   } as unknown as ytdl.videoInfo;
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let createWriteStreamStub: sinon.SinonStub;
   beforeEach(() => {
+    const writeStreamStub = sinon.createStubInstance(fs.WriteStream);
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').callsFake((path) => {
+      expect(path).to.be.equal(output);
+      return writeStreamStub as unknown as fs.WriteStream;
+    });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
       expect(url).to.equal(videoUrl);
       return Promise.resolve(videoInfo);
@@ -60,9 +68,11 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['download', '--url', videoUrl, '--json', '--output', 'MyVideo.mp4'])
+    .command(['download', '--url', videoUrl, '--json', '--output', output])
     .it('downloads a video', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
       expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
     });
 });
