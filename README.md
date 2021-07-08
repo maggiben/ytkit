@@ -104,4 +104,12 @@ EXAMPLE
 ```
 
 _See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.2.4/src/commands/info.ts)_
+
 <!-- commandsstop -->
+## Contributing
+
+If you are interested in contributing, please take a look at the [CONTRIBUTING]https://github.com/maggiben/ytkit/blob/main/CONTRIBUTING.md) guide.
+
+## Development
+
+If you are interested in building this package locally, please take a look at the [DEVELOPING](https://github.com/maggiben/ytkit/blob/main/DEVELOPING.md) doc.
