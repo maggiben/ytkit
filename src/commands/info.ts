@@ -37,6 +37,7 @@ import ytdl = require('ytdl-core');
 import * as util from '../utils/utils';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
+import { getValueFrom } from '../utils/utils';
 
 export default class Info extends YtKitCommand {
   public static readonly description = 'display information about a video';
@@ -90,12 +91,37 @@ export default class Info extends YtKitCommand {
       container: format.container,
       quality: format.qualityLabel || '',
       codecs: format.codecs,
-      bitrate: format.qualityLabel ? util.toHumanSize(format.bitrate ?? 0) : '',
-      'audio bitrate': format.audioBitrate ? `${format.audioBitrate}KB` : '',
-      size: format.contentLength ? util.toHumanSize(parseInt(format.contentLength, 10) ?? 0) : '',
+      bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', util.toHumanSize),
+      'audio bitrate': this.getValueFromMeta(
+        format,
+        'audioBitrate',
+        format.audioBitrate,
+        '',
+        (audioBitrate: string) => `${audioBitrate}KB`
+      ),
+      size: this.getValueFromMeta(format, 'contentLength', format.contentLength, '', (contentLength: string) =>
+        util.toHumanSize(parseInt(contentLength, 10))
+      ),
     }));
     const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
     this.ux.table(result, headers);
+  }
+
+  private getValueFromMeta<T>(
+    from: unknown,
+    path: string,
+    depends?: unknown,
+    defaultValue?: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    transform?: (input: any) => T
+  ): T | undefined {
+    if (depends) {
+      if (transform) {
+        return transform(getValueFrom<T>(from, path, defaultValue));
+      }
+      return getValueFrom<T>(from, path, defaultValue);
+    }
+    return defaultValue as T | undefined;
   }
 
   /**

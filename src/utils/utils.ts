@@ -34,6 +34,7 @@
  */
 
 import sanitizeName = require('sanitize-filename');
+import { get } from '@salesforce/ts-types';
 
 /**
  * Converts seconds into human readable time hh:mm:ss
@@ -143,4 +144,16 @@ export function throttle<T extends (...args: any) => any>(func: T, limit: number
  */
 export function cloneJson<T extends Record<string, unknown>>(obj: T): T {
   return JSON.parse(JSON.stringify(obj)) as T;
+}
+
+/**
+ * Helper method used to retrieve a typed value of a flag from
+ * the flags object
+ *
+ * @param {string} flagName the name of the flag
+ * @param {unknown} an optional default value
+ * @returns {T} the returned type
+ */
+export function getValueFrom<T>(from: unknown, path: string, defaultValue?: unknown): T {
+  return get(from, path, defaultValue) as T;
 }

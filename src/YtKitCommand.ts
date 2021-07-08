@@ -229,8 +229,8 @@ export abstract class YtKitCommand extends Command {
    * @param {unknown} an optional default value
    * @returns {T} the returned type
    */
-  protected getFlag<T>(flagName: string, defaultVal?: unknown): T {
-    return get(this.flags, flagName, defaultVal) as T;
+  protected getFlag<T>(flagName: string, defaultValue?: unknown): T {
+    return get(this.flags, flagName, defaultValue) as T;
   }
 
   protected getJsonResultObject(
