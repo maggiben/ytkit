@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import { expect, test } from '@oclif/test';
 import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
