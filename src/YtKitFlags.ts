@@ -90,7 +90,8 @@ export const requiredBuiltinFlags = {
 export const optionalBuiltinFlags = {
   quiet(opts?: flags.Builtin): IBooleanFlag<boolean> {
     return Object.assign(
-      opts ?? {},
+      {},
+      opts,
       flags.boolean({
         description: 'nothing emitted stdout',
       })
