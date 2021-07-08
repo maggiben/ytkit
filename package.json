@@ -104,7 +104,6 @@
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
     "report-coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "version": "oclif-dev readme && git add README.md",
-    "docu": "typedoc src",
     "lint": "node ./scripts/lint.js"
   },
   "publishConfig": {
