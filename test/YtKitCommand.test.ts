@@ -247,6 +247,46 @@ describe('YtKitCommand', () => {
     verifyUXOutput();
   });
 
+  it('should error on unsupported builtin flag', async () => {
+    class TestCommand extends BaseTestCommand {}
+    TestCommand.flagsConfig.unsupported = flags.builtin();
+
+    return mockStdout(async () => {
+      // Run the command
+      let output: Optional<string>;
+      try {
+        output = (await TestCommand.run(['-h'])) as string;
+        fail('Expected EEXIT error');
+      } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(err.code).to.equal('ERR_ASSERTION');
+      }
+
+      expect(output).to.equal(undefined);
+      expect(process.exitCode).to.equal(1);
+    });
+  });
+
+  it('should error on unsupported type of flag', async () => {
+    class TestCommand extends BaseTestCommand {}
+    TestCommand.flagsConfig.BadFlag = flags.boolean();
+
+    return mockStdout(async () => {
+      // Run the command
+      let output: Optional<string>;
+      try {
+        output = (await TestCommand.run(['-h'])) as string;
+        fail('Expected EEXIT error');
+      } catch (err) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(err.code).to.equal('ERR_ASSERTION');
+      }
+
+      expect(output).to.equal(undefined);
+      expect(process.exitCode).to.equal(1);
+    });
+  });
+
   it('should add args and flags to the command instance', async () => {
     class TestCommand extends BaseTestCommand {}
     const cmdArgs = [{ name: 'file' }];
