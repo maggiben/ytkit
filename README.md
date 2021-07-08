@@ -10,37 +10,41 @@ Youtube downloader
 [![codecov.io](https://img.shields.io/codecov/c/github/maggiben/ytkit)](https://codecov.io/github/maggiben/ytkit?branch=master)
 
 <!-- toc -->
-* [ytkit](#ytkit)
-* [Usage](#usage)
-* [Commands](#commands)
+
+- [ytkit](#ytkit)
+- [Usage](#usage)
+- [Commands](#commands)
 <!-- tocstop -->
 
 # Usage
 
 <!-- usage -->
+
 ```sh-session
 $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.2.4 darwin-x64 node-v16.4.0
+ytkit/1.3.0 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
 ...
 ```
+
 <!-- usagestop -->
 
 # Commands
 
 <!-- commands -->
-* [`ytkit download`](#ytkit-download)
-* [`ytkit help [COMMAND]`](#ytkit-help-command)
-* [`ytkit info`](#ytkit-info)
+
+- [`ytkit download`](#ytkit-download)
+- [`ytkit help [COMMAND]`](#ytkit-help-command)
+- [`ytkit info`](#ytkit-info)
 
 ## `ytkit download`
 
-download video
+download video to a file or to stdout
 
 ```
 USAGE
@@ -67,7 +71,7 @@ EXAMPLE
   $ ytdl download -u
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.2.4/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.3.0/src/commands/download.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -103,9 +107,10 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.2.4/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.3.0/src/commands/info.ts)_
 
 <!-- commandsstop -->
+
 ## Contributing
 
 If you are interested in contributing, please take a look at the [CONTRIBUTING](https://github.com/maggiben/ytkit/blob/main/CONTRIBUTING.md) guide.
