@@ -240,7 +240,6 @@ export default class Download extends YtKitCommand {
   private setVideInfoAndVideoFormat(): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat }> {
     return new Promise((resolve, reject) => {
       this.readStream.on('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
-        this.ux.log('video info');
         if (!this.videoInfo) {
           this.videoInfo = videoInfo;
         }
