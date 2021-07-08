@@ -87,7 +87,8 @@ export const toHumanSize = (bytes: number): string => {
  * @param {Array.<Object>} objs
  * @return {string}
  */
-export const tmpl = (str: string, objs: Array<Record<string, unknown>>): string => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const tmpl = (str: string, objs: any[]): string => {
   return str.replace(/\{([\w.-]+)\}/g, (match: string, prop: string) => {
     const name = objs
       .map((result: Record<string, unknown>) => {
