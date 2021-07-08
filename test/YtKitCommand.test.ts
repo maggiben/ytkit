@@ -176,28 +176,6 @@ describe('YtKitCommand', () => {
     }
   });
 
-  /*
-  class BaseTestCommand extends YtKitCommand {
-    public static id = '1';
-    public static output: string | JsonArray = 'default test output';
-    public static flagsConfig: FlagsConfig = {
-      flag1: flags.string({ char: 'f', description: 'my desc' }),
-    };
-    public static result: Dictionary;
-    protected get statics(): typeof BaseTestCommand {
-      return this.constructor as typeof BaseTestCommand;
-    }
-
-    public async run() {
-      testCommandMeta = {
-        cmdInstance: this,
-        cmd: this.statics,
-      };
-      return this.statics.output;
-    }
-  }
-  */
-
   it('getFlag', async () => {
     const myValue = 'MyValue';
     // Run the command

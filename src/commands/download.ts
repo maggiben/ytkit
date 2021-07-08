@@ -64,7 +64,6 @@ export interface IFilter {
 }
 
 export default class Download extends YtKitCommand {
-  // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
   public static readonly description = 'download video';
   public static readonly examples = ['$ ytdl download -u '];
   public static readonly flagsConfig: FlagsConfig = {
@@ -127,13 +126,16 @@ export default class Download extends YtKitCommand {
   protected output!: string;
   protected extension?: string;
 
-  public async run(): Promise<void> {
+  // video info
+  protected videoInfo?: ytdl.videoInfo;
+  // video format
+  protected videoFormat?: ytdl.videoFormat;
+
+  public async run(): Promise<ytdl.videoInfo | undefined> {
     this.ytdlOptions = this.buildDownloadOptions();
 
     this.setFilters();
-    this.setOutput(this.flags.output);
-
-    this.ux.styledObject(this.flags);
+    this.setOutput();
 
     if (this.flags.urlonly) {
       const url = await this.getDownloadUrl();
@@ -143,8 +145,19 @@ export default class Download extends YtKitCommand {
       process.exit(0);
     }
 
-    this.readStream = ytdl(this.flags.url, this.ytdlOptions ?? {});
-    this.setListeners(this.readStream);
+    const videoInfo = await this.getVideoInfo();
+    if (videoInfo) {
+      this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions ?? {});
+      await this.setVideInfoAndVideoFormat();
+      if (this.videoInfo && this.videoFormat) {
+        this.setVideoOutputAndErrorHandler();
+        if (!this.flags.json) {
+          this.outputHuman();
+        }
+        return this.videoInfo;
+      }
+      process.exitCode = 1;
+    }
   }
 
   public async getDownloadUrl(): Promise<string | undefined> {
@@ -161,30 +174,30 @@ export default class Download extends YtKitCommand {
    * @param {Object} info
    * @param {boolean} live
    */
-  public printVideoInfo(info: ytdl.videoInfo, live: boolean): void {
-    this.ux.log(`title: ${info.videoDetails.title}`);
-    this.ux.log(`author: ${info.videoDetails.author.name}`);
-    this.ux.log(`avg rating: ${info.videoDetails.averageRating}`);
-    this.ux.log(`views: ${info.videoDetails.viewCount}`);
-    if (!live) {
-      this.ux.log(`length: ${util.toHumanTime(parseInt(info.videoDetails.lengthSeconds, 10))}`);
+  public printVideoInfo(): void {
+    this.ux.log(`title: ${this.videoInfo?.videoDetails.title}`);
+    this.ux.log(`author: ${this.videoInfo?.videoDetails.author.name}`);
+    this.ux.log(`avg rating: ${this.videoInfo?.videoDetails.averageRating}`);
+    this.ux.log(`views: ${this.videoInfo?.videoDetails.viewCount}`);
+    if (!this.videoFormat?.isLive) {
+      this.ux.log(`length: ${util.toHumanTime(parseInt(this.videoInfo?.videoDetails['lengthSeconds'] ?? '', 10))}`);
     }
   }
 
-  private setOutput(output: string): void {
-    this.output = output;
+  private setOutput(): void {
+    this.output = this.getFlag<string>('output');
     const regexp = new RegExp(/(\.\w+)?$/);
     this.extension = regexp
-      .exec(output ?? '')
+      .exec(this.output ?? '')
       ?.slice(1, 2)
       .pop();
 
-    if (output) {
+    if (this.output) {
       if (this.extension && !this.flags.quality && !this.flags['filter-container']) {
         this.flags['filter-container'] = `^${this.extension.slice(1)}$`;
       }
     } else if (process.stdout.isTTY) {
-      this.output = '{videoDetails.title}';
+      this.output = 'y';
     }
   }
 
@@ -210,50 +223,72 @@ export default class Download extends YtKitCommand {
     };
   }
 
-  private setListeners(readStream: Readable): void {
-    const onError = (error: Error): void => this.onError(error);
-
-    readStream.on('info', (info: ytdl.videoInfo, format: ytdl.videoFormat) => {
-      if (!this.flags.output) {
-        readStream.pipe(process.stdout).on('error', onError);
-        return;
-      }
-
-      let output = util.tmpl(this.output, [info, format]);
-      if (!this.extension && format.container) {
-        output += '.' + format.container;
-      }
-      // Parses & sanitises output filename for any illegal characters
-      const parsedOutput = path.parse(output);
-      output = path.format({
-        dir: parsedOutput.dir,
-        base: parsedOutput.base,
-      });
-
-      readStream.pipe(fs.createWriteStream(output)).on('error', onError);
-
-      // Print information about the video if not streaming to stdout.
-      this.printVideoInfo(info, format.isLive);
-
-      const sizeUnknown = !('clen' in format) && (format.isLive || format.isHLS || format.isDashMPD);
-
-      if (sizeUnknown) {
-        this.printLiveVideoSize(readStream);
-      } else if (format.contentLength) {
-        this.printVideoSize(readStream, parseInt(format.contentLength, 10));
-      } else {
-        readStream.once('response', (response) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (response.headers['content-length']) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            const size = parseInt(response.headers['content-length'], 10);
-            this.printVideoSize(readStream, size);
-          } else {
-            this.printLiveVideoSize(readStream);
-          }
-        });
-      }
+  private getOutputFile(): string {
+    let output = util.tmpl(this.output, [this.videoInfo, this.videoFormat]);
+    if (!this.extension && this.videoFormat?.container) {
+      output += '.' + this.videoFormat?.container;
+    }
+    // Parses & sanitises output filename for any illegal characters
+    const parsedOutput = path.parse(output);
+    output = path.format({
+      dir: parsedOutput.dir,
+      base: parsedOutput.base,
     });
+    return output;
+  }
+
+  private setVideInfoAndVideoFormat(): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat }> {
+    return new Promise((resolve, reject) => {
+      this.readStream.on('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
+        this.ux.log('video info');
+        if (!this.videoInfo) {
+          this.videoInfo = videoInfo;
+        }
+        if (!this.videoFormat) {
+          this.videoFormat = videoFormat;
+        }
+        return resolve({ videoInfo, videoFormat });
+      });
+      this.readStream.on('error', (error) => {
+        return reject(error);
+      });
+    });
+  }
+
+  private setVideoOutputAndErrorHandler(): string {
+    const onError = (error: Error): void => this.onError(error);
+    if (!this.output) {
+      this.readStream.pipe(process.stdout).on('error', onError);
+    }
+    const output = this.getOutputFile();
+    this.readStream.pipe(fs.createWriteStream(output)).on('error', onError);
+    return output;
+  }
+
+  private outputHuman(): void {
+    // Print information about the video if not streaming to stdout.
+    this.printVideoInfo();
+    const sizeUnknown =
+      this.videoFormat &&
+      !('clen' in this.videoFormat) &&
+      (this.videoFormat?.isLive || this.videoFormat?.isHLS || this.videoFormat?.isDashMPD);
+
+    if (sizeUnknown) {
+      this.printLiveVideoSize(this.readStream);
+    } else if (this.videoFormat?.contentLength) {
+      this.printVideoSize(this.readStream, parseInt(this.videoFormat?.contentLength, 10));
+    } else {
+      this.readStream.once('response', (response) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (response.headers['content-length']) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const size = parseInt(response.headers['content-length'], 10);
+          this.printVideoSize(this.readStream, size);
+        } else {
+          this.printLiveVideoSize(this.readStream);
+        }
+      });
+    }
   }
 
   private setFilters(): void {
@@ -356,7 +391,9 @@ export default class Download extends YtKitCommand {
       barIncompleteChar: '\u2591',
       total: size,
     }) as SingleBar;
-    bar.start(size, 0);
+    bar.start(size, 0, {
+      speed: 'N/A',
+    });
     const streamSpeed = new StreamSpeed();
     streamSpeed.add(readStream);
     // Keep track of progress.
@@ -378,6 +415,15 @@ export default class Download extends YtKitCommand {
       bar.stop();
       clearInterval(iid);
     });
+  }
+
+  /**
+   * Gets info from a video additional formats and deciphered URLs.
+   *
+   * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
+   */
+  private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
+    return await ytdl.getInfo(this.flags.url);
   }
 
   private onError(error: Error): void {

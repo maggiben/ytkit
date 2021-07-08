@@ -1,28 +1,32 @@
-import { Readable } from 'stream';
+import { PassThrough } from 'stream';
 import { expect, test } from '@oclif/test';
 import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
 import ytdl = require('ytdl-core');
 
-const buffer = Buffer.from('DEADBEEF', 'base64');
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-const stream = new Readable({
+const string = 'DEADBEEF';
+const buffer = Buffer.from(string, 'utf8');
+let called = false;
+const stream = new PassThrough({
   read() {
-    this.push(buffer);
+    if (!called) {
+      this.push(buffer);
+      called = true;
+    }
   },
 });
 
 describe('video download', () => {
-  const formats = [
-    {
-      itag: '123',
-      container: 'mp4',
-      qualityLabel: '1080p',
-      codecs: 'mp4a.40.2',
-      bitrate: 1024,
-      contentLength: 4096,
-    },
-  ] as unknown as ytdl.videoFormat[];
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const format = {
+    itag: '123',
+    container: 'mp4',
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    contentLength: 4096,
+  } as unknown as ytdl.videoFormat;
+  const formats = [format] as unknown as ytdl.videoFormat[];
   const videoDetails = {
     title: 'My title',
     author: {
@@ -37,10 +41,18 @@ describe('video download', () => {
     formats,
   } as unknown as ytdl.videoInfo;
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
-  // let ytdlGetInfoStub: sinon.SinonStub;
   beforeEach(() => {
-    sandbox.stub(ytdl, 'getInfo').resolves(videoInfo);
-    sandbox.stub({ ytdl }, 'ytdl').returns(stream);
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+      expect(info).to.deep.equal(videoInfo);
+      process.nextTick(() => {
+        stream.emit('info', info, format);
+      });
+      return stream;
+    });
   });
   afterEach(() => {
     sandbox.restore();
@@ -48,9 +60,9 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['download', '--url', 'https://www.youtube.com/watch?v=MglX7zcg0gw', '--json'])
+    .command(['download', '--url', videoUrl, '--json', '--output', 'MyVideo.mp4'])
     .it('downloads a video', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
-      expect(jsonResponse).to.deep.equal({ status: 0 });
+      expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
     });
 });

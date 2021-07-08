@@ -54,8 +54,6 @@ export default class Info extends YtKitCommand {
     }),
   };
 
-  private static readonly cache: Map<string, ytdl.videoInfo> = new Map();
-
   public async run(): Promise<ytdl.videoInfo | undefined> {
     const videoInfo = await this.getVideoInfo();
     await this.showVideoInfo(videoInfo);
@@ -126,10 +124,6 @@ export default class Info extends YtKitCommand {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    const url = this.getFlag<string>('url');
-    if (!Info.cache.has(url)) {
-      Info.cache.set(url, await ytdl.getInfo(url));
-    }
-    return Info.cache.get(url);
+    return await ytdl.getInfo(this.flags.url);
   }
 }
