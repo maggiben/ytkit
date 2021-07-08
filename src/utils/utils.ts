@@ -87,24 +87,16 @@ export const toHumanSize = (bytes: number): string => {
  * @param {Array.<Object>} objs
  * @return {string}
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const tmpl = (str: string, objs: any[]): string => {
-  return str.replace(/\{([\w.-]+)\}/g, (match, prop: string) => {
-    const propArray = prop.split('.');
-    for (let result of objs) {
-      let j = 0;
-      let myprop = propArray[j];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      while (myprop != null && result[myprop] != null) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        result = result[myprop];
-        if (propArray.length === ++j) {
-          return sanitizeName(result, { replacement: '-' });
-        }
-        myprop = propArray[j];
-      }
-    }
-    return match;
+export const tmpl = (str: string, objs: Array<Record<string, unknown>>): string => {
+  return str.replace(/\{([\w.-]+)\}/g, (match: string, prop: string) => {
+    const name = objs
+      .map((result: Record<string, unknown>) => {
+        const value = getValueFrom<string>(result, prop);
+        return value ? sanitizeName(value, { replacement: '-' }) : undefined;
+      })
+      .filter(Boolean)
+      .pop();
+    return name ?? match;
   });
 };
 

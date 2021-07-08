@@ -24,6 +24,16 @@ describe('test utils', () => {
     const tmpl = util.tmpl(string, [{ title: 'Hey Jude', author: 'The Beatles' }]);
     expect(tmpl).to.equal('Hey Jude.The Beatles');
   });
+  it('template a string with nested variables denoted by {prop.nested}..', () => {
+    const string = '{title}.{author.name}';
+    const tmpl = util.tmpl(string, [{ title: 'Hey Jude', author: { name: 'The Beatles' } }]);
+    expect(tmpl).to.equal('Hey Jude.The Beatles');
+  });
+  it('template a string with undefined nested variables denoted by {prop.nested}..', () => {
+    const string = '{title}.{author.age}';
+    const tmpl = util.tmpl(string, [{ title: 'Hey Jude', author: { name: 'The Beatles' } }]);
+    expect(tmpl).to.equal('Hey Jude.{author.age}');
+  });
 });
 
 describe('time bending (sinon)', () => {
@@ -49,5 +59,19 @@ describe('time bending (sinon)', () => {
     clock.tick(1);
     expect(callback.calledOnce).to.be.true;
     expect(new Date().getTime()).be.equal(100);
+  });
+});
+
+describe('cloneJson', () => {
+  it('make a deep clone', () => {
+    const data = {
+      id: '123',
+      name: 'Anna',
+      age: '35',
+    };
+    const result = util.cloneJson(data);
+    expect(result).to.be.instanceOf(Object);
+    expect(result).to.deep.equal(data);
+    expect(Object.is(result, data)).to.be.false;
   });
 });

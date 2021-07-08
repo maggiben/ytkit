@@ -87,10 +87,10 @@ export default class Info extends YtKitCommand {
    */
   private printVideoFormats(videoInfo: ytdl.videoInfo): void {
     const result = videoInfo.formats.map((format) => ({
-      itag: format.itag,
-      container: format.container,
-      quality: format.qualityLabel || '',
-      codecs: format.codecs,
+      itag: getValueFrom<string>(format, 'itag', ''),
+      container: getValueFrom<string>(format, 'container', ''),
+      quality: getValueFrom<string>(format, 'qualityLabel', ''),
+      codecs: getValueFrom<string>(format, 'codecs'),
       bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', util.toHumanSize),
       'audio bitrate': this.getValueFromMeta(
         format,
