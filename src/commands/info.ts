@@ -67,7 +67,7 @@ export default class Info extends YtKitCommand {
    * @param {boolean} live
    * @returns {void}
    */
-  public printVideoMeta(videoInfo: ytdl.videoInfo, live: boolean): void {
+  private printVideoMeta(videoInfo: ytdl.videoInfo, live: boolean): void {
     this.ux.log(`title: ${videoInfo.videoDetails.title}`);
     this.ux.log(`author: ${videoInfo.videoDetails.author.name}`);
     this.ux.log(`avg rating: ${videoInfo.videoDetails.averageRating}`);
@@ -84,7 +84,7 @@ export default class Info extends YtKitCommand {
    * @param {Object} videoInfo the video info object
    * @returns {Promise<void>}
    */
-  public printVideoFormats(videoInfo: ytdl.videoInfo): void {
+  private printVideoFormats(videoInfo: ytdl.videoInfo): void {
     const result = videoInfo.formats.map((format) => ({
       itag: format.itag,
       container: format.container,
@@ -104,7 +104,7 @@ export default class Info extends YtKitCommand {
    * @param {Object} videoInfo the video info object
    * @returns {Promise<void>}
    */
-  public async showVideoInfo(videoInfo?: ytdl.videoInfo): Promise<void> {
+  private async showVideoInfo(videoInfo?: ytdl.videoInfo): Promise<void> {
     const info = videoInfo ?? (await this.getVideoInfo());
     if (info) {
       if (this.flags.formats) {
