@@ -162,11 +162,8 @@ workflows:
             branches:
               ignore: /.*/
       - scan-for-vulnerabilities:
-          reuires:
+          requires:
             - cache
-            - node-latest
-            - node-14
-            - node-12
       - publish-tarballs:
           requires:
             - cache
