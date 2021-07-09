@@ -8,6 +8,7 @@ Youtube downloader
 [![Downloads/week](https://img.shields.io/npm/dw/ytkit.svg)](https://npmjs.org/package/ytkit)
 [![License](https://img.shields.io/npm/l/ytkit.svg)](https://github.com/maggiben/ytkit/blob/master/package.json)
 [![codecov.io](https://img.shields.io/codecov/c/github/maggiben/ytkit)](https://codecov.io/github/maggiben/ytkit?branch=master)
+[![Join the chat at https://gitter.im/ytkit/community](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ytkit/community?utm_source=badge&utm_medium=badge&utm_content=badge)
 
 <!-- toc -->
 
