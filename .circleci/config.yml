@@ -135,6 +135,9 @@ workflows:
       - publish-github-release:
           requires:
             - cache
+            - node-latest
+            - node-14
+            - node-12
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
@@ -143,6 +146,9 @@ workflows:
       - publish-tarballs:
           requires:
             - cache
+            - node-latest
+            - node-14
+            - node-12
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
