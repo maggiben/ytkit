@@ -100,7 +100,11 @@ jobs:
             apt-get install -y p7zip-full
             yarn ytkit-pack
             yarn ytkit-pubish
-
+notify:
+  webhooks:
+    # A list of hook hashes, containing the url field
+    # gitter hook
+    - url: https://webhooks.gitter.im/e/b59f54263a82ada6e41e
 workflows:
   version: 2
   'ytdl':

@@ -134,7 +134,7 @@
     "report-coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "version": "oclif-dev readme && git add README.md",
     "lint": "node ./scripts/lint.js",
-    "ytkit-pack": "oclif-dev pack",
+    "ytkit-pack": "oclif-dev pack --xz",
     "ytkit-pubish": "oclif-dev publish"
   },
   "publishConfig": {
