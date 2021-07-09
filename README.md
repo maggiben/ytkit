@@ -25,7 +25,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.3.0 darwin-x64 node-v16.4.0
+ytkit/1.4.0 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -58,11 +58,9 @@ OPTIONS
   -r, --range=range                           Byte range to download, ie 10355705-12452856
   -u, --url=url                               (required) Youtube video or playlist url
   --filter=(video|videoonly|audio|audioonly)  Can be video, videoonly, audio, audioonly
-  --filter-codecs=filter-codecs               Filter in format codecs
   --filter-container=filter-container         Filter in format container
   --filter-resolution=filter-resolution       Filter in format resolution
   --json                                      format output as json
-  --unfilter-codecs=unfilter-codecs           Filter out format resolution
   --unfilter-container=unfilter-container     Filter out format container
   --unfilter-resolution=unfilter-resolution   Filter out format container
   --urlonly                                   Print direct download URL
@@ -71,7 +69,7 @@ EXAMPLE
   $ ytdl download -u
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.3.0/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.0/src/commands/download.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -107,7 +105,7 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.3.0/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.0/src/commands/info.ts)_
 
 <!-- commandsstop -->
 
