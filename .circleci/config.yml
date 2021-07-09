@@ -67,6 +67,29 @@ jobs:
       - run:
           name: Publish package
           command: npm publish
+  publish-github-release:
+    docker:
+      - image: cibuilds/github:0.10
+    steps:
+      - attach_workspace:
+          at: ./artifacts
+      - run:
+          name: 'Publish Release on GitHub'
+          command: |
+            VERSION=$(my-binary --version)
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ~/cli/dist
+  publish-tarballs:
+    <<: *test
+    steps:
+      - attach_workspace:
+          at: ~/cli
+      - run:
+          name: Install dependencies
+          command: yarn
+      - run:
+          name: Pack target tarballs
+          command: yarn ytkit-pack
+
 workflows:
   version: 2
   'ytdl':
@@ -88,6 +111,28 @@ workflows:
             - node-12
           filters:
             tags:
-              only: /^v.*/
+              only: /^v\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+      - publish-github-release:
+          requires:
+            - cache
+            - node-latest
+            - node-14
+            - node-12
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
+      - publish-tarballs:
+          requires:
+            - cache
+            - node-latest
+            - node-14
+            - node-12
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
