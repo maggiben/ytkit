@@ -236,6 +236,43 @@ describe('video info table formats', () => {
     });
 });
 
+describe('video info table formats', () => {
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  const testVideoFormat = {
+    itag: '123',
+    container: 'mp4',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    audioBitrate: 100,
+  } as unknown as ytdl.videoFormat;
+  let getInfoStub: sinon.SinonStub;
+  let tableStub: sinon.SinonStub;
+  beforeEach(() => {
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').resolves({ ...videoInfo, ...{ formats: [testVideoFormat] } });
+    tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+  test
+    .stdout()
+    .command(['info', '--url', videoUrl, '--formats'])
+    .it('runs info with no audioBitrate & qualityLabel', () => {
+      expect(getInfoStub.callCount).to.equal(1);
+      expect(getInfoStub.firstCall.firstArg).to.equal(videoUrl);
+      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]).to.include.keys(headers);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100KB');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].size).to.be.equal('');
+      expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
+    });
+});
+
 describe('video info error', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   const errorMessage = 'Not a YouTube domain';
