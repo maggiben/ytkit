@@ -91,17 +91,11 @@ export default class Download extends YtKitCommand {
     'filter-resolution': flags.string({
       description: 'Filter in format resolution',
     }),
-    'filter-codecs': flags.string({
-      description: 'Filter in format codecs',
-    }),
     'unfilter-container': flags.string({
       description: 'Filter out format container',
     }),
     'unfilter-resolution': flags.string({
       description: 'Filter out format container',
-    }),
-    'unfilter-codecs': flags.string({
-      description: 'Filter out format resolution',
     }),
     begin: flags.string({
       char: 'b',
@@ -147,7 +141,7 @@ export default class Download extends YtKitCommand {
 
     const videoInfo = await this.getVideoInfo();
     if (videoInfo) {
-      this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions ?? {});
+      this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions);
       await this.setVideInfoAndVideoFormat();
       if (this.videoInfo && this.videoFormat) {
         this.setVideoOutput();
@@ -374,7 +368,7 @@ export default class Download extends YtKitCommand {
       ]);
     };
 
-    ['container', 'resolution:qualityLabel', 'encoding'].forEach((field) => {
+    ['container', 'resolution:qualityLabel'].forEach((field) => {
       // eslint-disable-next-line prefer-const
       let [fieldName, fieldKey] = field.split(':');
       fieldKey = fieldKey || fieldName;

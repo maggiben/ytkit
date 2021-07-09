@@ -229,6 +229,7 @@ describe('download a video filtered by container', () => {
   const stream = passThorughStream();
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   let createWriteStreamStub: sinon.SinonStub;
+  let downloadFromInfoStub: sinon.SinonStub;
   let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
   beforeEach(() => {
     writeStreamStub = sinon.createStubInstance(WritableFileStream);
@@ -240,14 +241,8 @@ describe('download a video filtered by container', () => {
       expect(url).to.equal(videoUrl);
       return Promise.resolve(videoInfo);
     });
-    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo, ytdlOptions?: ytdl.downloadOptions) => {
+    downloadFromInfoStub = sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
       expect(info).to.deep.equal(videoInfo);
-      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
-        const format = ytdlOptions.filter(webmFormat);
-        expect(format).to.be.true;
-      }
-      // expect(ytdlOptions.format)
-      // simulate ytdl info signal then end the stream
       process.nextTick(() => {
         stream.emit('info', info, webmFormat);
         setImmediate(() => stream.emit('end'));
@@ -260,9 +255,54 @@ describe('download a video filtered by container', () => {
   });
 
   test
+    .skip()
     .stdout()
     .command(['download', '--url', videoUrl, '--output', output, '--filter-container', 'webm'])
     .it('download a video filtered by container', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[2] as ytdl.downloadOptions;
+      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
+        const format = ytdlOptions.filter(webmFormat);
+        expect(format).to.be.true;
+      }
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--unfilter-container', 'webm'])
+    .it('download a video un-filtered by container', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[2] as ytdl.downloadOptions;
+      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
+        const format = ytdlOptions.filter(mp4Format);
+        expect(format).to.be.true;
+      }
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--filter-resolution', '1080p'])
+    .it('download a video filtered by container', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[2] as ytdl.downloadOptions;
+      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
+        const format = ytdlOptions.filter(mp4Format);
+        expect(format).to.be.true;
+      }
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--unfilter-resolution', '1080p'])
+    .it('download a video filtered by container', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[2] as ytdl.downloadOptions;
+      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
+        const format = ytdlOptions.filter(webmFormat);
+        expect(format).to.be.true;
+      }
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
     });
