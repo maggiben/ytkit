@@ -82,6 +82,7 @@ jobs:
             TAG=$(node ./bin/run --version | awk 'BEGIN { FS = " " } ; { print $1 }' | awk 'BEGIN { FS = "/" } ; { printf "v%s", $2 }')
             EXE=$(node ./bin/run --version | awk 'BEGIN { FS = " " } ; { print $1 }' | awk 'BEGIN { FS = "/" } ; { print $1 }')
             FILE=$(awk -v tag=$TAG -v exe=$EXE 'BEGIN{ t=tag;e=exe } { printf "%s-%s.tgz", e, t}' <<< /dev/null )
+            yarn pack
             ~/go/bin/github-release release --user ${CIRCLE_PROJECT_USERNAME} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --pre-release
             ~/go/bin/github-release upload --user ${CIRCLE_PROJECT_USERNAME} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --name ${FILE} --file ~/cli/"$FILE"
   publish-tarballs:
