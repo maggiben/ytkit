@@ -92,19 +92,17 @@ export default class Info extends YtKitCommand {
       quality: getValueFrom<string>(format, 'qualityLabel', ''),
       codecs: getValueFrom<string>(format, 'codecs'),
       bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', util.toHumanSize),
-      'audio bitrate': this.getValueFromMeta(
-        format,
-        'audioBitrate',
-        format.audioBitrate,
-        '',
-        (audioBitrate: string) => `${audioBitrate}KB`
-      ),
+      'audio bitrate': this.getAudioBitRate(format.audioBitrate),
       size: this.getValueFromMeta(format, 'contentLength', format.contentLength, '', (contentLength: string) =>
         util.toHumanSize(parseInt(contentLength, 10))
       ),
     }));
     const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
     this.ux.table(result, headers);
+  }
+
+  private getAudioBitRate(audioBitrate?: number): string {
+    return audioBitrate ? `${audioBitrate}KB` : '';
   }
 
   /**

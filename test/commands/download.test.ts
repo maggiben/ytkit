@@ -32,7 +32,9 @@ describe('video download', () => {
     qualityLabel: '1080p',
     codecs: 'mp4a.40.2',
     bitrate: 1024,
+    quality: 'high',
     contentLength: 4096,
+    audioBitrate: 100,
   } as unknown as ytdl.videoFormat;
   const formats = [format] as unknown as ytdl.videoFormat[];
   const videoDetails = {
@@ -110,7 +112,7 @@ describe('video download', () => {
     .stdout()
     .command(['download', '--url', videoUrl, '--output', output, '--quality', '278'])
     .it('downloads a video and prints video metadata', () => {
-      expect(logStub.callCount).to.equal(6);
+      expect(logStub.callCount).to.equal(13);
       expect(logStub.getCall(0).args[0]).to.include(videoInfo.videoDetails.title);
       expect(logStub.getCall(1).args[0]).to.include(videoInfo.videoDetails.author.name);
       expect(logStub.getCall(2).args[0]).to.include(videoInfo.videoDetails.averageRating);
@@ -120,10 +122,17 @@ describe('video download', () => {
       expect(logStub.getCall(5).args[0]).to.include(
         util.toHumanTime(parseInt(videoInfo.videoDetails.lengthSeconds, 10))
       );
+      expect(logStub.getCall(6).args[0]).to.include(format.quality);
+      expect(logStub.getCall(7).args[0]).to.include(`${util.toHumanSize(format.bitrate ?? 0)}`);
+      expect(logStub.getCall(8).args[0]).to.include(format.audioBitrate);
+      expect(logStub.getCall(9).args[0]).to.include(format.codecs);
+      expect(logStub.getCall(10).args[0]).to.include(format.itag);
+      expect(logStub.getCall(11).args[0]).to.include(format.container);
+      expect(logStub.getCall(12).args[0]).to.include(output);
     });
 });
 
-describe('download file without an output flag', () => {
+describe('download video without an output flag', () => {
   const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
   const format = {
     itag: '123',
@@ -181,5 +190,78 @@ describe('download file without an output flag', () => {
     .it('downloads a video output', () => {
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(`${videoDetails.title}.${format.container}`);
+    });
+});
+
+describe('download a video filtered by container', () => {
+  const output = 'MyVideo.mp4';
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const mp4Format = {
+    itag: '123',
+    container: 'mp4',
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    contentLength: 4096,
+  } as unknown as ytdl.videoFormat;
+  const webmFormat = {
+    itag: '321',
+    container: 'webm',
+    qualityLabel: '720p',
+    codecs: 'vp9',
+    bitrate: 1024,
+    contentLength: 4096,
+  } as unknown as ytdl.videoFormat;
+  const formats = [mp4Format, webmFormat] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const stream = passThorughStream();
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let createWriteStreamStub: sinon.SinonStub;
+  let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
+  beforeEach(() => {
+    writeStreamStub = sinon.createStubInstance(WritableFileStream);
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').callsFake((path) => {
+      expect(path).to.be.equal(output);
+      return writeStreamStub as unknown as WritableFileStream;
+    });
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+      expect(info).to.deep.equal(videoInfo);
+      // expect(ytdlOptions.format)
+      // simulate ytdl info signal then end the stream
+      process.nextTick(() => {
+        stream.emit('info', info, webmFormat);
+        setImmediate(() => stream.emit('end'));
+      });
+      return stream;
+    });
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--json', '--output', output, '--filter-container', 'webm'])
+    .it('downloads a video', (ctx) => {
+      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+      expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
     });
 });

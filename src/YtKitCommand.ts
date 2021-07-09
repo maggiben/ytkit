@@ -35,7 +35,6 @@
 
 import { Command } from '@oclif/command';
 import { OutputArgs, OutputFlags } from '@oclif/parser';
-import * as chalk from 'chalk';
 import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
 import { UX, TableOptions } from './Ux';
 import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
@@ -320,8 +319,8 @@ export abstract class YtKitCommand extends Command {
   protected formatError(error: Error): string[] {
     const colorizedArgs: string[] = [];
     // We should remove error.commandName since we should always use the actual command id.
-    colorizedArgs.push(chalk.bold(`ERROR ${this.id}`));
-    colorizedArgs.push(chalk.red(error.message));
+    colorizedArgs.push(this.ux.chalk.bold(`ERROR ${this.id}`));
+    colorizedArgs.push(this.ux.chalk.red(error.message));
 
     return colorizedArgs;
   }

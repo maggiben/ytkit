@@ -37,6 +37,7 @@
 
 import { AnyJson, isArray, isBoolean } from '@salesforce/ts-types';
 import { cli } from 'cli-ux';
+import * as chalk from 'chalk';
 
 export interface Column extends Record<string, unknown> {
   header: string;
@@ -56,16 +57,19 @@ export interface TableOptions {
   columns?: string;
   extended?: boolean;
 }
-
 /**
  * Utilities for interacting with terminal I/O.
  */
 export class UX {
+  public static chalk = chalk;
+  public static cli = cli;
   public cli: typeof cli;
+  public chalk: chalk.Chalk & chalk.ChalkFunction;
   private isOutputEnabled: boolean;
 
-  public constructor(isOutputEnabled?: boolean, ux?: typeof cli) {
-    this.cli = ux || cli;
+  public constructor(isOutputEnabled?: boolean, ux?: typeof cli, ck?: chalk.Chalk & chalk.ChalkFunction) {
+    this.cli = ux ?? UX.cli;
+    this.chalk = ck ?? UX.chalk;
 
     if (isBoolean(isOutputEnabled)) {
       this.isOutputEnabled = isOutputEnabled;
