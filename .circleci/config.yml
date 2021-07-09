@@ -49,7 +49,10 @@ jobs:
           command: yarn
       - run:
           name: Build standalone tarballs
-          command: yarn ytkit-pack
+          command: |
+            apt-get update
+            apt-get install -y p7zip-full
+            yarn ytkit-pack
       - save_cache:
           key: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
           paths:
@@ -87,8 +90,7 @@ jobs:
             EXE=$(node ./bin/run --version | awk 'BEGIN { FS = " " } ; { print $1 }' | awk 'BEGIN { FS = "/" } ; { print $1 }')
             FILE=$(awk -v tag=$TAG -v exe=$EXE 'BEGIN{ t=tag;e=exe } { printf "%s-%s.tgz", e, t}' <<< /dev/null )
             yarn pack
-            ~/go/bin/github-release release --user ${CIRCLE_PROJECT_USERNAME} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --pre-release
-            ~/go/bin/github-release upload --user ${CIRCLE_PROJECT_USERNAME} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --name ${FILE} --file ~/cli/"$FILE"
+            ~/go/bin/github-release release --user ${CIRCLE_PROJECT_USERNAME} --name "${EXE} ${TAG}" --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --pre-release
   publish-tarballs:
     <<: *test
     steps:
@@ -100,8 +102,6 @@ jobs:
       - run:
           name: Pack target tarballs
           command: |
-            apt-get update
-            apt-get install -y p7zip-full
             yarn ytkit-pubish
 notify:
   webhooks:
