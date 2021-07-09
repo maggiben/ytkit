@@ -150,7 +150,7 @@ export default class Download extends YtKitCommand {
       this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions ?? {});
       await this.setVideInfoAndVideoFormat();
       if (this.videoInfo && this.videoFormat) {
-        this.setVideoOutputAndErrorHandler();
+        this.setVideoOutput();
         if (!this.flags.json && this.flags.output) {
           this.outputHuman();
         }
@@ -179,18 +179,33 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private printVideoMeta(): void {
-    this.ux.log(`title: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.title', '')}`);
-    this.ux.log(`author: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.author.name', '')}`);
-    this.ux.log(`avg rating: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.averageRating', '')}`);
-    this.ux.log(`views: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.viewCount', '')}`);
-    this.ux.log(`publish date: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.publishDate', '')}`);
+    this.logStyledProp('title', util.getValueFrom<string>(this.videoInfo, 'videoDetails.title', ''));
+    this.logStyledProp('author', util.getValueFrom<string>(this.videoInfo, 'videoDetails.author.name', ''));
+    this.logStyledProp('avg rating', util.getValueFrom<string>(this.videoInfo, 'videoDetails.averageRating', ''));
+    this.logStyledProp('views', util.getValueFrom<string>(this.videoInfo, 'videoDetails.viewCount', ''));
+    this.logStyledProp('publish date', util.getValueFrom<string>(this.videoInfo, 'videoDetails.publishDate', ''));
     if (!util.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive)) {
-      this.ux.log(
-        `length: ${util.toHumanTime(
-          parseInt(util.getValueFrom<string>(this.videoInfo, 'videoDetails.lengthSeconds', ''), 10)
-        )}`
+      const length = util.toHumanTime(
+        parseInt(util.getValueFrom<string>(this.videoInfo, 'videoDetails.lengthSeconds', ''), 10)
       );
+      this.logStyledProp('length', length);
     }
+    if (util.getValueFrom<string>(this.videoFormat, 'qualityLabel')) {
+      this.logStyledProp('quality', util.getValueFrom<string>(this.videoFormat, 'quality', ''));
+      const bitrate = util.toHumanSize(parseInt(util.getValueFrom<string>(this.videoFormat, 'bitrate', ''), 10));
+      this.logStyledProp('video bitrate:', bitrate);
+    }
+    if (util.getValueFrom<string>(this.videoFormat, 'audioBitrate')) {
+      this.logStyledProp('audio bitrate', `${util.getValueFrom<string>(this.videoFormat, 'audioBitrate')}KB`);
+    }
+    this.logStyledProp('codecs', util.getValueFrom<string>(this.videoFormat, 'codecs', ''));
+    this.logStyledProp('itag', util.getValueFrom<string>(this.videoFormat, 'itag', ''));
+    this.logStyledProp('container', util.getValueFrom<string>(this.videoFormat, 'container', ''));
+    this.logStyledProp('output', this.output);
+  }
+
+  private logStyledProp(label: string, value: string): void {
+    this.ux.log(`${this.ux.chalk.bold.gray(label)}: ${value}`);
   }
 
   /**
@@ -291,13 +306,13 @@ export default class Download extends YtKitCommand {
    *
    * @returns {void}
    */
-  private setVideoOutputAndErrorHandler(): void {
+  private setVideoOutput(): void {
     const onError = (error: Error): void => this.onError(error);
     if (!this.output) {
       this.readStream.pipe(process.stdout).on('error', onError);
     } else {
-      const output = this.getOutputFile();
-      this.readStream.pipe(fs.createWriteStream(output)).on('error', onError);
+      this.output = this.getOutputFile();
+      this.readStream.pipe(fs.createWriteStream(this.output)).on('error', onError);
     }
     return;
   }
@@ -352,7 +367,6 @@ export default class Download extends YtKitCommand {
      */
     const createFilter = (name: string, field: string, regexpStr: string, negated?: boolean): void => {
       const regexp = new RegExp(regexpStr, 'i');
-      // (format: Record<string, string>): boolean => Boolean(negated !== regexp.test(format[field])),
       filters.push([
         name,
         (format: ytdl.videoFormat): boolean =>
@@ -396,9 +410,7 @@ export default class Download extends YtKitCommand {
         break;
     }
 
-    this.ytdlOptions.filter = (format: ytdl.videoFormat): boolean => {
-      return filters.every((filter) => filter[1](format));
-    };
+    this.ytdlOptions.filter = (format: ytdl.videoFormat): boolean => filters.every((filter) => filter[1](format));
   }
 
   /**

@@ -240,8 +240,12 @@ describe('download a video filtered by container', () => {
       expect(url).to.equal(videoUrl);
       return Promise.resolve(videoInfo);
     });
-    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo, ytdlOptions?: ytdl.downloadOptions) => {
       expect(info).to.deep.equal(videoInfo);
+      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
+        const format = ytdlOptions.filter(webmFormat);
+        expect(format).to.be.true;
+      }
       // expect(ytdlOptions.format)
       // simulate ytdl info signal then end the stream
       process.nextTick(() => {
@@ -257,11 +261,9 @@ describe('download a video filtered by container', () => {
 
   test
     .stdout()
-    .command(['download', '--url', videoUrl, '--json', '--output', output, '--filter-container', 'webm'])
-    .it('downloads a video', (ctx) => {
-      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
+    .command(['download', '--url', videoUrl, '--output', output, '--filter-container', 'webm'])
+    .it('download a video filtered by container', () => {
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
-      expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
     });
 });
