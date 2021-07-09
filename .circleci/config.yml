@@ -68,17 +68,18 @@ jobs:
           name: Publish package
           command: npm publish
   publish-github-release:
-    docker:
-      - image: cibuilds/github:0.10
-      - image: node:latest
+    <<: *test
     steps:
       - attach_workspace:
           at: ~/cli
       - run:
           name: 'Publish Release on GitHub'
           command: |
-            VERSION=$(node ./bin/run --version)
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts
+            GHR_URL="https://github.com/tcnksm/ghr/releases/download/v0.13.0/ghr_v0.13.0_linux_amd64.tar.gz"
+            GHR_VERSION="0.13.0"
+            wget "$GHR_URL" && 	tar xzf ghr_v${GHR_VERSION}_linux_amd64.tar.gz && mv ghr_v${GHR_VERSION}_linux_amd64/ghr ~/ghr && rm -r ghr_v${GHR_VERSION}_linux_amd64.tar.gz ghr_v${GHR_VERSION}_linux_amd64/
+            VERSION=$(node ~cli/bin/run --version)
+            ~/ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts
   publish-tarballs:
     <<: *test
     steps:
