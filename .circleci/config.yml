@@ -111,7 +111,7 @@ workflows:
       - cache:
           filters:
             tags:
-              only: /^v.*/
+              only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
       - deploy:
