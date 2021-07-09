@@ -47,10 +47,14 @@ jobs:
       - run:
           name: Install dependencies
           command: yarn
+      - run:
+          name: Build standalone tarballs
+          command: yarn ytkit-pack
       - save_cache:
           key: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
           paths:
             - ~/cli/node_modules
+            - ~/cli/dist
             - /usr/local/share/.cache/yarn
             - /usr/local/share/.config/yarn
       - persist_to_workspace:
@@ -98,7 +102,6 @@ jobs:
           command: |
             apt-get update
             apt-get install -y p7zip-full
-            yarn ytkit-pack
             yarn ytkit-pubish
 notify:
   webhooks:
@@ -132,9 +135,6 @@ workflows:
       - publish-github-release:
           requires:
             - cache
-            - node-latest
-            - node-14
-            - node-12
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
@@ -143,9 +143,6 @@ workflows:
       - publish-tarballs:
           requires:
             - cache
-            - node-latest
-            - node-14
-            - node-12
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
