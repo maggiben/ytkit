@@ -9,6 +9,7 @@ Youtube downloader
 [![License](https://img.shields.io/npm/l/ytkit.svg)](https://github.com/maggiben/ytkit/blob/master/package.json)
 [![codecov.io](https://img.shields.io/codecov/c/github/maggiben/ytkit)](https://codecov.io/github/maggiben/ytkit?branch=master)
 [![Join the chat at https://gitter.im/ytkit/community](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ytkit/community?utm_source=badge&utm_medium=badge&utm_content=badge)
+[![Known Vulnerabilities](https://snyk.io/test/github/maggiben/ytkit/badge.svg)](https://snyk.io/test/github/maggiben/ytkit)
 
 <!-- toc -->
 
@@ -26,7 +27,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.4.14 darwin-x64 node-v16.4.0
+ytkit/1.4.15 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -70,7 +71,7 @@ EXAMPLE
   $ ytdl download -u
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.14/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.15/src/commands/download.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -106,7 +107,7 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.14/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.15/src/commands/info.ts)_
 
 <!-- commandsstop -->
 
