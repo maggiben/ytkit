@@ -64,8 +64,8 @@ export default class Info extends YtKitCommand {
   /**
    * Prints video metadata information.
    *
-   * @param {videoInfo} info
-   * @param {boolean} live
+   * @param {videoInfo} info video info object
+   * @param {boolean} live is this video live ?
    * @returns {void}
    */
   private printVideoMeta(videoInfo: ytdl.videoInfo, live: boolean): void {
@@ -107,19 +107,26 @@ export default class Info extends YtKitCommand {
     this.ux.table(result, headers);
   }
 
+  /**
+   * Prints video size with a progress bar as it downloads.
+   *
+   * @param {unknown} from an object like who's properties you need to extract
+   * @param {string} location the objects path
+   * @param {unknown} exists if false always return the default value
+   */
   private getValueFromMeta<T>(
     from: unknown,
-    path: string,
-    depends?: unknown,
+    location: string,
+    exists?: unknown,
     defaultValue?: unknown,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transform?: (input: any) => T
   ): T | undefined {
-    if (depends) {
+    if (exists) {
       if (transform) {
-        return transform(getValueFrom<T>(from, path, defaultValue));
+        return transform(util.getValueFrom<T>(from, location, defaultValue));
       }
-      return getValueFrom<T>(from, path, defaultValue);
+      return util.getValueFrom<T>(from, location, defaultValue);
     }
     return defaultValue as T | undefined;
   }

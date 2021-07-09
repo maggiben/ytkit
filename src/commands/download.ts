@@ -160,6 +160,11 @@ export default class Download extends YtKitCommand {
     }
   }
 
+  /**
+   * Generates a download url
+   *
+   * @returns {void}
+   */
   public async getDownloadUrl(): Promise<string | undefined> {
     if (this.flags?.url) {
       const info = await ytdl.getInfo(this.flags?.url);
@@ -169,42 +174,31 @@ export default class Download extends YtKitCommand {
   }
 
   /**
-   * Prints basic video information.
+   * Prints video metadata information.
    *
-   * @param {Object} info
-   * @param {boolean} live
+   * @returns {void}
    */
-  public printVideoInfo(): void {
-    this.ux.log(`title: ${this.videoInfo?.videoDetails.title}`);
-    this.ux.log(`author: ${this.videoInfo?.videoDetails.author.name}`);
-    this.ux.log(`avg rating: ${this.videoInfo?.videoDetails.averageRating}`);
-    this.ux.log(`views: ${this.videoInfo?.videoDetails.viewCount}`);
-    if (!this.videoFormat?.isLive) {
-      this.ux.log(`length: ${util.toHumanTime(parseInt(this.videoInfo?.videoDetails['lengthSeconds'] ?? '', 10))}`);
-    }
-  }
-
-  private setOutput(): void {
-    this.output = this.getFlag<string>('output');
-    const regexp = new RegExp(/(\.\w+)?$/);
-    this.extension = regexp
-      .exec(this.output ?? '')
-      ?.slice(1, 2)
-      .pop();
-
-    if (this.output) {
-      if (this.extension && !this.flags.quality && !this.flags['filter-container']) {
-        this.flags['filter-container'] = `^${this.extension.slice(1)}$`;
-      }
-    } else if (process.stdout.isTTY) {
-      this.output = 'y';
+  private printVideoMeta(): void {
+    this.ux.log(`title: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.title', '')}`);
+    this.ux.log(`author: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.author.name', '')}`);
+    this.ux.log(`avg rating: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.averageRating', '')}`);
+    this.ux.log(`views: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.viewCount', '')}`);
+    this.ux.log(`publish date: ${util.getValueFrom<string>(this.videoInfo, 'videoDetails.publishDate', '')}`);
+    if (!util.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive)) {
+      this.ux.log(
+        `length: ${util.toHumanTime(
+          parseInt(util.getValueFrom<string>(this.videoInfo, 'videoDetails.lengthSeconds', ''), 10)
+        )}`
+      );
     }
   }
 
   /**
-   * Prints video size with a progress bar as it downloads.
+   * Builds download options based on the following input flags
+   * quality: Video quality to download.
+   * range: A byte range in the form INT-INT that specifies part of the file to download
    *
-   * @param {number} size
+   * @returns {@link ytdl.downloadOptions} the downalod options
    */
   private buildDownloadOptions(): ytdl.downloadOptions {
     const options: ytdl.downloadOptions = {};
@@ -223,6 +217,37 @@ export default class Download extends YtKitCommand {
     };
   }
 
+  /**
+   * Checks if output flag is set, it extracts the filename extension
+   * and uses it to filter out format container, effectively setting/overriding the flag 'filter-container'
+   * if no option is given and stdout is TTY sets the output flag equal to the video title
+   *
+   * @param {unknown} from an object like who's properties you need to extract
+   * @param {string} path the objects path
+   * @param {boolean} depends should re
+   */
+  private setOutput(): void {
+    this.output = this.getFlag<string>('output');
+    const regexp = new RegExp(/(\.\w+)?$/);
+    this.extension = regexp
+      .exec(this.output ?? '')
+      ?.slice(1, 2)
+      .pop();
+
+    if (this.output) {
+      if (this.extension && !this.flags.quality && !this.flags['filter-container']) {
+        this.flags['filter-container'] = `^${this.extension.slice(1)}$`;
+      }
+    } else if (process.stdout.isTTY) {
+      this.output = '{videoDetails.title}';
+    }
+  }
+
+  /**
+   * Gets the ouput file fiven a file name or string template
+   *
+   * @returns {string} output file
+   */
   private getOutputFile(): string {
     let output = util.tmpl(this.output, [this.videoInfo, this.videoFormat]);
     if (!this.extension && this.videoFormat?.container) {
@@ -237,6 +262,12 @@ export default class Download extends YtKitCommand {
     return output;
   }
 
+  /**
+   * Sets videoInfo & videoFormat variables when they become available
+   * though the stream
+   *
+   * @returns {string} output file
+   */
   private setVideInfoAndVideoFormat(): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat }> {
     return new Promise((resolve, reject) => {
       this.readStream.on('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
@@ -254,6 +285,12 @@ export default class Download extends YtKitCommand {
     });
   }
 
+  /**
+   * Pipes the download stream to either a file to stdout
+   * also sets the error handler function
+   *
+   * @returns {void}
+   */
   private setVideoOutputAndErrorHandler(): void {
     const onError = (error: Error): void => this.onError(error);
     if (!this.output) {
@@ -265,9 +302,15 @@ export default class Download extends YtKitCommand {
     return;
   }
 
+  /**
+   * Output human readable information about a video download
+   * It handles live video too
+   *
+   * @returns {void}
+   */
   private outputHuman(): void {
     // Print information about the video if not streaming to stdout.
-    this.printVideoInfo();
+    this.printVideoMeta();
     const sizeUnknown =
       this.videoFormat &&
       !('clen' in this.videoFormat) &&
@@ -291,6 +334,11 @@ export default class Download extends YtKitCommand {
     }
   }
 
+  /**
+   * Sets the filter options
+   *
+   * @returns {void}
+   */
   private setFilters(): void {
     // Create filters.
     // ((format: Record<string, string>) => boolean))
@@ -356,6 +404,9 @@ export default class Download extends YtKitCommand {
   /**
    * Prints size of a live video, playlist, or video format that does not
    * have a content size either in its format metadata or its headers.
+   *
+   * @param {Readable} readStream the download stream
+   * @returns {void}
    */
   private printLiveVideoSize(readStream: Readable): void {
     let dataRead = 0;
@@ -383,6 +434,7 @@ export default class Download extends YtKitCommand {
    * Prints video size with a progress bar as it downloads.
    *
    * @param {number} size
+   * @returns {void}
    */
   private printVideoSize(readStream: Readable, size: number): void {
     const bar = this.ux.cli.progress({
@@ -426,6 +478,12 @@ export default class Download extends YtKitCommand {
     return await ytdl.getInfo(this.flags.url);
   }
 
+  /**
+   * Error handler
+   *
+   * @param {Error} error the error
+   * @returns {void}
+   */
   private onError(error: Error): void {
     this.ux.error(error.message);
     process.exit(1);
