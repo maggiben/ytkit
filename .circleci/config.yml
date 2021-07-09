@@ -96,7 +96,7 @@ jobs:
             for TARBALL in ls $TARBALLS
             do
               echo "uploading: $TARBALL"
-              github-release upload --user ${CIRCLE_PROJECT_USERNAME} --name ${TARBALL} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --file ~/cli/dist/tarballs/$EXE/$EXE-$TAG/$TARBALL
+              ~/go/bin/github-release github-release upload --user ${CIRCLE_PROJECT_USERNAME} --name ${TARBALL} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --file ~/cli/dist/tarballs/$EXE/$EXE-$TAG/$TARBALL
             done
   scan-for-vulnerabilities:
     <<: *test
