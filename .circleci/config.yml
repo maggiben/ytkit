@@ -70,15 +70,13 @@ jobs:
   publish-github-release:
     docker:
       - image: cibuilds/github:0.10
+      - image: node:latest
     steps:
       - attach_workspace:
           at: ~/cli
       - run:
           name: 'Publish Release on GitHub'
           command: |
-            sudo apt install nodejs
-            node -v
-            npm -v
             VERSION=$(node ./bin/run --version)
             ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} ./artifacts
   publish-tarballs:
