@@ -1,7 +1,7 @@
 {
   "name": "ytkit",
   "description": "Youtube downloader",
-  "version": "1.4.9",
+  "version": "1.4.10",
   "author": "Benjamin Maggi @maggiben",
   "bin": {
     "test": "./scripts/test.js",
@@ -35,6 +35,7 @@
     "@types/node": "^10",
     "@typescript-eslint/eslint-plugin": "^4.28.1",
     "@typescript-eslint/parser": "^4.28.1",
+    "aws-sdk": "^2.942.0",
     "chai": "^4",
     "chalk": "^4.1.1",
     "codecov": "^3.8.2",
