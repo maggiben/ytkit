@@ -1,6 +1,6 @@
 {
   "name": "ytkit",
-  "description": "Youtube downloader",
+  "description": "A command line streaming youtube video downloader",
   "version": "1.4.16",
   "author": "Benjamin Maggi @maggiben",
   "bin": {
@@ -75,7 +75,12 @@
   ],
   "homepage": "https://github.com/maggiben/ytkit",
   "keywords": [
-    "oclif"
+    "youtube",
+    "download",
+    "video",
+    "audio",
+    "cli",
+    "terminal"
   ],
   "license": "MIT",
   "main": "lib/index.js",
@@ -121,7 +126,10 @@
       }
     }
   },
-  "repository": "maggiben/ytkit",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/maggiben/ytkit.git"
+  },
   "scripts": {
     "build": "node ./scripts/build.js",
     "clean": "node ./scripts/clean.js",

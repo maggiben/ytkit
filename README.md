@@ -1,6 +1,6 @@
-# ytkit
+# YTKIT
 
-Youtube downloader
+Youtube video downloader
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/ytkit.svg)](https://npmjs.org/package/ytkit)
