@@ -96,7 +96,7 @@ jobs:
             for TARBALL in $TARBALLS
             do
               echo "uploading: $TARBALL"
-              ~/go/bin/github-release github-release upload --user ${CIRCLE_PROJECT_USERNAME} --name ${TARBALL} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --file ~/cli/dist/tarballs/$EXE/$EXE-$TAG/$TARBALL
+              ~/go/bin/github-release upload --user ${CIRCLE_PROJECT_USERNAME} --name ${TARBALL} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --file ~/cli/dist/tarballs/$EXE/$EXE-$TAG/$TARBALL
             done
   scan-for-vulnerabilities:
     <<: *test
@@ -128,7 +128,7 @@ notify:
     - url: https://webhooks.gitter.im/e/b59f54263a82ada6e41e
 workflows:
   version: 2
-  'ytdl':
+  'ytkit':
     jobs:
       - node-latest
       - node-14
@@ -152,10 +152,7 @@ workflows:
               ignore: /.*/
       - publish-github-release:
           requires:
-            - cache
-            - node-latest
-            - node-14
-            - node-12
+            - deploy
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
@@ -166,10 +163,7 @@ workflows:
             - cache
       - publish-tarballs:
           requires:
-            - cache
-            - node-latest
-            - node-14
-            - node-12
+            - deploy
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
