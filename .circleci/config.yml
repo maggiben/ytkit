@@ -30,7 +30,6 @@ jobs:
       - run:
           name: Report coverage
           command: yarn report-coverage
-      - snyk/scan
       - save_cache:
           key: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
           paths:
@@ -99,6 +98,17 @@ jobs:
               echo "uploading: $TARBALL"
               github-release upload --user ${CIRCLE_PROJECT_USERNAME} --name ${TARBALL} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --file ~/cli/dist/tarballs/$EXE/$EXE-$TAG/$TARBALL
             done
+  scan-for-vulnerabilities:
+    <<: *test
+    steps:
+      - attach_workspace:
+          at: ~/cli
+      - run:
+          name: Install snyk dependencies
+          command: |
+            apt-get update
+            apt-get install -y sudo
+      - snyk/scan
   publish-tarballs:
     <<: *test
     steps:
@@ -151,6 +161,12 @@ workflows:
               only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
+      - scan-for-vulnerabilities:
+          reuires:
+            - cache
+            - node-latest
+            - node-14
+            - node-12
       - publish-tarballs:
           requires:
             - cache
