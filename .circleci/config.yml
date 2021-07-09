@@ -75,11 +75,15 @@ jobs:
       - run:
           name: 'Publish Release on GitHub'
           command: |
-            GHR_URL="https://github.com/tcnksm/ghr/releases/download/v0.13.0/ghr_v0.13.0_linux_amd64.tar.gz"
-            GHR_VERSION="0.13.0"
-            wget "$GHR_URL" && 	tar xzf ghr_v${GHR_VERSION}_linux_amd64.tar.gz && mv ghr_v${GHR_VERSION}_linux_amd64/ghr ../ghr && rm -r ghr_v${GHR_VERSION}_linux_amd64.tar.gz ghr_v${GHR_VERSION}_linux_amd64/
+            apt-get update
+            apt-get install -y golang
+            go get github.com/github-release/github-release
             VERSION=$(node ./bin/run --version)
-            ../ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION} -replace ~/cli
+            TAG=$(node ./bin/run --version | awk 'BEGIN { FS = " " } ; { print $1 }' | awk 'BEGIN { FS = "/" } ; { printf "v%s", $2 }')
+            EXE=$(node ./bin/run --version | awk 'BEGIN { FS = " " } ; { print $1 }' | awk 'BEGIN { FS = "/" } ; { print $1 }')
+            FILE=$(awk -v tag=$TAG -v exe=$EXE 'BEGIN{ t=tag;e=exe } { printf "%s-%s.tgz", e, t}' <<< /dev/null )
+            ~/go/bin/github-release release --user ${CIRCLE_PROJECT_USERNAME} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --pre-release
+            ~/go/bin/github-release upload --user ${CIRCLE_PROJECT_USERNAME} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --name ${FILE} --file ~/cli/"$FILE"
   publish-tarballs:
     <<: *test
     steps:
