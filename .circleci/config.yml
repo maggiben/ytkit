@@ -93,7 +93,7 @@ jobs:
             EXE=$(node ./bin/run --version | awk 'BEGIN { FS = " " } ; { print $1 }' | awk 'BEGIN { FS = "/" } ; { print $1 }')
             ~/go/bin/github-release release --user ${CIRCLE_PROJECT_USERNAME} --name "$(echo $EXE | tr '[a-z]' '[A-Z]') ${TAG}" --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --pre-release
             TARBALLS=$(ls ~/cli/dist/tarballs/$EXE/$EXE-$TAG)
-            for TARBALL in ls $TARBALLS
+            for TARBALL in $TARBALLS
             do
               echo "uploading: $TARBALL"
               ~/go/bin/github-release github-release upload --user ${CIRCLE_PROJECT_USERNAME} --name ${TARBALL} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${TAG} --file ~/cli/dist/tarballs/$EXE/$EXE-$TAG/$TARBALL
