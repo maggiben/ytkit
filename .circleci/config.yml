@@ -89,12 +89,12 @@ jobs:
             apt-get install -y golang
             go get github.com/github-release/github-release
             yarn pack
-            ~/go/bin/github-release release --user ${CIRCLE_PROJECT_USERNAME} --name "$(echo $CIRCLE_PROJECT_REPONAME | tr '[a-z]' '[A-Z]') ${VERSION}" --repo ${CIRCLE_PROJECT_REPONAME} --tag ${VERSION} --pre-release
-            TARBALLS=$(ls ~/cli/dist/tarballs/$CIRCLE_PROJECT_REPONAME/$CIRCLE_PROJECT_REPONAME-$VERSION)
+            ~/go/bin/github-release release --user $CIRCLE_PROJECT_USERNAME --name "$(echo $CIRCLE_PROJECT_REPONAME | tr '[a-z]' '[A-Z]') $CIRCLE_TAG)" --repo $CIRCLE_PROJECT_REPONAME --tag $CIRCLE_TAG --pre-release
+            TARBALLS=$(ls ~/cli/dist/tarballs/$CIRCLE_PROJECT_REPONAME/$CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG)
             for TARBALL in $TARBALLS
             do
               echo "uploading: $TARBALL"
-              ~/go/bin/github-release upload --user ${CIRCLE_PROJECT_USERNAME} --name ${TARBALL} --repo ${CIRCLE_PROJECT_REPONAME} --tag ${VERSION} --file ~/cli/dist/tarballs/$CIRCLE_PROJECT_REPONAME/$CIRCLE_PROJECT_REPONAME-$VERSION/$TARBALL
+              ~/go/bin/github-release upload --user $CIRCLE_PROJECT_USERNAME --name $TARBALL --repo $CIRCLE_PROJECT_REPONAME --tag $CIRCLE_TAG --file ~/cli/dist/tarballs/$CIRCLE_PROJECT_REPONAME/$CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG/$TARBALL
             done
   scan-for-vulnerabilities:
     <<: *test
@@ -127,11 +127,11 @@ jobs:
       - docker/dockerlint
       - docker/check
       - docker/build:
-          tag: $VERSION
-          image: $DOCKER_HUB_REPOSITORY:$VERSION
+          tag: $CIRCLE_TAG
+          image: $DOCKER_HUB_REPOSITORY:$CIRCLE_TAG
       - docker/push:
-          tag: $VERSION
-          image: $DOCKER_HUB_REPOSITORY:$VERSION
+          tag: $CIRCLE_TAG
+          image: $DOCKER_HUB_REPOSITORY:$CIRCLE_TAG
 notify:
   webhooks:
     # A list of hook hashes, containing the url field
