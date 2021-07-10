@@ -133,15 +133,15 @@
   "scripts": {
     "build": "node ./scripts/build.js",
     "clean": "node ./scripts/clean.js",
-    "compile": "node ./scripts/compile.js",
-    "compile-test": "node ./scripts/compile-test.js",
+    "compile": "tsc -p . --pretty",
+    "compile-test": "tsc -p ./test --pretty",
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint . --ext .ts",
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
     "test": "nyc --extension .ts mocha --forbid-only \"test/**/*.test.ts\"",
     "report-coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "version": "oclif-dev readme && git add README.md",
-    "lint": "node ./scripts/lint.js",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "ytkit-pack": "oclif-dev pack --xz",
     "ytkit-pubish": "oclif-dev publish"
   },

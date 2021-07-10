@@ -44,7 +44,8 @@ import { JsonMap } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
-import * as util from '../utils/utils';
+import * as utils from '../utils/utils';
+import { UX } from '../Ux';
 
 export interface IFlags {
   url: string;
@@ -57,6 +58,16 @@ export interface IFlags {
   output: string;
   name: string;
   force: boolean;
+}
+
+declare interface IOutputVideoMeta {
+  label: string;
+  from: Record<string, unknown>;
+  path: string;
+  log: (...args: string[]) => UX;
+  requires?: string | boolean | ((value: unknown) => boolean);
+  transformValue?: <T>(value: T) => T;
+  defaultValue?: unknown;
 }
 
 export interface IFilter {
@@ -173,29 +184,135 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private printVideoMeta(): void {
-    this.logStyledProp('title', util.getValueFrom<string>(this.videoInfo, 'videoDetails.title', ''));
-    this.logStyledProp('author', util.getValueFrom<string>(this.videoInfo, 'videoDetails.author.name', ''));
-    this.logStyledProp('avg rating', util.getValueFrom<string>(this.videoInfo, 'videoDetails.averageRating', ''));
-    this.logStyledProp('views', util.getValueFrom<string>(this.videoInfo, 'videoDetails.viewCount', ''));
-    this.logStyledProp('publish date', util.getValueFrom<string>(this.videoInfo, 'videoDetails.publishDate', ''));
-    if (!util.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive)) {
-      const length = util.toHumanTime(
-        parseInt(util.getValueFrom<string>(this.videoInfo, 'videoDetails.lengthSeconds', ''), 10)
+    this.prepareVideoMetaBatch().forEach((outputVideoMeta: IOutputVideoMeta) => {
+      const label = outputVideoMeta.label;
+      const value = utils.getValueFrom<string>(
+        outputVideoMeta.from,
+        outputVideoMeta.path,
+        outputVideoMeta.defaultValue
       );
-      this.logStyledProp('length', length);
-    }
-    if (util.getValueFrom<string>(this.videoFormat, 'qualityLabel')) {
-      this.logStyledProp('quality', util.getValueFrom<string>(this.videoFormat, 'quality', ''));
-      const bitrate = util.toHumanSize(parseInt(util.getValueFrom<string>(this.videoFormat, 'bitrate', ''), 10));
-      this.logStyledProp('video bitrate:', bitrate);
-    }
-    if (util.getValueFrom<string>(this.videoFormat, 'audioBitrate')) {
-      this.logStyledProp('audio bitrate', `${util.getValueFrom<string>(this.videoFormat, 'audioBitrate')}KB`);
-    }
-    this.logStyledProp('codecs', util.getValueFrom<string>(this.videoFormat, 'codecs', ''));
-    this.logStyledProp('itag', util.getValueFrom<string>(this.videoFormat, 'itag', ''));
-    this.logStyledProp('container', util.getValueFrom<string>(this.videoFormat, 'container', ''));
-    this.logStyledProp('output', this.output);
+      if (outputVideoMeta.requires) {
+        if (outputVideoMeta.transformValue) {
+          return outputVideoMeta.log(label, outputVideoMeta.transformValue(value));
+        }
+        return outputVideoMeta.log(label, value);
+      }
+    });
+  }
+
+  /**
+   * Prints video metadata information.
+   *
+   * @returns {IOutputVideoMeta[]} a collection of labels and values to print
+   */
+  private prepareVideoMetaBatch(): IOutputVideoMeta[] {
+    const batch = [
+      {
+        label: 'title',
+        from: this.videoInfo,
+        path: 'videoDetails.title',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+        defaultValue: '',
+      },
+      {
+        label: 'author',
+        from: this.videoInfo,
+        path: 'videoDetails.author.name',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+        defaultValue: '',
+      },
+      {
+        label: 'avg rating',
+        from: this.videoInfo,
+        path: 'videoDetails.averageRating',
+        log: this.logStyledProp.bind(this),
+        defaultValue: '',
+      },
+      {
+        label: 'views',
+        from: this.videoInfo,
+        path: 'videoDetails.viewCount',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+        defaultValue: '',
+      },
+      {
+        label: 'publish date',
+        from: this.videoInfo,
+        path: 'videoDetails.publishDate',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+        defaultValue: '',
+      },
+      {
+        label: 'length',
+        from: this.videoInfo,
+        path: 'videoDetails.lengthSeconds',
+        log: this.logStyledProp.bind(this),
+        requires: !utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive),
+        transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
+        defaultValue: '',
+      },
+      {
+        label: 'quality',
+        from: this.videoFormat,
+        path: 'quality',
+        log: this.logStyledProp.bind(this),
+        requires: utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
+        defaultValue: '',
+      },
+      {
+        label: 'video bitrate:',
+        from: this.videoFormat,
+        path: 'bitrate',
+        log: this.logStyledProp.bind(this),
+        requires: utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
+        transformValue: (value: string): string => utils.toHumanSize(parseInt(value, 10)),
+        defaultValue: '',
+      },
+      {
+        label: 'audio bitrate',
+        from: this.videoFormat,
+        path: 'audioBitrate',
+        log: this.logStyledProp.bind(this),
+        requires: utils.getValueFrom<string>(this.videoFormat, 'audioBitrate'),
+        transformValue: (value: string): string => `${value}KB`,
+        defaultValue: '',
+      },
+      {
+        label: 'codecs',
+        from: this.videoFormat,
+        path: 'codecs',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+        defaultValue: '',
+      },
+      {
+        label: 'itag',
+        from: this.videoFormat,
+        path: 'itag',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+        defaultValue: '',
+      },
+      {
+        label: 'container',
+        from: this.videoFormat,
+        path: 'container',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+      },
+      {
+        label: 'output',
+        from: this,
+        path: 'output',
+        log: this.logStyledProp.bind(this),
+        requires: true,
+      },
+    ] as unknown[] as IOutputVideoMeta[];
+    return batch;
   }
 
   private logStyledProp(label: string, value: string): void {
@@ -258,7 +375,7 @@ export default class Download extends YtKitCommand {
    * @returns {string} output file
    */
   private getOutputFile(): string {
-    let output = util.tmpl(this.output, [this.videoInfo, this.videoFormat]);
+    let output = utils.tmpl(this.output, [this.videoInfo, this.videoFormat]);
     if (!this.extension && this.videoFormat?.container) {
       output += '.' + this.videoFormat?.container;
     }
@@ -319,22 +436,26 @@ export default class Download extends YtKitCommand {
    */
   private outputHuman(): void {
     // Print information about the video if not streaming to stdout.
-    this.printVideoMeta();
+    try {
+      this.printVideoMeta();
+    } catch (error) {
+      this.ux.cli.log(error);
+    }
+
     const sizeUnknown =
-      this.videoFormat &&
-      !('clen' in this.videoFormat) &&
-      (this.videoFormat?.isLive || this.videoFormat?.isHLS || this.videoFormat?.isDashMPD);
+      !utils.getValueFrom(this.videoFormat, 'clen') &&
+      (utils.getValueFrom(this.videoFormat, 'isLive') ||
+        utils.getValueFrom(this.videoFormat, 'isHLS') ||
+        utils.getValueFrom(this.videoFormat, 'isDashMPD'));
 
     if (sizeUnknown) {
       this.printLiveVideoSize(this.readStream);
-    } else if (this.videoFormat?.contentLength) {
-      this.printVideoSize(this.readStream, parseInt(this.videoFormat?.contentLength, 10));
+    } else if (utils.getValueFrom(this.videoFormat, 'contentLength')) {
+      this.printVideoSize(this.readStream, parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
     } else {
       this.readStream.once('response', (response) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (response.headers['content-length']) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          const size = parseInt(response.headers['content-length'], 10);
+        if (utils.getValueFrom(response, 'headers.content-length')) {
+          const size = parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
           this.printVideoSize(this.readStream, size);
         } else {
           this.printLiveVideoSize(this.readStream);
@@ -350,7 +471,6 @@ export default class Download extends YtKitCommand {
    */
   private setFilters(): void {
     // Create filters.
-    // ((format: Record<string, string>) => boolean))
     const filters: Array<[string, (format: ytdl.videoFormat) => boolean]> = [];
 
     /**
@@ -416,10 +536,10 @@ export default class Download extends YtKitCommand {
    */
   private printLiveVideoSize(readStream: Readable): void {
     let dataRead = 0;
-    const updateProgress = util.throttle(() => {
+    const updateProgress = utils.throttle(() => {
       readline.cursorTo(process.stdout, 0);
       readline.clearLine(process.stdout, 1);
-      let line = `size: ${util.toHumanSize(dataRead)}`;
+      let line = `size: ${utils.toHumanSize(dataRead)}`;
       if (dataRead >= 1024) {
         line += ` (${dataRead} bytes)`;
       }
@@ -432,7 +552,7 @@ export default class Download extends YtKitCommand {
     });
 
     readStream.on('end', () => {
-      this.ux.log(`downloaded: ${util.toHumanSize(dataRead)}`);
+      this.ux.cli.log(`downloaded: ${utils.toHumanSize(dataRead)}`);
     });
   }
 
