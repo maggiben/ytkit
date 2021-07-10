@@ -89,7 +89,7 @@ jobs:
             apt-get install -y golang
             go get github.com/github-release/github-release
             yarn pack
-            ~/go/bin/github-release release --user $CIRCLE_PROJECT_USERNAME --name "$(echo $CIRCLE_PROJECT_REPONAME | tr '[a-z]' '[A-Z]') $CIRCLE_TAG)" --repo $CIRCLE_PROJECT_REPONAME --tag $CIRCLE_TAG --pre-release
+            ~/go/bin/github-release release --user $CIRCLE_PROJECT_USERNAME --name "$(echo $CIRCLE_PROJECT_REPONAME | tr '[a-z]' '[A-Z]') $CIRCLE_TAG" --repo $CIRCLE_PROJECT_REPONAME --tag $CIRCLE_TAG --pre-release
             TARBALLS=$(ls ~/cli/dist/tarballs/$CIRCLE_PROJECT_REPONAME/$CIRCLE_PROJECT_REPONAME-$CIRCLE_TAG)
             for TARBALL in $TARBALLS
             do
