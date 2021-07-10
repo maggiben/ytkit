@@ -128,10 +128,10 @@ jobs:
       - docker/check
       - docker/build:
           tag: $CIRCLE_TAG
-          image: $DOCKER_HUB_REPOSITORY:$CIRCLE_TAG
+          image: $DOCKER_HUB_REPOSITORY
       - docker/push:
           tag: $CIRCLE_TAG
-          image: $DOCKER_HUB_REPOSITORY:$CIRCLE_TAG
+          image: $DOCKER_HUB_REPOSITORY
 notify:
   webhooks:
     # A list of hook hashes, containing the url field
