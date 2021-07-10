@@ -186,7 +186,12 @@ workflows:
               only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
-      - docker-build-and-push
+      - docker-build-and-push:
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
+            branches:
+              ignore: /.*/
   nightly:
     jobs:
       - cache
