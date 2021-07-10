@@ -130,10 +130,10 @@ jobs:
       - docker/dockerlint
       - docker/check
       - docker/build:
-          tag: $DOCKER_HUB_REPOSITORY:$VERSION
+          tag: $VERSION
           image: $DOCKER_HUB_REPOSITORY:$VERSION
       - docker/push:
-          tag: $DOCKER_HUB_REPOSITORY:$VERSION
+          tag: $VERSION
           image: $DOCKER_HUB_REPOSITORY:$VERSION
 notify:
   webhooks:
@@ -186,12 +186,7 @@ workflows:
               only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
-      - docker-build-and-push:
-          filters:
-            tags:
-              only: /^v\d+\.\d+\.\d+$/
-            branches:
-              ignore: /.*/
+      - docker-build-and-push
   nightly:
     jobs:
       - cache
