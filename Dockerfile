@@ -5,7 +5,7 @@ ARG YTKIT_CLI_VERSION=latest
 
 RUN npm install --global ytkit@${YTKIT_CLI_VERSION}
 
-RUN apt-get update && apt-get install jq
+RUN apt-get update && apt-get install --assume-yes jq
 RUN apt-get autoremove --assume-yes \
   && apt-get clean --assume-yes \
   && rm -rf /var/lib/apt/lists/*
