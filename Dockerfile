@@ -1,7 +1,9 @@
 FROM node:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN npm install --global ytkit@$latest
+ARG YTKIT_CLI_VERSION=latest
+
+RUN npm install --global ytkit@${YTKIT_CLI_VERSION}
 
 RUN apt-get update && apt-get install jq
 RUN apt-get autoremove --assume-yes \

@@ -1,10 +1,10 @@
 {
   "name": "ytkit",
   "description": "A command line streaming youtube video downloader",
-  "version": "1.4.25",
+  "version": "1.4.26",
   "author": "Benjamin Maggi @maggiben",
   "bin": {
-    "test": "yarn test",
+    "test": "./scripts/test.js",
     "ytkit": "./bin/run"
   },
   "bugs": "https://github.com/maggiben/ytkit/issues",

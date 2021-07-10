@@ -102,8 +102,7 @@ jobs:
   scan-for-vulnerabilities:
     <<: *test
     steps:
-      - attach_workspace:
-          at: ~/cli
+      - checkout
       - run:
           name: Install snyk dependencies
           command: |
@@ -155,8 +154,6 @@ workflows:
             branches:
               ignore: /.*/
       - scan-for-vulnerabilities:
-          requires:
-            - cache
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
