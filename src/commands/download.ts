@@ -140,7 +140,7 @@ export default class Download extends YtKitCommand {
       await this.setVideInfoAndVideoFormat();
       if (this.videoInfo && this.videoFormat) {
         this.setVideoOutput();
-        if (!this.flags.json && this.flags.output) {
+        if (!this.flags.json) {
           this.outputHuman();
         }
         return this.videoInfo;
