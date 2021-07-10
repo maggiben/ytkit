@@ -110,7 +110,7 @@ jobs:
             apt-get update
             apt-get install -y sudo
       - snyk/scan:
-          project-name: $CIRCLE_PROJECT_REPONAME
+          project: $CIRCLE_PROJECT_REPONAME
           fail-on-issues: false
   publish-tarballs:
     <<: *test
