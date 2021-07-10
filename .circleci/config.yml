@@ -109,7 +109,8 @@ jobs:
           command: |
             apt-get update
             apt-get install -y sudo
-      - snyk/scan
+      - snyk/scan:
+          fail-on-issues: false
   publish-tarballs:
     <<: *test
     steps:
@@ -125,8 +126,16 @@ jobs:
   docker-build-and-push:
     executor: docker/machine
     steps:
+      - attach_workspace:
+          at: ~/cli
       - docker/dockerlint
       - docker/check
+      - docker/build:
+          tag: $DOCKER_HUB_REPOSITORY:$VERSION
+          image: $DOCKER_HUB_REPOSITORY:$VERSION
+      - docker/push:
+          tag: $DOCKER_HUB_REPOSITORY:$VERSION
+          image: $DOCKER_HUB_REPOSITORY:$VERSION
 notify:
   webhooks:
     # A list of hook hashes, containing the url field
