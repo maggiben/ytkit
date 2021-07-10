@@ -34,10 +34,18 @@
  */
 
 import ytdl = require('ytdl-core');
-import * as util from '../utils/utils';
+import * as utils from '../utils/utils';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import { getValueFrom } from '../utils/utils';
+
+declare interface IOutputVideoMeta {
+  label: string;
+  from: Record<string, unknown>;
+  path: string;
+  requires?: string | boolean | ((value: unknown) => boolean);
+  transformValue?: <T>(value: T) => T;
+}
 
 export default class Info extends YtKitCommand {
   public static readonly description = 'display information about a video';
@@ -55,28 +63,79 @@ export default class Info extends YtKitCommand {
     }),
   };
 
+  protected videoInfo?: ytdl.videoInfo;
+
   public async run(): Promise<ytdl.videoInfo | undefined> {
-    const videoInfo = await this.getVideoInfo();
-    await this.showVideoInfo(videoInfo);
-    return videoInfo;
+    this.videoInfo = await this.getVideoInfo();
+    if (this.videoInfo) {
+      this.showVideoInfo();
+    }
+    return this.videoInfo;
+  }
+
+  /**
+   * Prepares video metadata information.
+   *
+   * @returns {IOutputVideoMeta[]} a collection of labels and values to print
+   */
+  private prepareVideoMetaBatch(): IOutputVideoMeta[] {
+    const batch = [
+      {
+        label: 'title',
+        path: 'title',
+      },
+      {
+        label: 'author',
+        path: 'author.name',
+      },
+      {
+        label: 'avg rating',
+        path: 'averageRating',
+      },
+      {
+        label: 'views',
+        path: 'viewCount',
+      },
+      {
+        label: 'publish date',
+        path: 'publishDate',
+      },
+      {
+        label: 'length',
+        path: 'lengthSeconds',
+        requires: utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive),
+        transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
+      },
+    ] as unknown[] as IOutputVideoMeta[];
+    return batch;
+  }
+
+  /**
+   * Print stilized output
+   *
+   * @param {string} label the label for the value
+   * @param {string} value the value to print
+   */
+  private logStyledProp(label: string, value: string): void {
+    this.ux.log(`${this.ux.chalk.bold.gray(label)}: ${value}`);
   }
 
   /**
    * Prints video metadata information.
    *
-   * @param {videoInfo} info video info object
-   * @param {boolean} live is this video live ?
    * @returns {void}
    */
-  private printVideoMeta(videoInfo: ytdl.videoInfo, live: boolean): void {
-    this.ux.log(`title: ${videoInfo.videoDetails.title}`);
-    this.ux.log(`author: ${videoInfo.videoDetails.author.name}`);
-    this.ux.log(`avg rating: ${videoInfo.videoDetails.averageRating}`);
-    this.ux.log(`views: ${videoInfo.videoDetails.viewCount}`);
-    this.ux.log(`publish date: ${videoInfo.videoDetails.publishDate}`);
-    if (!live) {
-      this.ux.log(`length: ${util.toHumanTime(parseInt(videoInfo.videoDetails.lengthSeconds, 10))}`);
-    }
+  private printVideoMeta(): void {
+    this.prepareVideoMetaBatch().forEach((outputVideoMeta: IOutputVideoMeta) => {
+      const { label } = outputVideoMeta;
+      const value = utils.getValueFrom<string>(this.videoInfo, `videoDetails.${outputVideoMeta.path}`, '');
+      if (!outputVideoMeta.requires) {
+        if (outputVideoMeta.transformValue) {
+          return this.logStyledProp(label, outputVideoMeta.transformValue(value));
+        }
+        return this.logStyledProp(label, value);
+      }
+    });
   }
 
   /**
@@ -85,16 +144,17 @@ export default class Info extends YtKitCommand {
    * @param {Object} videoInfo the video info object
    * @returns {Promise<void>}
    */
-  private printVideoFormats(videoInfo: ytdl.videoInfo): void {
-    const result = videoInfo.formats.map((format) => ({
+  private printVideoFormats(): void {
+    const formats = utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats');
+    const result = formats.map((format) => ({
       itag: getValueFrom<string>(format, 'itag', ''),
       container: getValueFrom<string>(format, 'container', ''),
       quality: getValueFrom<string>(format, 'qualityLabel', ''),
       codecs: getValueFrom<string>(format, 'codecs'),
-      bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', util.toHumanSize),
+      bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', utils.toHumanSize),
       'audio bitrate': this.getAudioBitRate(format.audioBitrate),
       size: this.getValueFromMeta(format, 'contentLength', format.contentLength, '', (contentLength: string) =>
-        util.toHumanSize(parseInt(contentLength, 10))
+        utils.toHumanSize(parseInt(contentLength, 10))
       ),
     }));
     const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
@@ -122,9 +182,9 @@ export default class Info extends YtKitCommand {
   ): T | undefined {
     if (exists) {
       if (transform) {
-        return transform(util.getValueFrom<T>(from, location, defaultValue));
+        return transform(utils.getValueFrom<T>(from, location, defaultValue));
       }
-      return util.getValueFrom<T>(from, location, defaultValue);
+      return utils.getValueFrom<T>(from, location, defaultValue);
     }
     return defaultValue as T | undefined;
   }
@@ -135,17 +195,11 @@ export default class Info extends YtKitCommand {
    * @param {Object} videoInfo the video info object
    * @returns {Promise<void>}
    */
-  private async showVideoInfo(videoInfo?: ytdl.videoInfo): Promise<void> {
-    const info = videoInfo ?? (await this.getVideoInfo());
-    if (info) {
-      if (this.flags.formats) {
-        this.printVideoFormats(info);
-      } else {
-        this.printVideoMeta(
-          info,
-          info.formats.some((f) => f.isLive)
-        );
-      }
+  private showVideoInfo(): void {
+    if (this.flags.formats) {
+      this.printVideoFormats();
+    } else {
+      this.printVideoMeta();
     }
   }
 

@@ -45,29 +45,13 @@ import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
-import { UX } from '../Ux';
-
-export interface IFlags {
-  url: string;
-  quality: string;
-  filter: string;
-  range: string;
-  ['filter-container']: string;
-  begin: string;
-  urlonly: boolean;
-  output: string;
-  name: string;
-  force: boolean;
-}
 
 declare interface IOutputVideoMeta {
   label: string;
   from: Record<string, unknown>;
   path: string;
-  log: (...args: string[]) => UX;
   requires?: string | boolean | ((value: unknown) => boolean);
   transformValue?: <T>(value: T) => T;
-  defaultValue?: unknown;
 }
 
 export interface IFilter {
@@ -179,29 +163,7 @@ export default class Download extends YtKitCommand {
   }
 
   /**
-   * Prints video metadata information.
-   *
-   * @returns {void}
-   */
-  private printVideoMeta(): void {
-    this.prepareVideoMetaBatch().forEach((outputVideoMeta: IOutputVideoMeta) => {
-      const label = outputVideoMeta.label;
-      const value = utils.getValueFrom<string>(
-        outputVideoMeta.from,
-        outputVideoMeta.path,
-        outputVideoMeta.defaultValue
-      );
-      if (outputVideoMeta.requires) {
-        if (outputVideoMeta.transformValue) {
-          return outputVideoMeta.log(label, outputVideoMeta.transformValue(value));
-        }
-        return outputVideoMeta.log(label, value);
-      }
-    });
-  }
-
-  /**
-   * Prints video metadata information.
+   * Prepares video metadata information.
    *
    * @returns {IOutputVideoMeta[]} a collection of labels and values to print
    */
@@ -211,114 +173,105 @@ export default class Download extends YtKitCommand {
         label: 'title',
         from: this.videoInfo,
         path: 'videoDetails.title',
-        log: this.logStyledProp.bind(this),
-        requires: true,
-        defaultValue: '',
       },
       {
         label: 'author',
         from: this.videoInfo,
         path: 'videoDetails.author.name',
-        log: this.logStyledProp.bind(this),
-        requires: true,
-        defaultValue: '',
       },
       {
         label: 'avg rating',
         from: this.videoInfo,
         path: 'videoDetails.averageRating',
-        log: this.logStyledProp.bind(this),
-        defaultValue: '',
       },
       {
         label: 'views',
         from: this.videoInfo,
         path: 'videoDetails.viewCount',
-        log: this.logStyledProp.bind(this),
-        requires: true,
-        defaultValue: '',
       },
       {
         label: 'publish date',
         from: this.videoInfo,
         path: 'videoDetails.publishDate',
-        log: this.logStyledProp.bind(this),
-        requires: true,
-        defaultValue: '',
       },
       {
         label: 'length',
         from: this.videoInfo,
         path: 'videoDetails.lengthSeconds',
-        log: this.logStyledProp.bind(this),
-        requires: !utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive),
+        requires: utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive),
         transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
-        defaultValue: '',
       },
       {
         label: 'quality',
         from: this.videoFormat,
         path: 'quality',
-        log: this.logStyledProp.bind(this),
-        requires: utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
-        defaultValue: '',
+        requires: !utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
       },
       {
         label: 'video bitrate:',
         from: this.videoFormat,
         path: 'bitrate',
-        log: this.logStyledProp.bind(this),
-        requires: utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
+        requires: !utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
         transformValue: (value: string): string => utils.toHumanSize(parseInt(value, 10)),
-        defaultValue: '',
       },
       {
         label: 'audio bitrate',
         from: this.videoFormat,
         path: 'audioBitrate',
-        log: this.logStyledProp.bind(this),
-        requires: utils.getValueFrom<string>(this.videoFormat, 'audioBitrate'),
+        requires: !utils.getValueFrom<string>(this.videoFormat, 'audioBitrate'),
         transformValue: (value: string): string => `${value}KB`,
-        defaultValue: '',
       },
       {
         label: 'codecs',
         from: this.videoFormat,
         path: 'codecs',
-        log: this.logStyledProp.bind(this),
-        requires: true,
-        defaultValue: '',
       },
       {
         label: 'itag',
         from: this.videoFormat,
         path: 'itag',
-        log: this.logStyledProp.bind(this),
-        requires: true,
-        defaultValue: '',
       },
       {
         label: 'container',
         from: this.videoFormat,
         path: 'container',
-        log: this.logStyledProp.bind(this),
-        requires: true,
       },
       {
         label: 'output',
         from: this,
         path: 'output',
-        log: this.logStyledProp.bind(this),
-        requires: true,
       },
     ] as unknown[] as IOutputVideoMeta[];
     return batch;
   }
 
+  /**
+   * Print stilized output
+   *
+   * @param {string} label the label for the value
+   * @param {string} value the value to print
+   */
   private logStyledProp(label: string, value: string): void {
     this.ux.log(`${this.ux.chalk.bold.gray(label)}: ${value}`);
   }
 
+  /**
+   * Prints video metadata information.
+   *
+   * @returns {void}
+   */
+  private printVideoMeta(): void {
+    this.prepareVideoMetaBatch().forEach((outputVideoMeta: IOutputVideoMeta) => {
+      const { label, from } = outputVideoMeta;
+      const value = utils.getValueFrom<string>(from, outputVideoMeta.path, '');
+      if (!outputVideoMeta.requires) {
+        if (outputVideoMeta.transformValue) {
+          return this.logStyledProp(label, outputVideoMeta.transformValue(value));
+        }
+        return this.logStyledProp(label, value);
+      }
+    });
+  }
   /**
    * Builds download options based on the following input flags
    * quality: Video quality to download.

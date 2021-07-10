@@ -75,7 +75,10 @@ describe('video download', () => {
       });
       return stream;
     });
-    logStub = sandbox.stub(UX.prototype, 'log').returns(UX.prototype);
+    logStub = sandbox.stub(UX.prototype, 'log').callsFake((input: string) => {
+      expect(input.length).to.not.be.equal(0);
+      return UX.prototype;
+    });
   });
   afterEach(() => {
     sandbox.restore();
@@ -113,10 +116,11 @@ describe('video download', () => {
     .stdout()
     .command(['download', '--url', videoUrl, '--output', output, '--quality', '278'])
     .it('downloads a video and prints video metadata', () => {
-      expect(logStub.callCount).to.be.equal(12);
+      expect(logStub.callCount).to.be.equal(13);
       [
         videoInfo.videoDetails.title,
         videoInfo.videoDetails.author.name,
+        videoInfo.videoDetails.averageRating,
         videoInfo.videoDetails.viewCount,
         videoInfo.videoDetails.publishDate,
         utils.toHumanTime(parseInt(videoInfo.videoDetails.lengthSeconds, 10)),
@@ -420,10 +424,11 @@ describe('download a live video with size unknown', () => {
       }
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
-      expect(logStub.callCount).to.be.equal(8);
+      expect(logStub.callCount).to.be.equal(9);
       [
         videoInfo.videoDetails.title,
         videoInfo.videoDetails.author.name,
+        videoInfo.videoDetails.averageRating,
         videoInfo.videoDetails.viewCount,
         videoInfo.videoDetails.publishDate,
         webmFormat.codecs,
