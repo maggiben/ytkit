@@ -140,7 +140,7 @@ export default class Download extends YtKitCommand {
       await this.setVideInfoAndVideoFormat();
       if (this.videoInfo && this.videoFormat) {
         this.setVideoOutput();
-        if (!this.flags.json) {
+        if (!this.flags.json && this.isTTY()) {
           this.outputHuman();
         }
         return this.videoInfo;
@@ -317,9 +317,18 @@ export default class Download extends YtKitCommand {
       if (this.extension && !this.flags.quality && !this.flags['filter-container']) {
         this.flags['filter-container'] = `^${this.extension.slice(1)}$`;
       }
-    } else if (process.stdout.isTTY) {
+    } else if (this.isTTY()) {
       this.output = '{videoDetails.title}';
     }
+  }
+
+  /**
+   * Gets the ouput file fiven a file name or string template
+   *
+   * @returns {boolean} returns true if stdout is a terminal
+   */
+  private isTTY(): boolean {
+    return Boolean(process.stdout.isTTY);
   }
 
   /**
