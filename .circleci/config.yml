@@ -130,12 +130,12 @@ jobs:
       - checkout
       - docker/dockerlint
       - docker/check
-      # - docker/build:
-      #     tag: $DOCKER_HUB_REPOSITORY:$VERSION
-      #     image: $DOCKER_HUB_REPOSITORY:$VERSION
-      # - docker/push:
-      #     tag: $DOCKER_HUB_REPOSITORY:$VERSION
-      #     image: $DOCKER_HUB_REPOSITORY:$VERSION
+      - docker/build:
+          tag: $DOCKER_HUB_REPOSITORY:$VERSION
+          image: $DOCKER_HUB_REPOSITORY:$VERSION
+      - docker/push:
+          tag: $DOCKER_HUB_REPOSITORY:$VERSION
+          image: $DOCKER_HUB_REPOSITORY:$VERSION
 notify:
   webhooks:
     # A list of hook hashes, containing the url field
@@ -190,7 +190,9 @@ workflows:
             branches:
               ignore: /.*/
       - docker-build-and-push:
-          filters:            
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
   nightly:
