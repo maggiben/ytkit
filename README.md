@@ -156,7 +156,7 @@ Note that by default `yarn` will attempt to install the binary in a location tha
 > yarn global add ytkit
 ```
 
-## Vscode Debugger
+## Debugging with VSCode
 
 We provide tree convinient methods for you to debug this application as follows:
 
