@@ -158,9 +158,6 @@ workflows:
               only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
-      - scan-for-vulnerabilities:
-          requires:
-            - cache
       - publish-tarballs:
           requires:
             - deploy
@@ -169,3 +166,15 @@ workflows:
               only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
+  nightly:
+    jobs:
+      - cache
+      - scan-for-vulnerabilities
+    triggers:
+      - schedule:
+          cron: "0,5,10,15,20,25,30,35,40,45,50,55 * * * *"
+          filters:
+            branches:
+              only:
+                - main
+
