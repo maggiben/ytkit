@@ -156,6 +156,15 @@ Note that by default `yarn` will attempt to install the binary in a location tha
 > yarn global add ytkit
 ```
 
+## Vscode Debugger
+
+We provide tree convinient methods for you to debug this application as follows:
+
+- **Launch Program**: launches the program with the given argument (edit the aruments in `launch.json`).
+- **Debug All Tests**: launches the debugger on all tests.
+- **Debug Active Test**: launches the debugger on the current working test.
+
+
 ### Docker Images
 
 We provide versioned images on dockerhub.
