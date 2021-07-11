@@ -69,7 +69,6 @@ export default class Download extends YtKitCommand {
       required: true,
     }),
     quality: flags.string({
-      char: 'q',
       description: 'Video quality to download, default: highest',
     }),
     filter: flags.enum({
@@ -77,7 +76,6 @@ export default class Download extends YtKitCommand {
       options: ['video', 'videoonly', 'audio', 'audioonly'],
     }),
     range: flags.string({
-      char: 'r',
       description: 'Byte range to download, ie 10355705-12452856',
     }),
     'filter-container': flags.string({
@@ -93,7 +91,6 @@ export default class Download extends YtKitCommand {
       description: 'Filter out format container',
     }),
     begin: flags.string({
-      char: 'b',
       description: 'Time to begin video, format by 1:30.123 and 1m30s',
     }),
     urlonly: flags.boolean({
@@ -145,7 +142,7 @@ export default class Download extends YtKitCommand {
         }
         return this.videoInfo;
       }
-      return this.videoInfo;
+      return videoInfo;
     }
   }
 

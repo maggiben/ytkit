@@ -212,6 +212,14 @@ describe('download video without an output flag', () => {
 describe('download a video using custom filters', () => {
   const output = 'MyVideo.mp4';
   const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const audioOnlyFormat = {
+    itag: '123',
+    container: 'mp4',
+    codecs: 'mp4a.40.2',
+    bitrate: 4096,
+    contentLength: 4096,
+    audioBitrate: 256,
+  } as unknown as ytdl.videoFormat;
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -219,6 +227,7 @@ describe('download a video using custom filters', () => {
     codecs: 'mp4a.40.2',
     bitrate: 4096,
     contentLength: 4096,
+    audioBitrate: 256,
   } as unknown as ytdl.videoFormat;
   const webmFormat = {
     itag: '321',
@@ -228,7 +237,7 @@ describe('download a video using custom filters', () => {
     bitrate: 1024,
     contentLength: 4096,
   } as unknown as ytdl.videoFormat;
-  const formats = [mp4Format, webmFormat] as unknown as ytdl.videoFormat[];
+  const formats = [mp4Format, webmFormat, audioOnlyFormat] as unknown as ytdl.videoFormat[];
   const videoDetails = {
     title: 'My Title',
     author: {
@@ -329,10 +338,9 @@ describe('download a video using custom filters', () => {
     .it('download a video filtered by quality', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
-      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
-        const format = ytdlOptions.filter(webmFormat);
-        expect(format).to.be.true;
-      }
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(webmFormat);
+      expect(format).to.be.true;
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
     });
@@ -343,10 +351,74 @@ describe('download a video using custom filters', () => {
     .it('download a video filtered by quality', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
-      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
-        const format = ytdlOptions.filter(mp4Format);
-        expect(format).to.be.true;
-      }
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(mp4Format);
+      expect(format).to.be.true;
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--filter', 'video'])
+    .it('download a video filtered by video', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
+      expect(ytdlOptions.filter).to.a('function');
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(mp4Format);
+      expect(format).to.be.true;
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--filter', 'videoonly'])
+    .it('download a video filtered by videoonly', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
+      expect(ytdlOptions.filter).to.a('function');
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(webmFormat);
+      expect(format).to.be.true;
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--filter', 'audio'])
+    .it('download a video filtered by audio', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
+      expect(ytdlOptions.filter).to.a('function');
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(mp4Format);
+      expect(format).to.be.true;
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--filter', 'audioonly'])
+    .it('download a video filtered by audioonly', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
+      expect(ytdlOptions.filter).to.a('function');
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(audioOnlyFormat);
+      expect(format).to.be.true;
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--filter', 'video'])
+    .it('download a video filtered by video', () => {
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
+      expect(ytdlOptions.filter).to.a('function');
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(mp4Format);
+      expect(format).to.be.true;
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
     });
@@ -781,5 +853,63 @@ describe('video download stdout stream', () => {
     .it('downloads a video checks it pipes the stream to a stdout', () => {
       expect(pipeStub.callCount).to.be.equal(1);
       expect(stdoutStub.callCount).to.be.equal(1);
+    });
+});
+
+describe('video fails to set info', () => {
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const format = {
+    itag: '123',
+    container: 'mp4',
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    quality: 'highest',
+    contentLength: 4096,
+    audioBitrate: 100,
+    url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+  } as unknown as ytdl.videoFormat;
+  const formats = [format] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+    lengthSeconds: 3600,
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const stream = passThorughStream();
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  beforeEach(() => {
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+      expect(info).to.deep.equal(videoInfo);
+      // simulate ytdl info signal then end the stream
+      process.nextTick(() => {
+        stream.emit('info', ...[undefined, undefined]);
+        setImmediate(() => stream.emit('end'));
+      });
+      return stream;
+    });
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--json'])
+    .it('video fails to set info', (ctx) => {
+      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
+      expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
     });
 });
