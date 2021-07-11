@@ -30,7 +30,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.4.32 darwin-x64 node-v16.4.0
+ytkit/1.4.33 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -56,16 +56,16 @@ USAGE
   $ ytkit download
 
 OPTIONS
-  -b, --begin=begin                           Time to begin video, format by 1:30.123 and 1m30s
   -h, --help                                  show CLI help
   -o, --output=output                         Save to file, template by {prop}, default: stdout or {title}
-  -q, --quality=quality                       Video quality to download, default: highest
-  -r, --range=range                           Byte range to download, ie 10355705-12452856
   -u, --url=url                               (required) Youtube video or playlist url
+  --begin=begin                               Time to begin video, format by 1:30.123 and 1m30s
   --filter=(video|videoonly|audio|audioonly)  Can be video, videoonly, audio, audioonly
   --filter-container=filter-container         Filter in format container
   --filter-resolution=filter-resolution       Filter in format resolution
   --json                                      format output as json
+  --quality=quality                           Video quality to download, default: highest
+  --range=range                               Byte range to download, ie 10355705-12452856
   --unfilter-container=unfilter-container     Filter out format container
   --unfilter-resolution=unfilter-resolution   Filter out format container
   --urlonly                                   Print direct download URL
@@ -74,7 +74,7 @@ EXAMPLE
   $ ytdl download -u
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.32/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.33/src/commands/download.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -110,7 +110,7 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.32/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.33/src/commands/info.ts)_
 
 <!-- commandsstop -->
 
