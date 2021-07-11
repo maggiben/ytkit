@@ -686,8 +686,6 @@ describe('video download url only', () => {
   } as unknown as ytdl.videoInfo;
   const stream = passThorughStream();
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
-  let pipeStub: sinon.SinonStub;
-  let stdoutStub: sinon.SinonStub;
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
       expect(url).to.equal(videoUrl);

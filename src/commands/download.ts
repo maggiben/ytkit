@@ -398,11 +398,7 @@ export default class Download extends YtKitCommand {
    */
   private outputHuman(): void {
     // Print information about the video if not streaming to stdout.
-    try {
-      this.printVideoMeta();
-    } catch (error) {
-      this.ux.cli.log(error);
-    }
+    this.printVideoMeta();
 
     const sizeUnknown =
       !utils.getValueFrom(this.videoFormat, 'clen') &&
