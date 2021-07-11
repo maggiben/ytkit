@@ -150,12 +150,6 @@ workflows:
               only: /^v\d+\.\d+\.\d+$/
             branches:
               ignore: /.*/
-      - scan-for-vulnerabilities:
-          filters:
-            tags:
-              only: /^v\d+\.\d+\.\d+$/
-            branches:
-              ignore: /.*/
       - deploy:
           requires:
             - cache
