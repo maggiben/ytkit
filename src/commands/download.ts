@@ -120,7 +120,7 @@ export default class Download extends YtKitCommand {
   // video format
   protected videoFormat?: ytdl.videoFormat;
 
-  public async run(): Promise<ytdl.videoInfo | undefined> {
+  public async run(): Promise<ytdl.videoInfo | string | undefined> {
     this.ytdlOptions = this.buildDownloadOptions();
 
     this.setFilters();
@@ -130,8 +130,8 @@ export default class Download extends YtKitCommand {
       const url = await this.getDownloadUrl();
       if (url) {
         this.ux.cli.url(url, url);
+        return url;
       }
-      process.exit(0);
     }
 
     const videoInfo = await this.getVideoInfo();
@@ -145,7 +145,7 @@ export default class Download extends YtKitCommand {
         }
         return this.videoInfo;
       }
-      process.exitCode = 1;
+      return this.videoInfo;
     }
   }
 
@@ -155,11 +155,8 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   public async getDownloadUrl(): Promise<string | undefined> {
-    if (this.flags?.url) {
-      const info = await ytdl.getInfo(this.flags?.url);
-      return ytdl.chooseFormat(info.formats, this.ytdlOptions ?? {}).url;
-    }
-    return;
+    const info = await ytdl.getInfo(this.flags.url);
+    return ytdl.chooseFormat(info.formats, this.ytdlOptions).url;
   }
 
   /**
@@ -382,7 +379,7 @@ export default class Download extends YtKitCommand {
   private setVideoOutput(): void {
     const onError = (error: Error): void => this.onError(error);
     if (!this.output) {
-      this.readStream.pipe(process.stdout).on('error', onError);
+      this.readStream.pipe(this.stdout()).on('error', onError);
     } else {
       this.output = this.getOutputFile();
       this.readStream.pipe(fs.createWriteStream(this.output)).on('error', onError);
@@ -390,6 +387,9 @@ export default class Download extends YtKitCommand {
     return;
   }
 
+  private stdout(): NodeJS.WriteStream {
+    return process.stdout;
+  }
   /**
    * Output human readable information about a video download
    * It handles live video too
@@ -462,7 +462,8 @@ export default class Download extends YtKitCommand {
       }
       optsKey = 'un' + optsKey;
       if (this.getFlag<string>(optsKey)) {
-        createFilter(name, fieldKey, value, true);
+        const optsValue = this.getFlag<string>(optsKey);
+        createFilter(name, fieldKey, optsValue, true);
       }
     });
 
@@ -499,13 +500,13 @@ export default class Download extends YtKitCommand {
   private printLiveVideoSize(readStream: Readable): void {
     let dataRead = 0;
     const updateProgress = utils.throttle(() => {
-      readline.cursorTo(process.stdout, 0);
-      readline.clearLine(process.stdout, 1);
+      readline.cursorTo(this.stdout(), 0);
+      readline.clearLine(this.stdout(), 1);
       let line = `size: ${utils.toHumanSize(dataRead)}`;
       if (dataRead >= 1024) {
         line += ` (${dataRead} bytes)`;
       }
-      process.stdout.write(line);
+      this.stdout().write(line);
     }, 250);
 
     readStream.on('data', (data: Buffer) => {
