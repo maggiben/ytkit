@@ -34,7 +34,6 @@
  */
 
 import { Readable } from 'stream';
-import * as readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
@@ -493,8 +492,8 @@ export default class Download extends YtKitCommand {
   private printLiveVideoSize(readStream: Readable): void {
     let dataRead = 0;
     const updateProgress = utils.throttle(() => {
-      readline.cursorTo(this.stdout(), 0);
-      readline.clearLine(this.stdout(), 1);
+      this.ux.cursorTo(this.stdout(), 0);
+      this.ux.clearLine(this.stdout(), 1);
       let line = `size: ${utils.toHumanSize(dataRead)}`;
       if (dataRead >= 1024) {
         line += ` (${dataRead} bytes)`;

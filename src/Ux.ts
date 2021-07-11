@@ -35,6 +35,7 @@
 
 /* eslint-disable no-console */
 
+import * as readline from 'readline';
 import { AnyJson, isArray, isBoolean } from '@salesforce/ts-types';
 import { cli } from 'cli-ux';
 import * as chalk from 'chalk';
@@ -63,13 +64,21 @@ export interface TableOptions {
 export class UX {
   public static chalk = chalk;
   public static cli = cli;
+  public static readline = readline;
   public cli: typeof cli;
   public chalk: chalk.Chalk & chalk.ChalkFunction;
+  public readline: typeof readline;
   private isOutputEnabled: boolean;
 
-  public constructor(isOutputEnabled?: boolean, ux?: typeof cli, ck?: chalk.Chalk & chalk.ChalkFunction) {
+  public constructor(
+    isOutputEnabled?: boolean,
+    ux?: typeof cli,
+    ck?: chalk.Chalk & chalk.ChalkFunction,
+    rl?: typeof readline
+  ) {
     this.cli = ux ?? UX.cli;
     this.chalk = ck ?? UX.chalk;
+    this.readline = rl ?? UX.readline;
 
     if (isBoolean(isOutputEnabled)) {
       this.isOutputEnabled = isOutputEnabled;
@@ -77,6 +86,39 @@ export class UX {
       // Respect the --json flag
       this.isOutputEnabled = !process.argv.find((arg) => arg === '--json');
     }
+  }
+
+  /**
+   * Moves cursor to the specified position in a given TTY stream
+   *
+   * @param {NodeJS.WritableStream} stdout The stream to write to
+   * @param {number} x The x position
+   * @param {number} y The y position
+   * @returns {UX}
+   */
+  public cursorTo(stdout: NodeJS.WritableStream, x: number, y?: number): UX {
+    if (this.isOutputEnabled) {
+      this.readline.cursorTo(stdout, x, y);
+    }
+    return this;
+  }
+
+  /**
+   * Moves cursor to the specified position in a given TTY stream
+   *
+   * @param {NodeJS.WritableStream} stdout The stream to write to
+   * @param {number} dir The direction
+   * -1: to the left from cursor
+   * 1: to the right from cursor
+   * 0: the entire line
+   * @param {number} y The y position
+   * @returns {UX}
+   */
+  public clearLine(stdout: NodeJS.WritableStream, dir: number): UX {
+    if (this.isOutputEnabled) {
+      this.readline.clearLine(stdout, dir);
+    }
+    return this;
   }
 
   /**

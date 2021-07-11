@@ -483,7 +483,7 @@ describe('video download custom ranges', () => {
     });
 });
 
-describe('download a live video with size unknown', () => {
+describe('download a live video with known size and no contentLenght', () => {
   const output = 'MyVideo.mp4';
   const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
   const mp4Format = {
@@ -559,11 +559,11 @@ describe('download a live video with size unknown', () => {
     .stdout()
     .command(['download', '--url', videoUrl, '--output', output])
     .it('download a live video', () => {
-      const ytdlOptions = downloadFromInfoStub.firstCall.args[2] as ytdl.downloadOptions;
-      if (ytdlOptions && typeof ytdlOptions.filter == 'function') {
-        const format = ytdlOptions.filter(webmFormat);
-        expect(format).to.be.true;
-      }
+      const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
+      expect(ytdlOptions.filter).to.a('function');
+      const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
+      const format = filter(webmFormat);
+      expect(format).to.be.true;
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
       expect(logStub.callCount).to.be.equal(9);
@@ -580,6 +580,111 @@ describe('download a live video with size unknown', () => {
       ].forEach((value: string | number, index: number) => {
         expect(logStub.getCall(index).args[0]).to.include(value);
       });
+    });
+});
+
+describe('download a live video with size unknown', () => {
+  const output = 'MyVideo.mp4';
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const mp4Format = {
+    itag: '123',
+    container: 'mp4',
+    codecs: 'mp4a.40.2',
+    bitrate: 4096,
+    isLive: true,
+  } as unknown as ytdl.videoFormat;
+  const webmFormat = {
+    itag: '321',
+    container: 'webm',
+    codecs: 'vp9',
+    bitrate: 1024,
+    isLive: true,
+  } as unknown as ytdl.videoFormat;
+  const formats = [mp4Format, webmFormat] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const stream = passThorughStream();
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let createWriteStreamStub: sinon.SinonStub;
+  let throttleStub: sinon.SinonStub;
+  let stdoutStub: sinon.SinonStub;
+  let writeSocketStreamStub: sinon.SinonStubbedInstance<WritableSocketStream>;
+  let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
+  beforeEach(() => {
+    writeSocketStreamStub = sinon.createStubInstance(WritableSocketStream);
+    writeStreamStub = sinon.createStubInstance(WritableFileStream);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stdoutStub = sandbox.stub(Download.prototype, 'stdout' as any).callsFake(() => {
+      return writeSocketStreamStub;
+    });
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').callsFake((path) => {
+      expect(path).to.be.equal(output);
+      return writeStreamStub as unknown as WritableFileStream;
+    });
+    throttleStub = sinon
+      .stub(utils, 'throttle')
+      .callsFake(
+        (callback: () => utils.ThrottledFunction<() => void>, limit: number): utils.ThrottledFunction<() => void> => {
+          expect(limit).to.be.a('number');
+          expect(callback).to.be.a('function');
+          /* first time the throttle is called it applies the function with arg because inThrottle is initialli false */
+          callback();
+          return () => callback();
+        }
+      );
+    sandbox.stub(UX.prototype, 'cursorTo').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
+      expect(str).to.be.instanceof(WritableSocketStream);
+      expect(dir).to.be.a('number');
+      return UX.prototype;
+    });
+
+    sandbox.stub(UX.prototype, 'clearLine').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
+      expect(str).to.be.instanceof(WritableSocketStream);
+      expect(dir).to.be.a('number');
+      return UX.prototype;
+    });
+
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+      expect(info).to.deep.equal(videoInfo);
+      process.nextTick(() => {
+        stream.emit('info', ...[info, webmFormat]);
+        setImmediate(() => stream.emit('response', undefined));
+        setImmediate(() => stream.emit('end'));
+      });
+      return stream;
+    });
+  });
+  afterEach(() => {
+    /* it's important to restore utils to it's original state because other tests might fail */
+    throttleStub.restore();
+    sandbox.restore();
+  });
+
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['download', '--url', videoUrl, '--output', output])
+    .it('download a live video with size unknown', () => {
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+      expect(throttleStub.calledOnce).to.be.true;
+      expect(stdoutStub.callCount).to.be.equal(3);
     });
 });
 
@@ -816,14 +921,14 @@ describe('video download stdout stream', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   let pipeStub: sinon.SinonStub;
   let stdoutStub: sinon.SinonStub;
-  let writeStreamStub: sinon.SinonStubbedInstance<WritableSocketStream>;
+  let writeSocketStreamStub: sinon.SinonStubbedInstance<WritableSocketStream>;
   beforeEach(() => {
-    writeStreamStub = sinon.createStubInstance(WritableSocketStream);
+    writeSocketStreamStub = sinon.createStubInstance(WritableSocketStream);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sandbox.stub(Download.prototype, 'isTTY' as any).returns(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     stdoutStub = sandbox.stub(Download.prototype, 'stdout' as any).callsFake(() => {
-      return writeStreamStub;
+      return writeSocketStreamStub;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
       expect(url).to.equal(videoUrl);

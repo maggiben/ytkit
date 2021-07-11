@@ -1,37 +1,37 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
-import * as util from '../../src/utils/utils';
+import * as utils from '../../src/utils/utils';
 
 describe('test utils', () => {
   it('test conversion of seconds into human readable time hh:mm:ss', () => {
-    const humanTime = util.toHumanTime(3600);
+    const humanTime = utils.toHumanTime(3600);
     expect(humanTime).to.equal('1:00:00');
   });
   it('test conversion of seconds into human readable time mm:ss', () => {
-    const humanTime = util.toHumanTime(1800);
+    const humanTime = utils.toHumanTime(1800);
     expect(humanTime).to.equal('30:00');
   });
   it('converts bytes to human readable unit', () => {
-    const toHumanSize = util.toHumanSize(1024);
+    const toHumanSize = utils.toHumanSize(1024);
     expect(toHumanSize).to.equal('1KB');
   });
   it('converts bytes to human readable unit including zero', () => {
-    const toHumanSize = util.toHumanSize(0);
+    const toHumanSize = utils.toHumanSize(0);
     expect(toHumanSize).to.equal('0');
   });
   it('template a string with variables denoted by {prop}.', () => {
     const string = '{title}.{author}';
-    const tmpl = util.tmpl(string, [{ title: 'Hey Jude', author: 'The Beatles' }]);
+    const tmpl = utils.tmpl(string, [{ title: 'Hey Jude', author: 'The Beatles' }]);
     expect(tmpl).to.equal('Hey Jude.The Beatles');
   });
   it('template a string with nested variables denoted by {prop.nested}..', () => {
     const string = '{title}.{author.name}';
-    const tmpl = util.tmpl(string, [{ title: 'Hey Jude', author: { name: 'The Beatles' } }]);
+    const tmpl = utils.tmpl(string, [{ title: 'Hey Jude', author: { name: 'The Beatles' } }]);
     expect(tmpl).to.equal('Hey Jude.The Beatles');
   });
   it('template a string with undefined nested variables denoted by {prop.nested}..', () => {
     const string = '{title}.{author.age}';
-    const tmpl = util.tmpl(string, [{ title: 'Hey Jude', author: { name: 'The Beatles' } }]);
+    const tmpl = utils.tmpl(string, [{ title: 'Hey Jude', author: { name: 'The Beatles' } }]);
     expect(tmpl).to.equal('Hey Jude.{author.age}');
   });
 });
@@ -49,7 +49,7 @@ describe('time bending (sinon)', () => {
 
   it('calls callback after 100ms', () => {
     const callback = sinon.spy();
-    const throttled = util.throttle(callback, 100);
+    const throttled = utils.throttle(callback, 100);
 
     throttled();
 
@@ -69,7 +69,7 @@ describe('cloneJson', () => {
       name: 'Anna',
       age: '35',
     };
-    const result = util.cloneJson(data);
+    const result = utils.cloneJson(data);
     expect(result).to.be.instanceOf(Object);
     expect(result).to.deep.equal(data);
     expect(Object.is(result, data)).to.be.false;
