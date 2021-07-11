@@ -109,7 +109,7 @@ describe('UX', () => {
     expect(styledObjectStub.firstCall.args[1]).to.equal(keysToLog);
   });
 
-  it('table() should only log when output IS NOT enabled', () => {
+  it('table() should not log when output IS NOT enabled', () => {
     let retVal: Optional<Dictionary>;
     const tableGetter = () => (x: Dictionary) => (retVal = x);
     sandbox.stub(cli, 'table').get(tableGetter);
@@ -240,6 +240,13 @@ describe('UX', () => {
     ux.cursorTo(writableStreamStub as unknown as NodeJS.WritableStream, 0);
   });
 
+  it('cursorTo() should not move the cursor to the specified position in a given TTY stream when output IS NOT enabled', () => {
+    const ux = new UX(false);
+    const cursorToStub = sandbox.stub(readline, 'cursorTo');
+    ux.cursorTo(process.stdout, 0);
+    expect(cursorToStub.called).to.equal(false);
+  });
+
   it('clearLine() should move the cursor to the specified position in a given TTY stream', () => {
     const writableStreamStub = sinon.createStubInstance(Writable);
     const clearLineGetter = () => (stdout: NodeJS.WritableStream, dir: number) => {
@@ -251,5 +258,12 @@ describe('UX', () => {
     const ux = new UX(true);
 
     ux.clearLine(writableStreamStub as unknown as NodeJS.WritableStream, 0);
+  });
+
+  it('clearLine() should not clear current line of given TTY stream when output IS NOT enabled', () => {
+    const ux = new UX(false);
+    const clearLineStub = sandbox.stub(readline, 'clearLine');
+    ux.clearLine(process.stdout, 0);
+    expect(clearLineStub.called).to.equal(false);
   });
 });

@@ -99,7 +99,7 @@ export class UX {
   }
 
   /**
-   * Moves cursor to the specified position in a given TTY stream
+   * Clears current line of given TTY stream in a specified direction
    *
    * @param {NodeJS.WritableStream} stdout The stream to write to
    * @param {number} dir The direction
