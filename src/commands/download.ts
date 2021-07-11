@@ -518,13 +518,13 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private printVideoSize(readStream: Readable, size: number): void {
-    const bar = this.ux.cli.progress({
+    const progress = this.ux.cli.progress({
       format: '[{bar}] {percentage}% | Speed: {speed}',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
       total: size,
     }) as SingleBar;
-    bar.start(size, 0, {
+    progress.start(size, 0, {
       speed: 'N/A',
     });
     const streamSpeed = new StreamSpeed();
@@ -535,18 +535,18 @@ export default class Download extends YtKitCommand {
     });
 
     readStream.on('data', (data: Buffer) => {
-      bar.increment(data.length, getSpeed());
+      progress.increment(data.length, getSpeed());
     });
 
     // Update speed every second, in case download is rate limited,
     // which is the case with `audioonly` formats.
-    const iid = setInterval(() => {
-      bar.increment(0, getSpeed());
+    const interval = setInterval(() => {
+      progress.increment(0, getSpeed());
     }, 1000);
 
     readStream.on('end', () => {
-      bar.stop();
-      clearInterval(iid);
+      progress.stop();
+      clearInterval(interval);
     });
   }
 

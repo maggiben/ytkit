@@ -70,15 +70,10 @@ export class UX {
   public readline: typeof readline;
   private isOutputEnabled: boolean;
 
-  public constructor(
-    isOutputEnabled?: boolean,
-    ux?: typeof cli,
-    ck?: chalk.Chalk & chalk.ChalkFunction,
-    rl?: typeof readline
-  ) {
-    this.cli = ux ?? UX.cli;
-    this.chalk = ck ?? UX.chalk;
-    this.readline = rl ?? UX.readline;
+  public constructor(isOutputEnabled?: boolean) {
+    this.cli = UX.cli;
+    this.chalk = UX.chalk;
+    this.readline = UX.readline;
 
     if (isBoolean(isOutputEnabled)) {
       this.isOutputEnabled = isOutputEnabled;
