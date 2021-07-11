@@ -7,6 +7,26 @@ describe('test utils', () => {
     const humanTime = utils.toHumanTime(3600);
     expect(humanTime).to.equal('1:00:00');
   });
+  it('test conversion of seconds into human readable time hh:mm:ss (with minutes padded with zeroes)', () => {
+    const humanTime = utils.toHumanTime(3660);
+    expect(humanTime).to.equal('1:01:00');
+  });
+  it('test conversion of seconds into human readable time hh:mm:ss', () => {
+    const humanTime = utils.toHumanTime(60);
+    expect(humanTime).to.equal('1:00');
+  });
+  it('test conversion of seconds into human readable time hh:mm:ss (padd seconds padded with zeroes)', () => {
+    const humanTime = utils.toHumanTime(1);
+    expect(humanTime).to.equal('0:01');
+  });
+  it('test conversion of seconds into human readable time hh:mm:ss (padd seconds padded with zeroes)', () => {
+    const humanTime = utils.toHumanTime(20);
+    expect(humanTime).to.equal('0:20');
+  });
+  it('test conversion of seconds into human readable time hh:mm:ss', () => {
+    const humanTime = utils.toHumanTime(4800);
+    expect(humanTime).to.equal('1:20:00');
+  });
   it('test conversion of seconds into human readable time mm:ss', () => {
     const humanTime = utils.toHumanTime(1800);
     expect(humanTime).to.equal('30:00');
@@ -59,6 +79,26 @@ describe('time bending (sinon)', () => {
     clock.tick(1);
     expect(callback.calledOnce).to.be.true;
     expect(new Date().getTime()).be.equal(100);
+  });
+
+  it('calls will be throttled if called before time expires', () => {
+    const callback = sinon.spy();
+    const throttled = utils.throttle(callback, 100);
+
+    throttled();
+
+    clock.tick(99);
+    expect(callback.notCalled).to.be.false;
+
+    clock.tick(1);
+    expect(callback.calledOnce).to.be.true;
+    expect(new Date().getTime()).be.equal(100);
+    clock.tick(10);
+    throttled();
+    expect(callback.callCount).to.be.equal(2);
+    clock.tick(10);
+    throttled();
+    expect(callback.callCount).to.be.equal(2);
   });
 });
 

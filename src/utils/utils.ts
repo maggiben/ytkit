@@ -56,12 +56,8 @@ export const toHumanTime = (seconds: number): string => {
     time = '';
   }
 
-  let s: string | number = seconds % 60;
-  if (s < 10) {
-    s = `0${s}`;
-  }
-
-  return `${time}${m}:${s}`;
+  const secs: string = seconds % 60 < 10 ? `0${seconds % 60}` : `${seconds % 60}`;
+  return `${time}${m}:${secs}`;
 };
 
 /**
