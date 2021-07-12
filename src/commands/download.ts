@@ -58,8 +58,9 @@ export interface IFilter {
 }
 
 export default class Download extends YtKitCommand {
+  public static id = 'download';
   public static readonly description = 'download video to a file or to stdout';
-  public static readonly examples = ['$ ytdl download -u '];
+  public static readonly examples = ['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
   public static readonly flagsConfig: FlagsConfig = {
     help: flags.help({ char: 'h' }),
     url: flags.string({
@@ -285,7 +286,7 @@ export default class Download extends YtKitCommand {
     }
     return {
       ...options,
-      quality /* this prop always get set even when undefined please fix ! */,
+      quality /* TODO: this prop always get set even when undefined please fix ! */,
     };
   }
 

@@ -115,3 +115,30 @@ describe('cloneJson', () => {
     expect(Object.is(result, data)).to.be.false;
   });
 });
+
+describe('getValueFromMeta', () => {
+  it('gets a value from a a nested object depending on a required', () => {
+    const data = {
+      user: {
+        id: '123',
+        name: 'Anna',
+        age: '35',
+      },
+    };
+    const defaultValue = 'my-defaul-value';
+    let result: string | number;
+    /* if param exists is fale no matter what the function will return the defaulValue */
+    result = utils.getValueFromMeta<string>(data, 'user.name', false);
+    expect(result).to.be.equal(undefined);
+    result = utils.getValueFromMeta<string>(data, 'user.name', false, defaultValue);
+    expect(result).to.be.equal(defaultValue);
+    result = utils.getValueFromMeta<string>(data, 'user.name', true);
+    expect(result).to.be.equal(data.user.name);
+    result = utils.getValueFromMeta<string>(data, 'user.ssid', true, defaultValue);
+    expect(result).to.be.equal(defaultValue);
+    result = utils.getValueFromMeta<string>(data, 'user.name', true, defaultValue, (input: string) =>
+      input.toUpperCase()
+    );
+    expect(result).to.equal(data.user.name.toUpperCase());
+  });
+});

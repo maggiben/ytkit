@@ -146,3 +146,27 @@ export function cloneJson<T extends Record<string, unknown>>(obj: T): T {
 export function getValueFrom<T>(from: unknown, path: string, defaultValue?: unknown): T {
   return get(from, path, defaultValue) as T;
 }
+
+/**
+ * Prints video size with a progress bar as it downloads.
+ *
+ * @param {unknown} from an object like who's properties you need to extract
+ * @param {string} location the objects path
+ * @param {unknown} exists if false always return the default value
+ */
+export function getValueFromMeta<T>(
+  from: unknown,
+  path: string,
+  exists?: unknown,
+  defaultValue?: unknown,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  transform?: (input: any) => T
+): T {
+  if (exists) {
+    if (transform) {
+      return transform(getValueFrom<T>(from, path, defaultValue));
+    }
+    return getValueFrom<T>(from, path, defaultValue);
+  }
+  return defaultValue as T;
+}

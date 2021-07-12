@@ -5,6 +5,7 @@ import { JsonMap } from '@salesforce/ts-types';
 import ytdl = require('ytdl-core');
 import { UX } from '../../src/Ux';
 import * as util from '../../src/utils/utils';
+import Info from '../../src/commands/info';
 
 const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
 const formats = [
@@ -659,7 +660,7 @@ describe('video info table formats', () => {
     });
 });
 
-describe('video info error', () => {
+describe('video info error on a non youtube domain', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   const errorMessage = 'Not a YouTube domain';
   beforeEach(() => {
@@ -676,4 +677,31 @@ describe('video info error', () => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(jsonResponse.message).to.equal(errorMessage);
     });
+});
+
+describe('video info returns undefined', () => {
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  beforeEach(() => {
+    sandbox.stub(ytdl, 'getInfo').resolves(undefined);
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['info', '--url', 'https://www.youtube.com/watch?v=aqz-KE-bpKQ', '--json'])
+    .it('runs info on an unsupported domain and returns error', (ctx) => {
+      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
+      /* TODO: must return something even when getInfo comes empty please fix */
+      expect(jsonResponse.message).to.equal(undefined);
+    });
+});
+
+describe('test the class', () => {
+  it('test class static properties', () => {
+    expect(Info.id).to.be.equal('info');
+    expect(Info.description).to.be.equal('display information about a video');
+    expect(Info.examples).to.deep.equal(['$ ytdl info -u https://www.youtube.com/watch?v=aqz-KE-bpKQ']);
+  });
 });

@@ -39,17 +39,17 @@ import * as utils from '../utils/utils';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 
-declare interface IOutputVideoMeta {
+export interface IOutputVideoMeta {
   label: string;
-  from: Record<string, unknown>;
   path: string;
   requires?: string | boolean | ((value: unknown) => boolean);
-  transformValue?: <T>(value: T) => T;
+  transformValue?: (number: number) => string;
 }
 
 export default class Info extends YtKitCommand {
+  public static id = 'Info';
   public static readonly description = 'display information about a video';
-  public static readonly examples = ['$ ytdl info -u https://www.youtube.com/watch?v=ABC1234'];
+  public static readonly examples = ['$ ytdl info -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
 
   public static readonly flagsConfig: FlagsConfig = {
     url: flags.string({
@@ -104,9 +104,9 @@ export default class Info extends YtKitCommand {
         label: 'length',
         path: 'lengthSeconds',
         requires: utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive),
-        transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
+        transformValue: utils.toHumanTime,
       },
-    ] as unknown[] as IOutputVideoMeta[];
+    ];
   }
 
   /**
@@ -130,31 +130,33 @@ export default class Info extends YtKitCommand {
       const value = utils.getValueFrom<string>(this.videoInfo, `videoDetails.${outputVideoMeta.path}`, '');
       if (!outputVideoMeta.requires) {
         if (outputVideoMeta.transformValue) {
-          return this.logStyledProp(label, outputVideoMeta.transformValue(value));
+          return this.logStyledProp(label, outputVideoMeta.transformValue(parseInt(value, 10)));
         }
         return this.logStyledProp(label, value);
       }
     });
   }
 
+  /**
+   * Prepares table rows.
+   *
+   * @returns {AnyJson}
+   */
   private prepareTableRows(): AnyJson {
     return utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').map((format) => ({
       itag: utils.getValueFrom<string>(format, 'itag', ''),
       container: utils.getValueFrom<string>(format, 'container', ''),
       quality: utils.getValueFrom<string>(format, 'qualityLabel', ''),
       codecs: this.getCodec(format),
-      bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', utils.toHumanSize),
-      'audio bitrate': this.getValueFromMeta(format, 'audioBitrate', format.audioBitrate, '', utils.toHumanSize),
-      size: this.getValueFromMeta(format, 'contentLength', format.contentLength, '', utils.toHumanSize),
+      /* istanbul ignore else */
+      bitrate: utils.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', utils.toHumanSize),
+      'audio bitrate': utils.getValueFromMeta(format, 'audioBitrate', format.audioBitrate, '', utils.toHumanSize),
+      size: utils.getValueFromMeta(format, 'contentLength', format.contentLength, '', utils.toHumanSize),
     }));
   }
 
   private getCodec(format: ytdl.videoFormat): string {
     return utils.getValueFrom<string>(format, 'codecs', '');
-  }
-
-  private getSize(format: ytdl.videoFormat): string {
-    return this.getValueFromMeta(format, 'contentLength', format.contentLength, '', utils.toHumanSize);
   }
 
   /**
@@ -166,30 +168,6 @@ export default class Info extends YtKitCommand {
   private printVideoFormats(): void {
     const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
     this.ux.table(this.prepareTableRows(), headers);
-  }
-
-  /**
-   * Prints video size with a progress bar as it downloads.
-   *
-   * @param {unknown} from an object like who's properties you need to extract
-   * @param {string} location the objects path
-   * @param {unknown} exists if false always return the default value
-   */
-  private getValueFromMeta<T>(
-    from: unknown,
-    location: string,
-    exists?: unknown,
-    defaultValue?: unknown,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    transform?: (input: any) => T
-  ): T {
-    if (exists) {
-      if (transform) {
-        return transform(utils.getValueFrom<T>(from, location, defaultValue));
-      }
-      return utils.getValueFrom<T>(from, location, defaultValue);
-    }
-    return defaultValue as T;
   }
 
   /**
