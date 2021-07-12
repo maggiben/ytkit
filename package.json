@@ -122,7 +122,10 @@
     ],
     "topics": {
       "download": {
-        "description": "Downloads."
+        "description": "Downloads or stream a video"
+      },
+      "info": {
+        "description": "Prints video metadata"
       }
     }
   },

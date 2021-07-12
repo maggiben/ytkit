@@ -5,7 +5,10 @@
       "request": "launch",
       "name": "Launch Program",
       "program": "${workspaceFolder}/bin/run",
-      "args": ["download", "--url", "https://www.youtube.com/watch?v=aqz-KE-bpKQ", "--json"]
+      "args": ["download", "--url", "https://www.youtube.com/watch?v=aqz-KE-bpKQ", "--json"],
+      "env": {
+        "NODE_ENV": "testing"
+      }
     },
     {
       "type": "node",
@@ -13,9 +16,12 @@
       "name": "Debug All Tests",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-      "args": ["--timeout", "900000", "${workspaceFolder}/test/**/*.test.ts"],
+      "args": ["--no-timeouts", "${workspaceFolder}/test/**/*.test.ts"],
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "testing"
+      }
     },
     {
       "type": "node",
@@ -23,9 +29,12 @@
       "name": "Debug Active Test",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-      "args": ["--timeout", "900000", "${file}"],
+      "args": ["--no-timeouts", "${file}"],
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "testing"
+      }
     }
   ]
 }
