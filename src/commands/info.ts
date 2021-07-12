@@ -34,10 +34,10 @@
  */
 
 import ytdl = require('ytdl-core');
+import { AnyJson } from '@salesforce/ts-types';
 import * as utils from '../utils/utils';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
-import { getValueFrom } from '../utils/utils';
 
 declare interface IOutputVideoMeta {
   label: string;
@@ -79,7 +79,7 @@ export default class Info extends YtKitCommand {
    * @returns {IOutputVideoMeta[]} a collection of labels and values to print
    */
   private prepareVideoMetaBatch(): IOutputVideoMeta[] {
-    const batch = [
+    return [
       {
         label: 'title',
         path: 'title',
@@ -107,7 +107,6 @@ export default class Info extends YtKitCommand {
         transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
       },
     ] as unknown[] as IOutputVideoMeta[];
-    return batch;
   }
 
   /**
@@ -138,6 +137,26 @@ export default class Info extends YtKitCommand {
     });
   }
 
+  private prepareTableRows(): AnyJson {
+    return utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').map((format) => ({
+      itag: utils.getValueFrom<string>(format, 'itag', ''),
+      container: utils.getValueFrom<string>(format, 'container', ''),
+      quality: utils.getValueFrom<string>(format, 'qualityLabel', ''),
+      codecs: this.getCodec(format),
+      bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', utils.toHumanSize),
+      'audio bitrate': this.getValueFromMeta(format, 'audioBitrate', format.audioBitrate, '', utils.toHumanSize),
+      size: this.getValueFromMeta(format, 'contentLength', format.contentLength, '', utils.toHumanSize),
+    }));
+  }
+
+  private getCodec(format: ytdl.videoFormat): string {
+    return utils.getValueFrom<string>(format, 'codecs', '');
+  }
+
+  private getSize(format: ytdl.videoFormat): string {
+    return this.getValueFromMeta(format, 'contentLength', format.contentLength, '', utils.toHumanSize);
+  }
+
   /**
    * Prints video format information.
    *
@@ -145,24 +164,8 @@ export default class Info extends YtKitCommand {
    * @returns {Promise<void>}
    */
   private printVideoFormats(): void {
-    const formats = utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats');
-    const result = formats.map((format) => ({
-      itag: getValueFrom<string>(format, 'itag', ''),
-      container: getValueFrom<string>(format, 'container', ''),
-      quality: getValueFrom<string>(format, 'qualityLabel', ''),
-      codecs: getValueFrom<string>(format, 'codecs'),
-      bitrate: this.getValueFromMeta(format, 'bitrate', format.qualityLabel, '', utils.toHumanSize),
-      'audio bitrate': this.getAudioBitRate(format.audioBitrate),
-      size: this.getValueFromMeta(format, 'contentLength', format.contentLength, '', (contentLength: string) =>
-        utils.toHumanSize(parseInt(contentLength, 10))
-      ),
-    }));
     const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
-    this.ux.table(result, headers);
-  }
-
-  private getAudioBitRate(audioBitrate?: number): string {
-    return audioBitrate ? `${audioBitrate}KB` : '';
+    this.ux.table(this.prepareTableRows(), headers);
   }
 
   /**
@@ -179,14 +182,14 @@ export default class Info extends YtKitCommand {
     defaultValue?: unknown,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transform?: (input: any) => T
-  ): T | undefined {
+  ): T {
     if (exists) {
       if (transform) {
         return transform(utils.getValueFrom<T>(from, location, defaultValue));
       }
       return utils.getValueFrom<T>(from, location, defaultValue);
     }
-    return defaultValue as T | undefined;
+    return defaultValue as T;
   }
 
   /**

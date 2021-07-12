@@ -285,7 +285,7 @@ export default class Download extends YtKitCommand {
     }
     return {
       ...options,
-      quality, /* this prop always get set even when undefined please fix ! */
+      quality /* this prop always get set even when undefined please fix ! */,
     };
   }
 

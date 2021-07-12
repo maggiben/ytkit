@@ -14,7 +14,10 @@ const formats = [
     qualityLabel: '1080p',
     codecs: 'mp4a.40.2',
     bitrate: 1024,
+    quality: 'highest',
     contentLength: 4096,
+    audioBitrate: 100,
+    url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
   },
 ] as unknown as ytdl.videoFormat[];
 const videoDetails = {
@@ -120,6 +123,389 @@ describe('video info on live video', () => {
     });
 });
 
+describe('video info table formats', () => {
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let getInfoStub: sinon.SinonStub;
+  let tableStub: sinon.SinonStub;
+  beforeEach(() => {
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').resolves({ ...videoInfo, ...{ formats } });
+    tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['info', '--url', videoUrl, '--formats'])
+    .it('runs info with formats', () => {
+      expect(getInfoStub.callCount).to.equal(1);
+      expect(getInfoStub.firstCall.firstArg).to.equal(videoUrl);
+      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(get(tableStub.getCall(0).firstArg, '0')).to.include.keys(headers);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].itag).to.be.equal('123');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].container).to.be.equal('mp4');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].quality).to.be.equal('1080p');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('1KB');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].size).to.be.equal('4KB');
+      expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
+    });
+});
+
+describe('video info table formats no contentLength', () => {
+  const alternateFormats = [
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+  ] as unknown as ytdl.videoFormat[];
+  const alternateVideoInfo = {
+    videoDetails,
+    formats: alternateFormats,
+  } as unknown as ytdl.videoInfo;
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let getInfoStub: sinon.SinonStub;
+  let tableStub: sinon.SinonStub;
+  beforeEach(() => {
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').resolves({ ...alternateVideoInfo });
+    tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['info', '--url', videoUrl, '--formats'])
+    .it('runs info with formats no contentLength', () => {
+      expect(getInfoStub.callCount).to.equal(1);
+      expect(getInfoStub.firstCall.firstArg).to.equal(videoUrl);
+      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(get(tableStub.getCall(0).firstArg, '0')).to.include.keys(headers);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].itag).to.be.equal('123');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].container).to.be.equal('mp4');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].quality).to.be.equal('1080p');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('1KB');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].size).to.be.equal('');
+      expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
+    });
+});
+
+describe('video info table formats with contentLength', () => {
+  const alternateFormats = [
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      qualityLabel: '1080p',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+  ] as unknown as ytdl.videoFormat[];
+  const alternateVideoInfo = {
+    videoDetails,
+    formats: alternateFormats,
+  } as unknown as ytdl.videoInfo;
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let getInfoStub: sinon.SinonStub;
+  let tableStub: sinon.SinonStub;
+  beforeEach(() => {
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').resolves({ ...alternateVideoInfo });
+    tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
+  });
+  afterEach(() => {
+    getInfoStub.restore();
+    sandbox.restore();
+  });
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['info', '--url', videoUrl, '--formats'])
+    .it('runs info with formats with contentLength', () => {
+      expect(getInfoStub.callCount).to.equal(1);
+      expect(getInfoStub.firstCall.firstArg).to.equal(videoUrl);
+      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(get(tableStub.getCall(0).firstArg, '0')).to.include.keys(headers);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].itag).to.be.equal('123');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].container).to.be.equal('mp4');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].quality).to.be.equal('1080p');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('1KB');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].size).to.be.equal('4KB');
+      expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
+    });
+});
+
+describe('video info table formats with no audioBitrate', () => {
+  const alternateFormats = [
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      qualityLabel: '1080p',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+  ] as unknown as ytdl.videoFormat[];
+  const alternateVideoInfo = {
+    videoDetails,
+    formats: alternateFormats,
+  } as unknown as ytdl.videoInfo;
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let getInfoStub: sinon.SinonStub;
+  let tableStub: sinon.SinonStub;
+  beforeEach(() => {
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').resolves({ ...alternateVideoInfo });
+    tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
+  });
+  afterEach(() => {
+    getInfoStub.restore();
+    sandbox.restore();
+  });
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['info', '--url', videoUrl, '--formats'])
+    .it('runs info with formats with no audioBitrate', () => {
+      expect(getInfoStub.callCount).to.equal(1);
+      expect(getInfoStub.firstCall.firstArg).to.equal(videoUrl);
+      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(get(tableStub.getCall(0).firstArg, '0')).to.include.keys(headers);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].itag).to.be.equal('123');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].container).to.be.equal('mp4');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].quality).to.be.equal('1080p');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('1KB');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].size).to.be.equal('4KB');
+      expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
+    });
+});
+
+describe('video info table formats with codec', () => {
+  const alternateFormats = [
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      qualityLabel: '1080p',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+  ] as unknown as ytdl.videoFormat[];
+  const alternateVideoInfo = {
+    videoDetails,
+    formats: alternateFormats,
+  } as unknown as ytdl.videoInfo;
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let getInfoStub: sinon.SinonStub;
+  let tableStub: sinon.SinonStub;
+  beforeEach(() => {
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').resolves({ ...alternateVideoInfo });
+    tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
+  });
+  afterEach(() => {
+    getInfoStub.restore();
+    sandbox.restore();
+  });
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['info', '--url', videoUrl, '--formats'])
+    .it('runs info with formats with audioBitrate', () => {
+      expect(getInfoStub.callCount).to.equal(1);
+      expect(getInfoStub.firstCall.firstArg).to.equal(videoUrl);
+      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(get(tableStub.getCall(0).firstArg, '0')).to.include.keys(headers);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].itag).to.be.equal('123');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].container).to.be.equal('mp4');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].quality).to.be.equal('1080p');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].codecs).to.be.equal('mp4a.40.2');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('1KB');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].size).to.be.equal('4KB');
+      expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
+    });
+});
+
+describe('video info table formats with no codec', () => {
+  const alternateFormats = [
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      bitrate: 1024,
+      quality: 'highest',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      container: 'mp4',
+      qualityLabel: '1080p',
+      codecs: 'mp4a.40.2',
+      bitrate: 1024,
+      quality: 'highest',
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+    {
+      itag: '123',
+      qualityLabel: '1080p',
+      contentLength: 4096,
+      audioBitrate: 100,
+      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+    },
+  ] as unknown as ytdl.videoFormat[];
+  const alternateVideoInfo = {
+    videoDetails,
+    formats: alternateFormats,
+  } as unknown as ytdl.videoInfo;
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let getInfoStub: sinon.SinonStub;
+  let tableStub: sinon.SinonStub;
+  beforeEach(() => {
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').resolves({ ...alternateVideoInfo });
+    tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
+  });
+  afterEach(() => {
+    getInfoStub.restore();
+    sandbox.restore();
+  });
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['info', '--url', videoUrl, '--formats'])
+    .it('runs info with formats with no codec', () => {
+      expect(getInfoStub.callCount).to.equal(1);
+      expect(getInfoStub.firstCall.firstArg).to.equal(videoUrl);
+      const headers = ['itag', 'container', 'quality', 'codecs', 'bitrate', 'audio bitrate', 'size'];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(get(tableStub.getCall(0).firstArg, '0')).to.include.keys(headers);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].itag).to.be.equal('123');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].container).to.be.equal('mp4');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].quality).to.be.equal('1080p');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].codecs).to.be.equal('');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('1KB');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      expect(tableStub.getCall(0).args[0][0].size).to.be.equal('4KB');
+      expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
+    });
+});
+
 describe('video info table formats no qualityLabel', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   const testVideoFormat = {
@@ -151,7 +537,7 @@ describe('video info table formats no qualityLabel', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100KB');
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       expect(tableStub.getCall(0).args[0][0].size).to.be.equal('');
       expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);
@@ -266,7 +652,7 @@ describe('video info table formats', () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       expect(tableStub.getCall(0).args[0][0].bitrate).to.be.equal('');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100KB');
+      expect(tableStub.getCall(0).args[0][0]['audio bitrate']).to.be.equal('100B');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       expect(tableStub.getCall(0).args[0][0].size).to.be.equal('');
       expect(tableStub.getCall(0).args[1]).to.deep.equal(headers);

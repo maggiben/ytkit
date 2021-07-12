@@ -1,3 +1,6 @@
+// Use IntelliSense to learn about possible attributes.
+// Hover to view descriptions of existing attributes.
+// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 {
   "configurations": [
     {
@@ -16,9 +19,9 @@
       "name": "Debug All Tests",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-      "args": ["--no-timeouts", "${workspaceFolder}/test/**/*.test.ts"],
+      "args": ["--inspect", "--no-timeouts", "--colors", "${workspaceFolder}/test/**/*.test.ts"],
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
+      "internalConsoleOptions": "openOnSessionStart",
       "env": {
         "NODE_ENV": "testing"
       }
@@ -27,11 +30,12 @@
       "type": "node",
       "request": "launch",
       "name": "Debug Active Test",
+      "protocol": "inspector",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-      "args": ["--no-timeouts", "${file}"],
+      "args": ["--inspect", "--no-timeouts", "--colors", "${file}"],
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
+      "internalConsoleOptions": "openOnSessionStart",
       "env": {
         "NODE_ENV": "testing"
       }
