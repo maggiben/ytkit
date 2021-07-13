@@ -79,11 +79,11 @@ describe('UX', () => {
     const ux = new UX(true);
     const logMsg = 'test error() 2 for log wrapper\n';
 
-    const consoleErrorStub = sandbox.stub(console, 'error');
+    const cliErrorStub = sandbox.stub(cli, 'error');
     ux.error(logMsg);
 
-    expect(consoleErrorStub.called).to.equal(true);
-    expect(consoleErrorStub.firstCall.args[0]).to.equal(logMsg);
+    expect(cliErrorStub.called).to.equal(true);
+    expect(cliErrorStub.firstCall.args[0]).to.equal(logMsg);
   });
 
   it('styledObject() should only log IS NOT enabled', () => {

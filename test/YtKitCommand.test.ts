@@ -93,33 +93,43 @@ async function mockStdout(test: (outLines: string[]) => Promise<void>) {
 }
 
 interface IErrorOutput {
-  error: string[][];
+  error: string[];
 }
 
 const buildErrorOutput = (message: string): IErrorOutput => {
   return {
-    error: [[chalk.bold(`ERROR ${BaseTestCommand.id}`), chalk.red(message)]],
+    error: [[chalk.bold(`ERROR ${BaseTestCommand.id}`), chalk.red(message)].join('\n')],
   };
 };
 
 describe('YtKitCommand', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let logJsonStub: sinon.SinonStub;
+  let errorStub: sinon.SinonStub;
 
   beforeEach(() => {
     process.exitCode = 0;
 
     UX_OUTPUT = cloneJson(UX_OUTPUT_BASE);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sandbox.stub(UX.prototype, 'log').callsFake((args: any): UX => UX_OUTPUT.log.push(args) as unknown as UX);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-    sandbox.stub(UX.prototype, 'logJson').callsFake((args: any) => UX_OUTPUT.logJson.push(args) as unknown as UX);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-    sandbox.stub(UX.prototype, 'error').callsFake((args: any) => UX_OUTPUT.error.push(args) as unknown as UX);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-    sandbox.stub(UX.prototype, 'errorJson').callsFake((args: any) => UX_OUTPUT.errorJson.push(args) as unknown as UX);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
-    sandbox.stub(UX.prototype, 'table').callsFake((args: any) => UX_OUTPUT.table.push(args) as unknown as UX);
+    logJsonStub = sandbox
+      .stub(UX.prototype, 'logJson')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .callsFake((args: any) => UX_OUTPUT.logJson.push(args) as unknown as UX);
+    errorStub = sandbox
+      .stub(UX.prototype, 'error')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .callsFake((args: any) => UX_OUTPUT.error.push(args) as unknown as UX);
+    sandbox
+      .stub(UX.prototype, 'errorJson')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .callsFake((args: any) => UX_OUTPUT.errorJson.push(args) as unknown as UX);
+    sandbox
+      .stub(UX.prototype, 'table')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .callsFake((args: any) => UX_OUTPUT.table.push(args) as unknown as UX);
 
     // Ensure BaseTestCommand['result'] is not defined before all tests
     BaseTestCommand.result = {};
@@ -715,5 +725,143 @@ describe('YtKitCommand', () => {
     const json = ensureJsonMap(logJson[0]);
     expect(json.message, 'logJson did not get called with the right error').to.contains('Ahhh!');
     expect(UX_OUTPUT['errorJson'].length, 'errorJson got called when it should not have').to.equal(0);
+  });
+
+  it('should catch and display errors', async () => {
+    // Run the command
+    class StderrCommand extends YtKitCommand {
+      public static flagsConfig: FlagsConfig = {
+        url: flags.string({ char: 'u', description: 'enter a url' }),
+      };
+      public async run() {
+        throw new Error('Ahhh!');
+      }
+    }
+    errorStub.restore();
+    errorStub = sandbox.stub(UX.prototype, 'error').callsFake((error): UX => {
+      expect(error).to.include('Ahhh!');
+      return UX.prototype;
+    });
+
+    return mockStdout(async () => {
+      let output: Optional<string>;
+      try {
+        output = (await StderrCommand.run(['--url', 'https://www.youtube.com/watch?v=aqz-KE-bpKQ'])) as string;
+        fail('Expected EEXIT error');
+      } catch (err) {
+        expect(err).to.be.instanceOf(Error);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(err.code).to.equal('ERR_ASSERTION');
+      }
+      expect(output).to.equal(undefined);
+      expect(process.exitCode).to.equal(1);
+      expect(errorStub.callCount).to.be.gte(1);
+    });
+  });
+
+  it('should catch and display errors even when throw undefined', async () => {
+    // Run the command
+    class StderrCommand extends YtKitCommand {
+      public static flagsConfig: FlagsConfig = {
+        url: flags.string({ char: 'u', description: 'enter a url' }),
+      };
+      public async run() {
+        // eslint-disable-next-line no-throw-literal
+        throw undefined;
+      }
+    }
+    errorStub.restore();
+    errorStub = sandbox.stub(UX.prototype, 'error').callsFake((error): UX => {
+      expect(error).to.be.undefined;
+      return UX.prototype;
+    });
+
+    return mockStdout(async () => {
+      let output: Optional<string>;
+      try {
+        output = (await StderrCommand.run(['--url', 'https://www.youtube.com/watch?v=aqz-KE-bpKQ'])) as string;
+        fail('Expected EEXIT error');
+      } catch (err) {
+        expect(err).to.be.instanceOf(Error);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(err.code).to.equal(undefined);
+      }
+      expect(output).to.equal(undefined);
+      expect(process.exitCode).to.equal(1);
+      expect(errorStub.callCount).to.be.gte(1);
+    });
+  });
+
+  it('should catch and display errors with --json', async () => {
+    // Run the command
+    class StderrCommand extends YtKitCommand {
+      public static flagsConfig: FlagsConfig = {
+        url: flags.string({ char: 'u', description: 'enter a url' }),
+      };
+      public async run() {
+        throw new Error('Ahhh!');
+      }
+    }
+    logJsonStub.restore();
+    logJsonStub = sandbox.stub(UX.prototype, 'logJson').callsFake((obj): UX => {
+      expect(obj).to.have.property('message').and.to.be.equal('Ahhh!');
+      return UX.prototype;
+    });
+
+    return mockStdout(async () => {
+      let output: Optional<string>;
+      try {
+        output = (await StderrCommand.run([
+          '--url',
+          'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+          '--json',
+        ])) as string;
+        fail('Expected EEXIT error');
+      } catch (err) {
+        expect(err).to.be.instanceOf(Error);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(err.code).to.equal('ERR_ASSERTION');
+      }
+      expect(output).to.equal(undefined);
+      expect(process.exitCode).to.equal(1);
+      expect(logJsonStub.callCount).to.be.gte(1);
+    });
+  });
+
+  it('should catch and display errors undefined with --json', async () => {
+    // Run the command
+    class StderrCommand extends YtKitCommand {
+      public static flagsConfig: FlagsConfig = {
+        url: flags.string({ char: 'u', description: 'enter a url' }),
+      };
+      public async run() {
+        // eslint-disable-next-line no-throw-literal
+        throw undefined;
+      }
+    }
+    logJsonStub.restore();
+    logJsonStub = sandbox.stub(UX.prototype, 'logJson').callsFake((obj): UX => {
+      expect(obj).to.have.property('message').and.to.be.undefined;
+      return UX.prototype;
+    });
+
+    return mockStdout(async () => {
+      let output: Optional<string>;
+      try {
+        output = (await StderrCommand.run([
+          '--url',
+          'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+          '--json',
+        ])) as string;
+        fail('Expected EEXIT error');
+      } catch (err) {
+        expect(err).to.be.instanceOf(Error);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        expect(err.code).to.equal(undefined);
+      }
+      expect(output).to.equal(undefined);
+      expect(process.exitCode).to.equal(1);
+      expect(logJsonStub.callCount).to.be.gte(1);
+    });
   });
 });

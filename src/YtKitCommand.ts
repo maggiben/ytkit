@@ -246,16 +246,16 @@ export abstract class YtKitCommand extends Command {
     // Init ux
     this.initUx();
 
-    const userDisplayError = Object.assign(this.getJsonResultObject(), {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack,
-    });
-
     if (this.isJson) {
-      this.ux.logJson(userDisplayError);
+      this.ux.logJson(
+        Object.assign(this.getJsonResultObject(), {
+          name: error?.name,
+          message: error?.message,
+          stack: error?.stack,
+        })
+      );
     } else {
-      this.ux.error(this.formatError(error ?? new Error('Undefined error')));
+      this.ux.error(this.formatError(error ?? new Error('Undefined error')).join('\n'));
     }
   }
 

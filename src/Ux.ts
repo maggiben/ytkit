@@ -152,9 +152,9 @@ export class UX {
    * @param {...any[]} args The errors to log.
    * @returns {UX}
    */
-  public error(...args: unknown[]): UX {
+  public error(error: Error | string): UX {
     if (this.isOutputEnabled) {
-      console.error(...args);
+      this.cli.error(error);
     }
     return this;
   }
