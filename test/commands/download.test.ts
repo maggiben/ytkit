@@ -964,6 +964,8 @@ describe('download a live video with size unknown', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   let createWriteStreamStub: sinon.SinonStub;
   let throttleStub: sinon.SinonStub;
+  let cursotToStub: sinon.SinonStub;
+  let clearLineStub: sinon.SinonStub;
   let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
   beforeEach(() => {
     writeStreamStub = sinon.createStubInstance(WritableFileStream);
@@ -982,14 +984,12 @@ describe('download a live video with size unknown', () => {
           return () => callback();
         }
       );
-    sandbox.stub(UX.prototype, 'cursorTo').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
-      expect(str).to.be.instanceof(WritableSocketStream);
+    cursotToStub = sandbox.stub(UX.prototype, 'cursorTo').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
       expect(dir).to.be.a('number');
       return UX.prototype;
     });
 
-    sandbox.stub(UX.prototype, 'clearLine').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
-      expect(str).to.be.instanceof(WritableSocketStream);
+    clearLineStub = sandbox.stub(UX.prototype, 'clearLine').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
       expect(dir).to.be.a('number');
       return UX.prototype;
     });
@@ -1021,6 +1021,120 @@ describe('download a live video with size unknown', () => {
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
       expect(throttleStub.calledOnce).to.be.true;
+      expect(cursotToStub.callCount).to.be.equal(1);
+      expect(clearLineStub.callCount).to.be.equal(1);
+    });
+});
+
+describe('download a live video with size unknown with chunks bigger than 1024 bytes', () => {
+  const output = 'MyVideo.mp4';
+  const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghiklmnopqrstuvwxyz';
+  const randomStr = (length = 5) =>
+    new Array(length)
+      .fill(null)
+      .map(() => charset.charAt(Math.floor(Math.random() * charset.length)))
+      .join('');
+  const randomBuffer = Buffer.from(randomStr(1024), 'utf8');
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const mp4Format = {
+    itag: '123',
+    container: 'mp4',
+    codecs: 'mp4a.40.2',
+    bitrate: 4096,
+    isLive: true,
+  } as unknown as ytdl.videoFormat;
+  const webmFormat = {
+    itag: '321',
+    container: 'webm',
+    codecs: 'vp9',
+    bitrate: 1024,
+    isLive: true,
+  } as unknown as ytdl.videoFormat;
+  const formats = [mp4Format, webmFormat] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  let streamReadCalled = false;
+  const stream = new ReadableFileStream({
+    read() {
+      if (!streamReadCalled) {
+        this.push(randomBuffer);
+        streamReadCalled = true;
+      }
+    },
+  });
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let createWriteStreamStub: sinon.SinonStub;
+  let throttleStub: sinon.SinonStub;
+  let cursotToStub: sinon.SinonStub;
+  let clearLineStub: sinon.SinonStub;
+  let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
+  beforeEach(() => {
+    writeStreamStub = sinon.createStubInstance(WritableFileStream);
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').callsFake((path) => {
+      expect(path).to.be.equal(output);
+      return writeStreamStub as unknown as WritableFileStream;
+    });
+    throttleStub = sinon
+      .stub(utils, 'throttle')
+      .callsFake(
+        (callback: () => utils.ThrottledFunction<() => void>, limit: number): utils.ThrottledFunction<() => void> => {
+          expect(limit).to.be.a('number');
+          expect(callback).to.be.a('function');
+          /* first time the throttle is called it applies the function with arg because inThrottle is initialli false */
+          callback();
+          return () => callback();
+        }
+      );
+    cursotToStub = sandbox.stub(UX.prototype, 'cursorTo').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
+      expect(dir).to.be.a('number');
+      return UX.prototype;
+    });
+
+    clearLineStub = sandbox.stub(UX.prototype, 'clearLine').callsFake((str: NodeJS.WritableStream, dir: number): UX => {
+      expect(dir).to.be.a('number');
+      return UX.prototype;
+    });
+
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+      expect(info).to.deep.equal(videoInfo);
+      process.nextTick(() => {
+        stream.emit('info', ...[info, webmFormat]);
+        setImmediate(() => stream.emit('response', undefined));
+        setImmediate(() => stream.emit('end'));
+      });
+      return stream;
+    });
+  });
+  afterEach(() => {
+    /* it's important to restore utils to it's original state because other tests might fail */
+    throttleStub.restore();
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output])
+    .it('download a live video with size unknown', () => {
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+      expect(throttleStub.calledOnce).to.be.true;
+      expect(cursotToStub.callCount).to.be.equal(1);
+      expect(clearLineStub.callCount).to.be.equal(1);
     });
 });
 

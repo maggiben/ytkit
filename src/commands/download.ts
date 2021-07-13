@@ -555,11 +555,6 @@ export default class Download extends YtKitCommand {
       progress.stop();
       clearInterval(interval);
     });
-
-    this.readStream.on('error', () => {
-      progress.stop();
-      clearInterval(interval);
-    });
   }
 
   /**
