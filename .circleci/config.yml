@@ -185,6 +185,8 @@ workflows:
             branches:
               ignore: /.*/
       - docker-build-and-push:
+          requires:
+            - publish-github-release
           filters:
             tags:
               only: /^v\d+\.\d+\.\d+$/
