@@ -83,6 +83,42 @@ describe('Env', () => {
     expect(Mode[value]).to.equal(Mode.TEST);
   });
 
+  it('should try get a string envar as a key of an object, with an undefined default value', () => {
+    const obj = { bar: 'TEST' };
+    const value = env.getKeyOf('ENUM', obj, undefined);
+    expect(value).to.equal(undefined);
+  });
+
+  it('should try get a string envar as a key of an object, with a default as a transform', () => {
+    const obj = { BOOL: 'true' };
+    const value = env.getKeyOf('ENUM', obj, () => 'ENUM');
+    expect(value).to.equal(undefined);
+  });
+
+  it('should try get a string envar as a key of an object, with a default as a transform', () => {
+    const obj = { DEFAULT: 'true' };
+    const value = env.getKeyOf('ENUM', obj, 'DEFAULT');
+    expect(value).to.equal('DEFAULT');
+  });
+
+  it('should try get a string envar as a key of an object, with a transform but the key does not exist en env', () => {
+    const obj = { BOOL: 'true' };
+    const value = env.getKeyOf('ENUM', obj, 'BOOL', (v) => v.toLocaleLowerCase());
+    expect(value).to.equal(undefined);
+  });
+
+  it('should try get a string envar as a key of an object, with a transform', () => {
+    const obj = { BOOL: 'true' };
+    const value = env.getKeyOf('ENUM', obj, 'BOOL', (v) => v.toUpperCase());
+    expect(value).to.equal('BOOL');
+  });
+
+  it('should try get a string envar as a key of an object, with a transform', () => {
+    const obj = { BOOL: 'true' };
+    const value = env.getKeyOf('ENUM', obj, 'BOOL', (v) => v.toUpperCase());
+    expect(value).to.equal('BOOL');
+  });
+
   it('should get a default for an undefined envar from an enum, with a transform', () => {
     enum Mode {
       TEST = 'test',
@@ -171,6 +207,12 @@ describe('Env', () => {
 
   it('should set a number envar to float', () => {
     env.setNumber('NUM3', 1.123);
+    expect(env.getString('NUM3')).to.equal('1.123');
+    expect(env.getNumber('NUM3')).to.equal(1.123);
+  });
+
+  it('should set a number which is a string envar to float', () => {
+    env.setNumber('NUM3', '1.123' as unknown as number);
     expect(env.getString('NUM3')).to.equal('1.123');
     expect(env.getNumber('NUM3')).to.equal(1.123);
   });

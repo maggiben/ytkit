@@ -12,7 +12,7 @@ import { definiteEntriesOf, Dictionary, isKeyOf, KeyValue, Nullable, Optional, i
  * for accessing environment variables of different anticipated shapes.
  */
 export class Env {
-  public constructor(private store: Dictionary<string> = (process && process.env) || {}) {
+  public constructor(private store: Dictionary<string> = process && process.env) {
     this.store = store;
   }
 
