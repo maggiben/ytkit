@@ -134,7 +134,7 @@ export default class Download extends YtKitCommand {
     const videoInfo = await this.getVideoInfo();
     if (videoInfo) {
       this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions);
-      this.readStream.on('error', this.onError.bind(this));
+      this.readStream.on('error', this.error.bind(this));
       await this.setVideInfoAndVideoFormat();
       if (this.videoInfo && this.videoFormat) {
         this.setVideoOutput();
@@ -380,7 +380,7 @@ export default class Download extends YtKitCommand {
   private setVideoOutput(): void {
     if (!this.output) {
       /* if we made it here we're 100% sure we're not on a TTY device */
-      this.readStream.pipe(this.stdout());
+      this.readStream.pipe(process.stdout);
     } else {
       /* build a proper filename */
       this.output = this.getOutputFile();
@@ -390,9 +390,9 @@ export default class Download extends YtKitCommand {
     return;
   }
 
-  private stdout(): NodeJS.WriteStream {
-    return process.stdout;
-  }
+  // private stdout(): NodeJS.WriteStream {
+  //   return process.stdout;
+  // }
   /**
    * Output human readable information about a video download
    * It handles live video too
@@ -412,14 +412,14 @@ export default class Download extends YtKitCommand {
     if (sizeUnknown) {
       this.printLiveVideoSize(this.readStream);
     } else if (utils.getValueFrom(this.videoFormat, 'contentLength')) {
-      this.printVideoSize(parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
+      return this.printVideoSize(parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
     } else {
       this.readStream.once('response', (response) => {
         if (utils.getValueFrom(response, 'headers.content-length')) {
           const size = parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
-          this.printVideoSize(size);
+          return this.printVideoSize(size);
         } else {
-          this.printLiveVideoSize(this.readStream);
+          return this.printLiveVideoSize(this.readStream);
         }
       });
     }
@@ -499,13 +499,13 @@ export default class Download extends YtKitCommand {
   private printLiveVideoSize(readStream: Readable): void {
     let dataRead = 0;
     const updateProgress = utils.throttle(() => {
-      this.ux.cursorTo(this.stdout(), 0);
-      this.ux.clearLine(this.stdout(), 1);
+      this.ux.cursorTo(process.stdout, 0);
+      this.ux.clearLine(process.stdout, 1);
       let line = `size: ${utils.toHumanSize(dataRead)}`;
       if (dataRead >= 1024) {
         line += ` (${dataRead} bytes)`;
       }
-      this.stdout().write(line);
+      process.stdout.write(line);
     }, 250);
 
     readStream.on('data', (data: Buffer) => {
@@ -525,7 +525,7 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private printVideoSize(size: number): void {
-    const progress = this.ux.cli.progress({
+    const progress = this.ux.progress({
       format: '[{bar}] {percentage}% | Speed: {speed}',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
@@ -569,15 +569,5 @@ export default class Download extends YtKitCommand {
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
     return await ytdl.getInfo(this.flags.url);
-  }
-
-  /**
-   * Error handler
-   *
-   * @param {Error} error the error
-   * @returns {void}
-   */
-  private onError(error: Error): void {
-    throw error;
   }
 }
