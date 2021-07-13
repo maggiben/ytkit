@@ -35,7 +35,7 @@
 
 import { Command } from '@oclif/command';
 import { OutputArgs, OutputFlags } from '@oclif/parser';
-import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
+import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean, ensureDictionary } from '@salesforce/ts-types';
 import { UX, TableOptions } from './Ux';
 import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
 import { Env } from './utils/Env';
@@ -57,7 +57,7 @@ export class Result implements YtKitResult {
   public tableColumnData?: TableOptions | string[];
   public ux!: UX; // assigned in YtKitCommand.init
 
-  public constructor(config: YtKitResult = {}) {
+  public constructor(config: YtKitResult) {
     this.tableColumnData = config.tableColumnData;
     if (config.display) {
       this.display = config.display.bind(this);
@@ -158,7 +158,7 @@ export abstract class YtKitCommand extends Command {
       return false;
     }
     // Check each flag config to see if -h has been overridden...
-    const flags = this.statics.flags || {};
+    const { flags } = this.statics;
     for (const k of Object.keys(flags)) {
       if (k !== 'help' && flags[k].char === 'h') {
         // If -h is configured for anything but help, the subclass should handle it itself.
@@ -272,7 +272,7 @@ export abstract class YtKitCommand extends Command {
     }
   }
 
-  protected parseVarargs(args: string[] = []): JsonMap {
+  protected parseVarargs(args: string[]): JsonMap {
     const varargs: Dictionary<string> = {};
     const descriptor = this.statics.varargs;
 
@@ -303,7 +303,7 @@ export abstract class YtKitCommand extends Command {
         descriptor.validator(name, value);
       }
 
-      varargs[name] = value || undefined;
+      varargs[name] = value;
     });
 
     return varargs;
