@@ -38,6 +38,7 @@
 import * as readline from 'readline';
 import { AnyJson, isArray, isBoolean } from '@salesforce/ts-types';
 import { cli } from 'cli-ux';
+import { SingleBar } from 'cli-progress';
 import * as chalk from 'chalk';
 
 export interface Column extends Record<string, unknown> {
@@ -114,6 +115,21 @@ export class UX {
       this.readline.clearLine(stdout, dir);
     }
     return this;
+  }
+
+  /**
+   * Easy to use progress-bar
+   *
+   * originally from cli-progress (not typed)
+   *
+   * @param {Record<string, unknow>} param
+   * @returns {SingleBar | undefined}
+   */
+  public progress(params: Record<string, unknown>): SingleBar | undefined {
+    if (this.isOutputEnabled) {
+      return this.cli.progress(params) as SingleBar;
+    }
+    return;
   }
 
   /**

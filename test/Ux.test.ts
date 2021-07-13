@@ -110,9 +110,6 @@ describe('UX', () => {
   });
 
   it('table() should not log when output IS NOT enabled', () => {
-    let retVal: Optional<Dictionary>;
-    const tableGetter = () => (x: Dictionary) => (retVal = x);
-    sandbox.stub(cli, 'table').get(tableGetter);
     const ux = new UX(false);
     const tableData = [
       { foo: 'amazing!', bar: 3, baz: true },
@@ -120,8 +117,6 @@ describe('UX', () => {
       { foo: 'truly amazing!', bar: 9, baz: true },
     ];
     const ux1 = ux.table(tableData);
-
-    expect(retVal).to.equal(undefined);
     expect(ux1).to.equal(ux);
   });
 
@@ -265,5 +260,32 @@ describe('UX', () => {
     const clearLineStub = sandbox.stub(readline, 'clearLine');
     ux.clearLine(process.stdout, 0);
     expect(clearLineStub.called).to.equal(false);
+  });
+
+  it('progress()', () => {
+    let retVal: Optional<Dictionary>;
+    const progressGetter = () => (x: Dictionary) => (retVal = x);
+    sandbox.stub(cli, 'progress').get(progressGetter);
+    const ux = new UX(true);
+    const template = {
+      format: '[{bar}] {percentage}% | Speed: {speed}',
+      barCompleteChar: '\u2588',
+      barIncompleteChar: '\u2591',
+      total: 1024,
+    };
+    ux.progress(template);
+    expect(retVal).to.deep.equal(template);
+  });
+
+  it('progress() should not log when output IS NOT enabled', () => {
+    const ux = new UX(false);
+    const tableData = {
+      format: '[{bar}] {percentage}% | Speed: {speed}',
+      barCompleteChar: '\u2588',
+      barIncompleteChar: '\u2591',
+      total: 1024,
+    };
+    const ux1 = ux.progress(tableData);
+    expect(ux1).to.equal(undefined);
   });
 });
