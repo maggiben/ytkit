@@ -135,7 +135,7 @@ jobs:
       - run:
           name: Promote this release
           command: |
-            docker tag docker tag $DOCKER_HUB_REPOSITORY:$CIRCLE_TAG $DOCKER_HUB_REPOSITORY:latest
+            docker tag $DOCKER_HUB_REPOSITORY:$CIRCLE_TAG $DOCKER_HUB_REPOSITORY:latest
       - docker/push:
           tag: latest
           image: $DOCKER_HUB_REPOSITORY
