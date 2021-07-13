@@ -134,6 +134,7 @@ export default class Download extends YtKitCommand {
     const videoInfo = await this.getVideoInfo();
     if (videoInfo) {
       this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions);
+      this.readStream.on('error', this.onError.bind(this));
       await this.setVideInfoAndVideoFormat();
       if (this.videoInfo && this.videoFormat) {
         this.setVideoOutput();
@@ -276,18 +277,17 @@ export default class Download extends YtKitCommand {
   private buildDownloadOptions(): ytdl.downloadOptions {
     const options: ytdl.downloadOptions = {};
     const qualityFlag = this.getFlag<string>('quality');
-    const isMultiple = /,/.test(qualityFlag);
-    const quality = isMultiple ? qualityFlag.split(',') : qualityFlag;
-
+    const quality = /,/.test(qualityFlag) ? qualityFlag.split(',') : qualityFlag;
     const range = this.getFlag<string>('range');
+
     if (range) {
       const ranges = range.split('-').map((r: string) => parseInt(r, 10));
       options.range = { start: ranges[0], end: ranges[1] };
     }
-    return {
-      ...options,
-      quality /* TODO: this prop always get set even when undefined please fix ! */,
-    };
+    if (quality) {
+      options.quality = quality;
+    }
+    return options;
   }
 
   /**
@@ -328,12 +328,17 @@ export default class Download extends YtKitCommand {
   /**
    * Gets the ouput file fiven a file name or string template
    *
+   * Templates are based on videoInfo properties for example:
+   * --ouput {videoDetails.author.name} will generate a file who's name
+   * will start with the video author's name
+   * If no extension is given we'll use the video format container property
+   *
    * @returns {string} output file
    */
   private getOutputFile(): string {
     let output = utils.tmpl(this.output, [this.videoInfo, this.videoFormat]);
-    if (!this.extension && this.videoFormat?.container) {
-      output += '.' + this.videoFormat?.container;
+    if (!this.extension && utils.getValueFrom(this.videoFormat, 'container')) {
+      output += '.' + utils.getValueFrom<string>(this.videoFormat, 'container', '');
     }
     // Parses & sanitises output filename for any illegal characters
     const parsedOutput = path.parse(output);
@@ -359,11 +364,10 @@ export default class Download extends YtKitCommand {
         if (!this.videoFormat) {
           this.videoFormat = videoFormat;
         }
+        /* remove the error listener, we don't need it anymore */
         return resolve({ videoInfo, videoFormat });
       });
-      this.readStream.on('error', (error) => {
-        return reject(error);
-      });
+      this.readStream.on('error', reject);
     });
   }
 
@@ -374,12 +378,14 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private setVideoOutput(): void {
-    const onError = (error: Error): void => this.onError(error);
     if (!this.output) {
-      this.readStream.pipe(this.stdout()).on('error', onError);
+      /* if we made it here we're 100% sure we're not on a TTY device */
+      this.readStream.pipe(this.stdout());
     } else {
+      /* build a proper filename */
       this.output = this.getOutputFile();
-      this.readStream.pipe(fs.createWriteStream(this.output)).on('error', onError);
+      /* stream to file */
+      this.readStream.pipe(fs.createWriteStream(this.output));
     }
     return;
   }
@@ -406,12 +412,12 @@ export default class Download extends YtKitCommand {
     if (sizeUnknown) {
       this.printLiveVideoSize(this.readStream);
     } else if (utils.getValueFrom(this.videoFormat, 'contentLength')) {
-      this.printVideoSize(this.readStream, parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
+      this.printVideoSize(parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
     } else {
       this.readStream.once('response', (response) => {
         if (utils.getValueFrom(response, 'headers.content-length')) {
           const size = parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
-          this.printVideoSize(this.readStream, size);
+          this.printVideoSize(size);
         } else {
           this.printLiveVideoSize(this.readStream);
         }
@@ -518,7 +524,7 @@ export default class Download extends YtKitCommand {
    * @param {number} size
    * @returns {void}
    */
-  private printVideoSize(readStream: Readable, size: number): void {
+  private printVideoSize(size: number): void {
     const progress = this.ux.cli.progress({
       format: '[{bar}] {percentage}% | Speed: {speed}',
       barCompleteChar: '\u2588',
@@ -529,13 +535,13 @@ export default class Download extends YtKitCommand {
       speed: 'N/A',
     });
     const streamSpeed = new StreamSpeed();
-    streamSpeed.add(readStream);
+    streamSpeed.add(this.readStream);
     // Keep track of progress.
     const getSpeed = (): { speed: string } => ({
       speed: StreamSpeed.toHuman(streamSpeed.getSpeed(), { timeUnit: 's', precision: 3 }),
     });
 
-    readStream.on('data', (data: Buffer) => {
+    this.readStream.on('data', (data: Buffer) => {
       progress.increment(data.length, getSpeed());
     });
 
@@ -543,9 +549,14 @@ export default class Download extends YtKitCommand {
     // which is the case with `audioonly` formats.
     const interval = setInterval(() => {
       progress.increment(0, getSpeed());
-    }, 1000);
+    }, 750);
 
-    readStream.on('end', () => {
+    this.readStream.on('end', () => {
+      progress.stop();
+      clearInterval(interval);
+    });
+
+    this.readStream.on('error', () => {
       progress.stop();
       clearInterval(interval);
     });
@@ -567,7 +578,6 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private onError(error: Error): void {
-    this.ux.error(error.message);
-    process.exit(1);
+    throw error;
   }
 }

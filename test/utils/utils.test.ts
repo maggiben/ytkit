@@ -127,15 +127,22 @@ describe('getValueFromMeta', () => {
     };
     const defaultValue = 'my-defaul-value';
     let result: string | number;
-    /* if param exists is fale no matter what the function will return the defaulValue */
+    /* if param exists is fale function returns defaultValue or undefined */
     result = utils.getValueFromMeta<string>(data, 'user.name', false);
     expect(result).to.be.equal(undefined);
+    /* if param exists is fale function will return the defaulValue */
     result = utils.getValueFromMeta<string>(data, 'user.name', false, defaultValue);
     expect(result).to.be.equal(defaultValue);
+    /* test nested value */
     result = utils.getValueFromMeta<string>(data, 'user.name', true);
     expect(result).to.be.equal(data.user.name);
+    /* test default value */
     result = utils.getValueFromMeta<string>(data, 'user.ssid', true, defaultValue);
     expect(result).to.be.equal(defaultValue);
+    /* test no default value */
+    result = utils.getValueFromMeta<string>(data, 'user.ssid', true);
+    expect(result).to.be.equal(undefined);
+    /* test the transform option */
     result = utils.getValueFromMeta<string>(data, 'user.name', true, defaultValue, (input: string) =>
       input.toUpperCase()
     );

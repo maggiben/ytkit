@@ -148,6 +148,97 @@ describe('video download', () => {
     });
 });
 
+describe('video download quality options', () => {
+  const output = 'MyVideo.mp4';
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const format = {
+    itag: '123',
+    container: 'mp4',
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    quality: 'high',
+    contentLength: 4096,
+    audioBitrate: 100,
+  } as unknown as ytdl.videoFormat;
+  const formats = [format] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+    lengthSeconds: 3600,
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const stream = passThorughStream();
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let logStub: sinon.SinonStub;
+  let createWriteStreamStub: sinon.SinonStub;
+  let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
+  beforeEach(() => {
+    writeStreamStub = sinon.createStubInstance(WritableFileStream);
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').callsFake((path) => {
+      expect(path).to.be.equal(output);
+      return writeStreamStub as unknown as WritableFileStream;
+    });
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo, options?: ytdl.downloadOptions) => {
+      expect(options).to.exist;
+      expect(options).to.have.property('quality');
+      expect(options?.quality).to.deep.equal(['278', '299']);
+      expect(info).to.deep.equal(videoInfo);
+      // simulate ytdl info signal then end the stream
+      process.nextTick(() => {
+        stream.emit('info', ...[info, format]);
+        setImmediate(() => stream.emit('end'));
+      });
+      return stream;
+    });
+    logStub = sandbox.stub(UX.prototype, 'log').callsFake((input: string) => {
+      expect(input.length).to.not.be.equal(0);
+      return UX.prototype;
+    });
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--output', output, '--quality', '278,299'])
+    .it('given a list of quality filters return the first available one depending on the order of importance', () => {
+      expect(logStub.callCount).to.be.equal(13);
+      [
+        videoInfo.videoDetails.title,
+        videoInfo.videoDetails.author.name,
+        videoInfo.videoDetails.averageRating,
+        videoInfo.videoDetails.viewCount,
+        videoInfo.videoDetails.publishDate,
+        utils.toHumanTime(parseInt(videoInfo.videoDetails.lengthSeconds, 10)),
+        format.quality,
+        utils.toHumanSize(format.bitrate ?? 0),
+        `${format.audioBitrate}KB`,
+        format.codecs,
+        format.itag,
+        format.container,
+        output,
+      ].forEach((value: string | number | undefined, index: number) => {
+        expect(logStub.getCall(index).args[0]).to.include(value);
+      });
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+      expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    });
+});
+
 describe('download video without an output flag', () => {
   const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
   const format = {
@@ -961,6 +1052,7 @@ describe('video download stdout stream', () => {
     });
 });
 
+/* TODO: test is not clear the handlers of the 'end' event are not being tested */
 describe('video fails to set info', () => {
   const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
   const format = {
@@ -1017,4 +1109,171 @@ describe('video fails to set info', () => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
     });
+});
+
+describe('stream error handling when listening to info', () => {
+  const streamError = new Error('StreamError');
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const format = {
+    itag: '123',
+    container: 'mp4',
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    quality: 'high',
+    contentLength: 4096,
+    audioBitrate: 100,
+  } as unknown as ytdl.videoFormat;
+  const formats = [format] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+    lengthSeconds: 3600,
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const stream = passThorughStream();
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let errorStub: sinon.SinonStub;
+  let createWriteStreamStub: sinon.SinonStub;
+  let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
+  beforeEach(() => {
+    writeStreamStub = sinon.createStubInstance(WritableFileStream);
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').callsFake((path) => {
+      expect(path).to.be.equal(`${videoDetails.title}.${format.container}`);
+      return writeStreamStub as unknown as WritableFileStream;
+    });
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+      expect(info).to.deep.equal(videoInfo);
+      // simulate ytdl info signal then error the stream
+      process.nextTick(() => {
+        stream.emit('error', ...[streamError]);
+      });
+      return stream;
+    });
+    errorStub = sandbox.stub(UX.prototype, 'error').callsFake((...args: unknown[]) => {
+      expect(args.length).to.not.be.equal(0);
+      return UX.prototype;
+    });
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['download', '--url', videoUrl])
+    .catch((error) => {
+      expect(error).to.be.instanceOf(Error);
+      expect(error.message).to.be.instanceOf(streamError.message);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(errorStub.firstCall.firstArg[1]).to.deep.include(streamError.message);
+      expect(createWriteStreamStub.callCount).to.be.equal(0);
+    });
+});
+
+describe('video download stream error handling when download is active (simulate connection break)', () => {
+  /* we use fake times here because the progressbar
+   * timer wont receive the error signal and therefore wont clear the timer
+   */
+  let clock: sinon.SinonFakeTimers;
+  const streamError = new Error('StreamError');
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const format = {
+    itag: '123',
+    container: 'mp4',
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    quality: 'high',
+    contentLength: 4096,
+    audioBitrate: 100,
+  } as unknown as ytdl.videoFormat;
+  const formats = [format] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+    lengthSeconds: 3600,
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const stream = passThorughStream();
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let errorStub: sinon.SinonStub;
+  let createWriteStreamStub: sinon.SinonStub;
+  let writeStreamStub: sinon.SinonStubbedInstance<WritableFileStream>;
+  beforeEach(() => {
+    clock = sinon.useFakeTimers();
+    writeStreamStub = sinon.createStubInstance(WritableFileStream);
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').callsFake((path) => {
+      expect(path).to.be.equal(`${videoDetails.title}.${format.container}`);
+      return writeStreamStub as unknown as WritableFileStream;
+    });
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
+      expect(info).to.deep.equal(videoInfo);
+      // simulate ytdl info signal then error the stream
+      process.nextTick(() => {
+        stream.emit('info', ...[info, format]);
+        /* emit an error this NEEDS to be called on process.nextTick */
+        process.nextTick(() => {
+          stream.emit('error', ...[streamError]);
+        });
+      });
+      return stream;
+    });
+    errorStub = sandbox.stub(UX.prototype, 'error').callsFake((...args: unknown[]) => {
+      expect(args.length).to.not.be.equal(0);
+      return UX.prototype;
+    });
+  });
+  afterEach(() => {
+    clock.restore();
+    sandbox.restore();
+  });
+
+  test
+    .stdout({
+      print: true,
+    })
+    .command(['download', '--url', videoUrl])
+    .catch((error) => {
+      expect(error).to.be.instanceOf(Error);
+      expect(error.message).to.be.instanceOf(streamError.message);
+      expect(errorStub.callCount).to.be.equal(1);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(errorStub.firstCall.firstArg).to.deep.include(streamError.message);
+      expect(createWriteStreamStub.callCount).to.be.equal(1);
+    });
+});
+
+describe('test the class', () => {
+  it('test class static properties', () => {
+    expect(Download.id).to.be.equal('download');
+    expect(Download.description).to.be.equal('download video to a file or to stdout');
+    expect(Download.examples).to.deep.equal(['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ']);
+  });
 });
