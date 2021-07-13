@@ -30,7 +30,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.4.35 darwin-x64 node-v16.4.0
+ytkit/1.4.36 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -71,10 +71,10 @@ OPTIONS
   --urlonly                                   Print direct download URL
 
 EXAMPLE
-  $ ytdl download -u
+  $ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.35/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.36/src/commands/download.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -107,10 +107,10 @@ OPTIONS
   --json         format output as json
 
 EXAMPLE
-  $ ytdl info -u https://www.youtube.com/watch?v=ABC1234
+  $ ytdl info -u https://www.youtube.com/watch?v=aqz-KE-bpKQ
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.35/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.36/src/commands/info.ts)_
 
 <!-- commandsstop -->
 

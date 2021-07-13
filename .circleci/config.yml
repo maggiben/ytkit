@@ -129,8 +129,13 @@ jobs:
       - docker/build:
           tag: $CIRCLE_TAG
           image: $DOCKER_HUB_REPOSITORY
+      # Tag
       - docker/push:
           tag: $CIRCLE_TAG
+          image: $DOCKER_HUB_REPOSITORY
+      # Promote
+      - docker/push:
+          tag: latest
           image: $DOCKER_HUB_REPOSITORY
 notify:
   webhooks:

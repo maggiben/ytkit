@@ -35,7 +35,7 @@
 
 import { Command } from '@oclif/command';
 import { OutputArgs, OutputFlags } from '@oclif/parser';
-import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean, ensureDictionary } from '@salesforce/ts-types';
+import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
 import { UX, TableOptions } from './Ux';
 import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
 import { Env } from './utils/Env';
