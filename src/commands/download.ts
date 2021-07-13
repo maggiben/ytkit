@@ -39,7 +39,7 @@ import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
-import { JsonMap } from '@salesforce/ts-types';
+import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
@@ -110,7 +110,7 @@ export default class Download extends YtKitCommand {
   protected ytdlOptions!: ytdl.downloadOptions;
   // The parsed flags for easy reference by this command; assigned in init
   protected output!: string;
-  protected extension?: string;
+  protected extension?: string | unknown;
 
   // video info
   protected videoInfo?: ytdl.videoInfo;
@@ -154,7 +154,7 @@ export default class Download extends YtKitCommand {
    */
   public async getDownloadUrl(): Promise<string | undefined> {
     const info = await ytdl.getInfo(this.flags.url);
-    return ytdl.chooseFormat(info.formats, this.ytdlOptions).url;
+    return info ? ytdl.chooseFormat(info.formats, this.ytdlOptions).url : undefined;
   }
 
   /**
@@ -301,15 +301,12 @@ export default class Download extends YtKitCommand {
    */
   private setOutput(): void {
     this.output = this.getFlag<string>('output');
-    const regexp = new RegExp(/(\.\w+)?$/);
-    this.extension = regexp
-      .exec(this.output ?? '')
-      ?.slice(1, 2)
-      .pop();
+    const extension = ensureArray(/(\.\w+)?$/.exec(this.output)).slice(1, 2);
+    this.extension = extension.pop();
 
     if (this.output) {
       if (this.extension && !this.flags.quality && !this.flags['filter-container']) {
-        this.flags['filter-container'] = `^${this.extension.slice(1)}$`;
+        this.flags['filter-container'] = `^${ensureString(this.extension).slice(1)}$`;
       }
     } else if (this.isTTY()) {
       this.output = '{videoDetails.title}';
@@ -377,22 +374,17 @@ export default class Download extends YtKitCommand {
    *
    * @returns {void}
    */
-  private setVideoOutput(): void {
+  private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream {
     if (!this.output) {
       /* if we made it here we're 100% sure we're not on a TTY device */
-      this.readStream.pipe(process.stdout);
-    } else {
-      /* build a proper filename */
-      this.output = this.getOutputFile();
-      /* stream to file */
-      this.readStream.pipe(fs.createWriteStream(this.output));
+      return this.readStream.pipe(process.stdout);
     }
-    return;
+    /* build a proper filename */
+    this.output = this.getOutputFile();
+    /* stream to file */
+    return this.readStream.pipe(fs.createWriteStream(this.output));
   }
 
-  // private stdout(): NodeJS.WriteStream {
-  //   return process.stdout;
-  // }
   /**
    * Output human readable information about a video download
    * It handles live video too

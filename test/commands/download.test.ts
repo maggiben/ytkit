@@ -149,6 +149,101 @@ describe('video download', () => {
     });
 });
 
+describe('do not download only return source video url', () => {
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const format = {
+    itag: '123',
+    container: 'mp4',
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    quality: 'high',
+    contentLength: 4096,
+    audioBitrate: 100,
+    url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+  } as unknown as ytdl.videoFormat;
+  const formats = [format] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title: 'My Title',
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+    lengthSeconds: 3600,
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  beforeEach(() => {
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.resolve(videoInfo);
+    });
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--urlonly'])
+    .it('do not download only return source video url', (ctx) => {
+      expect(ctx.stdout).to.deep.include(format.url);
+    });
+});
+
+describe('try to retrieve vode source url but getInfo throws', () => {
+  const getInfoError = new Error('GetInfoError');
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  beforeEach(() => {
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      return Promise.reject(getInfoError);
+    });
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--urlonly'])
+    .catch((error) => {
+      expect(error).to.be.instanceof(Error);
+      expect(error).to.have.property('message').and.to.include(getInfoError.message);
+    })
+    .it('fails while trying to return the direct video url', (ctx) => {
+      expect(ctx.stdout).to.be.equal('');
+    });
+});
+
+describe('try to retrieve vode source url but getInfo returns undefined', () => {
+  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  beforeEach(() => {
+    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
+      expect(url).to.equal(videoUrl);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return Promise.resolve() as unknown as Promise<ytdl.videoInfo>;
+    });
+  });
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  test
+    .stdout()
+    .command(['download', '--url', videoUrl, '--urlonly'])
+    .it('fails while trying to return the direct video url', (ctx) => {
+      expect(ctx.stdout).to.be.equal('');
+    });
+});
+
 describe('video download quality options', () => {
   const output = 'MyVideo.mp4';
   const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
@@ -1188,10 +1283,10 @@ describe('video download file stream', () => {
         stream.emit('info', ...[info, format]);
         setImmediate(() => stream.emit('end'));
       });
-      pipeStub = sandbox.stub(stream, 'pipe').callsFake((destination: NodeJS.WritableStream) => {
-        return destination;
-      });
       return stream;
+    });
+    pipeStub = sandbox.stub(stream, 'pipe').callsFake((destination: NodeJS.WritableStream) => {
+      return destination;
     });
   });
   afterEach(() => {
@@ -1260,10 +1355,10 @@ describe('video download stdout stream', () => {
         stream.emit('info', ...[info, format]);
         setImmediate(() => stream.emit('end'));
       });
-      pipeStub = sandbox.stub(stream, 'pipe').callsFake((destination: NodeJS.WritableStream) => {
-        return destination;
-      });
       return stream;
+    });
+    pipeStub = sandbox.stub(stream, 'pipe').callsFake((destination: NodeJS.WritableStream) => {
+      return destination;
     });
   });
   afterEach(() => {
@@ -1280,63 +1375,6 @@ describe('video download stdout stream', () => {
       expect(pipeStub.firstCall.firstArg).to.be.instanceOf(WritableFileStream);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(`${videoDetails.title}.${format.container}`);
       expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
-    });
-});
-
-describe('video download url only', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
-  const format = {
-    itag: '123',
-    container: 'mp4',
-    qualityLabel: '1080p',
-    codecs: 'mp4a.40.2',
-    bitrate: 1024,
-    quality: 'highest',
-    contentLength: 4096,
-    audioBitrate: 100,
-    url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
-  } as unknown as ytdl.videoFormat;
-  const formats = [format] as unknown as ytdl.videoFormat[];
-  const videoDetails = {
-    title: 'My Title',
-    author: {
-      name: 'Author Name',
-    },
-    averageRating: 5,
-    viewCount: 100,
-    publishDate: '2021-03-05',
-    lengthSeconds: 3600,
-  } as unknown as ytdl.VideoDetails;
-  const videoInfo = {
-    videoDetails,
-    formats,
-  } as unknown as ytdl.videoInfo;
-  const stream = passThorughStream();
-  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
-  beforeEach(() => {
-    sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
-      return Promise.resolve(videoInfo);
-    });
-    sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
-      expect(info).to.deep.equal(videoInfo);
-      // simulate ytdl info signal then end the stream
-      process.nextTick(() => {
-        stream.emit('info', ...[info, format]);
-        setImmediate(() => stream.emit('end'));
-      });
-      return stream;
-    });
-  });
-  afterEach(() => {
-    sandbox.restore();
-  });
-
-  test
-    .stdout()
-    .command(['download', '--url', videoUrl, '--urlonly'])
-    .it('return a direct video link', (ctx) => {
-      expect(ctx.stdout).to.include(format.url);
     });
 });
 
