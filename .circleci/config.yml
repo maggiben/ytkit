@@ -83,7 +83,7 @@ jobs:
       - attach_workspace:
           at: ~/cli
       - run:
-          name: 'Publish Release on GitHub'
+          name: Publish Release on GitHub
           command: |
             apt-get update
             apt-get install -y golang
@@ -129,11 +129,13 @@ jobs:
       - docker/build:
           tag: $CIRCLE_TAG
           image: $DOCKER_HUB_REPOSITORY
-      # Tag
       - docker/push:
           tag: $CIRCLE_TAG
           image: $DOCKER_HUB_REPOSITORY
-      # Promote
+      - run:
+          name: Promote this release
+          command: |
+            docker tag docker tag $DOCKER_HUB_REPOSITORY:$CIRCLE_TAG $DOCKER_HUB_REPOSITORY:latest
       - docker/push:
           tag: latest
           image: $DOCKER_HUB_REPOSITORY
