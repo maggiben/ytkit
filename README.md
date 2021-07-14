@@ -1,6 +1,6 @@
 # YTKIT
 
-Youtube video downloader
+A youtube command line utility kit
 
 [![oclif](https://img.shields.io/badge/cli-oclif-brightgreen.svg)](https://oclif.io)
 [![Version](https://img.shields.io/npm/v/ytkit.svg)](https://npmjs.org/package/ytkit)
@@ -16,9 +16,6 @@ Youtube video downloader
 - [YTKIT](#ytkit)
 - [Usage](#usage)
 - [Commands](#commands)
-- [choose a tag to pull and run](#choose-a-tag-to-pull-and-run)
-- [then run any ytkit command you like](#then-run-any-ytkit-command-you-like)
-- [when done, type exit to leave the container](#when-done-type-exit-to-leave-the-container)
 <!-- tocstop -->
 
 # Usage
@@ -46,6 +43,7 @@ USAGE
 - [`ytkit download`](#ytkit-download)
 - [`ytkit help [COMMAND]`](#ytkit-help-command)
 - [`ytkit info`](#ytkit-info)
+- [`ytkit search`](#ytkit-search)
 
 ## `ytkit download`
 
@@ -112,6 +110,25 @@ EXAMPLE
 
 _See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.39/src/commands/info.ts)_
 
+## `ytkit search`
+
+Search for Youtube for Videos, Playlists and many more
+
+```
+USAGE
+  $ ytkit search
+
+OPTIONS
+  -f, --formats        Display available video formats
+  -s, --search=search  (required) Youtube video or playlist url
+  --json               format output as json
+
+EXAMPLE
+  $ ytdl search -u https://www.youtube.com/watch?v=aqz-KE-bpKQ
+```
+
+_See code: [src/commands/search.ts](https://github.com/maggiben/ytkit/blob/v1.4.39/src/commands/search.ts)_
+
 <!-- commandsstop -->
 
 ## Contributing
@@ -171,11 +188,11 @@ We provide versioned images on dockerhub.
 Example
 
 ```bash
-# choose a tag to pull and run
-docker pull rbmaggi/ytkit
-# then run any ytkit command you like
-ytkit version
-# when done, type exit to leave the container
-exit
-
+> docker pull rbmaggi/ytkit # choose a tag to pull and run
+> ytkit version # then run any ytkit command you like
+> exit # when done, type exit to leave the container
 ```
+
+### ATTENTION
+
+While this tool makes it easy to download content from Youtube, I do not endorse the theft of content created by hardworking citizens of the Internet. If you use Youtube as a primary source of entertainment, then **please remember to _turn off ad-block_, _buy their merchandise_, or _donate_ to the content creators you love to watch.** And if you can't do that then simply like, comment, and subscribe to help them get more people enjoying their content.
