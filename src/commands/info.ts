@@ -47,7 +47,7 @@ export interface IOutputVideoMeta {
 }
 
 export default class Info extends YtKitCommand {
-  public static id = 'Info';
+  public static id = 'info';
   public static readonly description = 'display information about a video';
   public static readonly examples = ['$ ytdl info -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
 

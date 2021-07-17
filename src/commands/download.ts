@@ -62,7 +62,6 @@ export default class Download extends YtKitCommand {
   public static readonly description = 'download video to a file or to stdout';
   public static readonly examples = ['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
   public static readonly flagsConfig: FlagsConfig = {
-    help: flags.help({ char: 'h' }),
     url: flags.string({
       char: 'u',
       description: 'Youtube video or playlist url',

@@ -7,8 +7,12 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Program",
+      "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/bin/run",
-      "args": ["download", "--url", "https://www.youtube.com/watch?v=aqz-KE-bpKQ", "--json"],
+      "cwd": "/Users/bmaggi/salesforce/tmp/dreamhouse-lwcn",
+      "args": ["search", "-q", "banana", "-l", "10"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "openOnSessionStart",
       "env": {
         "NODE_ENV": "testing"
       }
