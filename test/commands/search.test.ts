@@ -44,7 +44,7 @@ describe('search video with and without limits', () => {
       .get(SEARCH_PATH)
       // eslint-disable-next-line camelcase
       .query({ gl: 'US', hl: 'en', search_query: 'testing', sp: 'EgIQAQ%3D%3D' })
-      .replyWithFile(200, 'test/pages/result.html');
+      .replyWithFile(200, 'test/pages/result.raw');
 
     nock(YT_HOST)
       .post(API_PATH, () => true)
@@ -123,7 +123,7 @@ describe('search video infinite (all) results', () => {
       .get(SEARCH_PATH)
       // eslint-disable-next-line camelcase
       .query({ gl: 'US', hl: 'en', search_query: 'testing', sp: 'EgIQAQ%3D%3D' })
-      .replyWithFile(200, 'test/pages/result.html');
+      .replyWithFile(200, 'test/pages/result.raw');
 
     nock(YT_HOST, { reqheaders: {} })
       .post(API_PATH, JSON.stringify(body1))
@@ -174,7 +174,7 @@ describe('search video type not found', () => {
       .get(SEARCH_PATH)
       // eslint-disable-next-line camelcase
       .query({ gl: 'US', hl: 'en', search_query: 'testing', sp: 'EgIQAQ%3D%3D' })
-      .replyWithFile(200, 'test/pages/result.html');
+      .replyWithFile(200, 'test/pages/result.raw');
 
     nock(YT_HOST)
       .post(API_PATH, () => true)
