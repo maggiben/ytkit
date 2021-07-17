@@ -1,12 +1,12 @@
 /*
- * @file         : info.ts
- * @summary      : video info command
+ * @file         : search.ts
+ * @summary      : seach for videos on youtube
  * @version      : 1.0.0
  * @project      : YtKit
  * @description  : displays information about a video
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
- * @date         : 05 Jul 2021
+ * @date         : 17 Jul 2021
  * @license:     : MIT
  *
  * Copyright 2021 Benjamin Maggi <benjaminmaggi@gmail.com>
@@ -89,6 +89,11 @@ export default class Search extends YtKitCommand {
     return this.getRows();
   }
 
+  /**
+   * get search options
+   *
+   * @returns {@link ytsr.Options} search options
+   */
   private getSearchOptions(): ytsr.Options {
     return {
       limit: parseFloat(this.flags.limit),
@@ -96,6 +101,11 @@ export default class Search extends YtKitCommand {
     } as ytsr.Options;
   }
 
+  /**
+   * get table rows
+   *
+   * @returns {Array<Record<string, string>>} an array of rows that contains the records
+   */
   private getRows(): Array<Record<string, string>> {
     return this.request.items.map((item: ytsr.Item) => {
       return this.tableColumnData.reduce((column, current) => {
@@ -117,6 +127,13 @@ export default class Search extends YtKitCommand {
     });
   }
 
+  /**
+   * Pulls avaible filters for the given string or link
+   *
+   * @param {string} searchString the label for the value
+   * @param {@link ytsr.Options} options the value to print
+   * @returns {Promise<Map<string, Map<string, ytsr.Filter>>>} returns a Promise resulting in a Map<String, Map<String, ytsr.Filter>>
+   */
   private async getFilters(
     searchString: string,
     options?: ytsr.ShortOptions
@@ -124,6 +141,13 @@ export default class Search extends YtKitCommand {
     return await ytsr.getFilters(searchString, options);
   }
 
+  /**
+   * Searches for the given string
+   *
+   * @param {string} searchString the label for the value
+   * @param {@link ytsr.Options} options the value to print
+   * @returns {Promise<ytsr.Result>} the result promise
+   */
   private async search(searchString: string, options?: ytsr.Options): Promise<ytsr.Result> {
     return await ytsr(searchString, options);
   }
