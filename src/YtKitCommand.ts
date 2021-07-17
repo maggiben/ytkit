@@ -38,7 +38,6 @@ import { OutputArgs, OutputFlags } from '@oclif/parser';
 import { get, JsonMap, AnyJson, Optional, Dictionary, isBoolean } from '@salesforce/ts-types';
 import { UX, TableOptions } from './Ux';
 import { buildYtKitFlags, flags as Flags, FlagsConfig } from './YtKitFlags';
-import { Env } from './utils/Env';
 
 export interface YtKitResult {
   data?: AnyJson;
@@ -117,8 +116,6 @@ export abstract class YtKitCommand extends Command {
   // The command output and formatting; assigned in _run
   protected result!: Result;
   private isJson = false;
-  // Environment variables accessor helper
-  private env!: Env;
   // Overrides @oclif/command static flags property.  Adds username flags
   // if the command supports them.  Builds flags defined by the command's
   // flagsConfig static property.
@@ -214,9 +211,6 @@ export abstract class YtKitCommand extends Command {
     }
     if (this.result && !this.result.ux) {
       this.result.ux = this.ux;
-    }
-    if (!this.env) {
-      this.env = new Env();
     }
   }
 
