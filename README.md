@@ -27,7 +27,7 @@ $ npm install -g ytkit
 $ ytkit COMMAND
 running command...
 $ ytkit (-v|--version|version)
-ytkit/1.4.39 darwin-x64 node-v16.4.0
+ytkit/1.4.40 darwin-x64 node-v16.4.0
 $ ytkit --help [COMMAND]
 USAGE
   $ ytkit COMMAND
@@ -54,7 +54,6 @@ USAGE
   $ ytkit download
 
 OPTIONS
-  -h, --help                                  show CLI help
   -o, --output=output                         Save to file, template by {prop}, default: stdout or {title}
   -u, --url=url                               (required) Youtube video or playlist url
   --begin=begin                               Time to begin video, format by 1:30.123 and 1m30s
@@ -72,7 +71,7 @@ EXAMPLE
   $ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ
 ```
 
-_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.39/src/commands/download.ts)_
+_See code: [src/commands/download.ts](https://github.com/maggiben/ytkit/blob/v1.4.40/src/commands/download.ts)_
 
 ## `ytkit help [COMMAND]`
 
@@ -108,26 +107,33 @@ EXAMPLE
   $ ytdl info -u https://www.youtube.com/watch?v=aqz-KE-bpKQ
 ```
 
-_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.39/src/commands/info.ts)_
+_See code: [src/commands/info.ts](https://github.com/maggiben/ytkit/blob/v1.4.40/src/commands/info.ts)_
 
 ## `ytkit search`
 
-Search for Youtube for Videos, Playlists and many more
+Search for Youtube for Videos
 
 ```
 USAGE
   $ ytkit search
 
 OPTIONS
-  -f, --formats        Display available video formats
-  -s, --search=search  (required) Youtube video or playlist url
-  --json               format output as json
+  -l, --limit=limit  [default: 100] Limits the pulled items, defaults to 100, set to Infinity to get the whole list of
+                     search results
+
+  -o, --options      Search options
+
+  -q, --query=query  (required) Query term
+
+  --json             format output as json
+
+  --safe-search      Pull items in youtube restriction mode
 
 EXAMPLE
-  $ ytdl search -u https://www.youtube.com/watch?v=aqz-KE-bpKQ
+  $ ytdl search -q banana
 ```
 
-_See code: [src/commands/search.ts](https://github.com/maggiben/ytkit/blob/v1.4.39/src/commands/search.ts)_
+_See code: [src/commands/search.ts](https://github.com/maggiben/ytkit/blob/v1.4.40/src/commands/search.ts)_
 
 <!-- commandsstop -->
 
