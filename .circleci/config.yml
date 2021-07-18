@@ -1,22 +1,21 @@
 version: 2.1
 jobs:
 
-    lint:
-        docker:
-            - image: circleci/node:stretch
-        steps:
-            - checkout
-            - run:
-                name: install linter
-                command: |
-                    npm install `cat npm-requirements.txt`
-            - run:
-                name: lint the markdown files
-                # for defining .remarkrc, see https://github.com/remarkjs/remark-lint#configuring-remark-lint
-                command: |
-                    ./node_modules/.bin/remark --version
-                    cat .remarkrc
-                    ./node_modules/.bin/remark _pages _posts --frail --rc-path .remarkrc
+  lint:
+      docker:
+          - image: circleci/node:stretch
+      steps:
+          - checkout
+          - run:
+              name: install linter
+              command: |
+                  npm install -g remark-cli remark-preset-lint-recommended
+          - run:
+              name: lint the markdown files
+              # for defining .remarkrc, see https://github.com/remarkjs/remark-lint#configuring-remark-lint
+              command: |
+                  remark --version
+                  remark _pages _posts --frail
     build:
         docker:
             - image: circleci/ruby:stretch
