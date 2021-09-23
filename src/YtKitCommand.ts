@@ -140,8 +140,8 @@ export abstract class YtKitCommand extends Command {
       return (this.result.data = await this.run());
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      err = error;
-      await this.catch(error);
+      err = error as Error;
+      await this.catch(error as Error);
     } finally {
       await this.finally(err);
     }

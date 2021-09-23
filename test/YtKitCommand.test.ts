@@ -264,12 +264,16 @@ describe('YtKitCommand', () => {
     return mockStdout(async () => {
       // Run the command
       let output: Optional<string>;
+      const errorMessage = 'Expected EEXIT error';
       try {
         output = (await TestCommand.run(['-h'])) as string;
-        fail('Expected EEXIT error');
-      } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal('ERR_ASSERTION');
+        fail(errorMessage);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+        if (error instanceof Error) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          expect(error?.message).to.equal(errorMessage);
+        }
       }
 
       expect(output).to.equal(undefined);
@@ -284,12 +288,16 @@ describe('YtKitCommand', () => {
     return mockStdout(async () => {
       // Run the command
       let output: Optional<string>;
+      const errorMessage = 'Expected EEXIT error';
       try {
         output = (await TestCommand.run(['-h'])) as string;
-        fail('Expected EEXIT error');
-      } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal('ERR_ASSERTION');
+        fail(errorMessage);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+        if (error instanceof Error) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          expect(error?.message).to.equal(errorMessage);
+        }
       }
 
       expect(output).to.equal(undefined);
@@ -328,13 +336,16 @@ describe('YtKitCommand', () => {
 
     return mockStdout(async (lines: string[]) => {
       let output: Optional<string>;
+      const errorMessage = 'Expected EEXIT error';
       try {
         output = (await TestCommand.run(['-h'])) as string;
-        fail('Expected EEXIT error');
-      } catch (err) {
-        expect(err).to.be.instanceOf(Error);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal('ERR_ASSERTION');
+        fail(errorMessage);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+        if (error instanceof Error) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          expect(error?.message).to.equal(errorMessage);
+        }
       }
 
       expect(output).to.equal(undefined);
@@ -357,12 +368,16 @@ describe('YtKitCommand', () => {
     return mockStdout(async (lines: string[]) => {
       // Run the command
       let output: Optional<string>;
+      const errorMessage = 'Expected EEXIT error';
       try {
         output = (await TestCommand.run(['-h'])) as string;
-        fail('Expected EEXIT error');
-      } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal('ERR_ASSERTION');
+        fail(errorMessage);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+        if (error instanceof Error) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          expect(error?.message).to.equal(errorMessage);
+        }
       }
 
       expect(output).to.equal(undefined);
@@ -745,13 +760,16 @@ describe('YtKitCommand', () => {
 
     return mockStdout(async () => {
       let output: Optional<string>;
+      const errorMessage = 'Expected EEXIT error';
       try {
         output = (await StderrCommand.run(['--url', 'https://www.youtube.com/watch?v=aqz-KE-bpKQ'])) as string;
-        fail('Expected EEXIT error');
-      } catch (err) {
-        expect(err).to.be.instanceOf(Error);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal('ERR_ASSERTION');
+        fail(errorMessage);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+        if (error instanceof Error) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          expect(error?.message).to.equal(errorMessage);
+        }
       }
       expect(output).to.equal(undefined);
       expect(process.exitCode).to.equal(1);
@@ -781,10 +799,12 @@ describe('YtKitCommand', () => {
       try {
         output = (await StderrCommand.run(['--url', 'https://www.youtube.com/watch?v=aqz-KE-bpKQ'])) as string;
         fail('Expected EEXIT error');
-      } catch (err) {
-        expect(err).to.be.instanceOf(Error);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal(undefined);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+        if (error instanceof Error) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          expect(error?.message).to.include('undefined');
+        }
       }
       expect(output).to.equal(undefined);
       expect(process.exitCode).to.equal(1);
@@ -810,17 +830,20 @@ describe('YtKitCommand', () => {
 
     return mockStdout(async () => {
       let output: Optional<string>;
+      const errorMessage = 'Expected EEXIT error';
       try {
         output = (await StderrCommand.run([
           '--url',
           'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
           '--json',
         ])) as string;
-        fail('Expected EEXIT error');
-      } catch (err) {
-        expect(err).to.be.instanceOf(Error);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal('ERR_ASSERTION');
+        fail(errorMessage);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
+        if (error instanceof Error) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          expect(error?.message).to.equal(errorMessage);
+        }
       }
       expect(output).to.equal(undefined);
       expect(process.exitCode).to.equal(1);
@@ -847,17 +870,16 @@ describe('YtKitCommand', () => {
 
     return mockStdout(async () => {
       let output: Optional<string>;
+      const errorMessage = 'Expected EEXIT error';
       try {
         output = (await StderrCommand.run([
           '--url',
           'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
           '--json',
         ])) as string;
-        fail('Expected EEXIT error');
-      } catch (err) {
-        expect(err).to.be.instanceOf(Error);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        expect(err.code).to.equal(undefined);
+        fail(errorMessage);
+      } catch (error) {
+        expect(error).to.be.instanceOf(Error);
       }
       expect(output).to.equal(undefined);
       expect(process.exitCode).to.equal(1);

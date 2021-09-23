@@ -110,7 +110,7 @@ export class UX {
    * @param {number} y The y position
    * @returns {UX}
    */
-  public clearLine(stdout: NodeJS.WritableStream, dir: number): UX {
+  public clearLine(stdout: NodeJS.WritableStream, dir: readline.Direction): UX {
     if (this.isOutputEnabled) {
       this.readline.clearLine(stdout, dir);
     }
