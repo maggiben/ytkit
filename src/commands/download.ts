@@ -102,7 +102,7 @@ export default class Download extends YtKitCommand {
   };
 
   // The parsed args for easy reference by this command; assigned in init
-  protected args!: OutputArgs<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  protected args!: OutputArgs;
   // The parsed varargs for easy reference by this command
   protected varargs?: JsonMap;
   protected readStream!: Readable;
@@ -152,7 +152,7 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   public async getDownloadUrl(): Promise<string | undefined> {
-    const info = await ytdl.getInfo(this.flags.url);
+    const info = await ytdl.getInfo(this.getFlag<string>('url'));
     return info ? ytdl.chooseFormat(info.formats, this.ytdlOptions).url : undefined;
   }
 
@@ -554,6 +554,6 @@ export default class Download extends YtKitCommand {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    return await ytdl.getInfo(this.flags.url);
+    return await ytdl.getInfo(this.getFlag<string>('url'));
   }
 }

@@ -190,6 +190,6 @@ export default class Info extends YtKitCommand {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    return await ytdl.getInfo(this.flags.url);
+    return await ytdl.getInfo(this.getFlag<string>('url'));
   }
 }

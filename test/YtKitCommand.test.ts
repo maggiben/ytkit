@@ -8,7 +8,16 @@
 import { fail } from 'assert';
 import * as chalk from 'chalk';
 import { stubInterface } from '@salesforce/ts-sinon';
-import { AnyJson, Dictionary, ensureJsonMap, JsonArray, JsonMap, keysOf, Optional } from '@salesforce/ts-types';
+import {
+  AnyJson,
+  Dictionary,
+  ensureAnyJson,
+  ensureJsonMap,
+  JsonArray,
+  JsonMap,
+  keysOf,
+  Optional,
+} from '@salesforce/ts-types';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import { YtKitCommand, Result, YtKitResult } from '../src/YtKitCommand';
@@ -61,11 +70,11 @@ const DEFAULT_INSTANCE_PROPS = {
 
 // Initial state of UX output by the command.
 const UX_OUTPUT_BASE = {
-  log: new Array<string[]>(),
-  error: new Array<string[]>(),
-  errorJson: new Array<AnyJson>(),
-  table: new Array<string[]>(),
-  logJson: new Array<string[]>(),
+  log: new Array<string>(),
+  error: new Array<string>(),
+  errorJson: new Array<Record<string, unknown>>(),
+  table: new Array<Record<string, unknown>>(),
+  logJson: new Array<Record<string, unknown>>(),
 };
 
 // Actual UX output by the command
@@ -77,7 +86,7 @@ async function mockStdout(test: (outLines: string[]) => Promise<void>) {
   const lines: string[] = [];
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  process.stdout.write = (message) => {
+  process.stdout.write = (message: string) => {
     if (message) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       lines.push(message.toString());
@@ -113,23 +122,23 @@ describe('YtKitCommand', () => {
     UX_OUTPUT = cloneJson(UX_OUTPUT_BASE);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sandbox.stub(UX.prototype, 'log').callsFake((args: any): UX => UX_OUTPUT.log.push(args) as unknown as UX);
+    sandbox.stub(UX.prototype, 'log').callsFake((args: string): UX => UX_OUTPUT.log.push(args) as unknown as UX);
     logJsonStub = sandbox
       .stub(UX.prototype, 'logJson')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .callsFake((args: any) => UX_OUTPUT.logJson.push(args) as unknown as UX);
+      .callsFake((args: Record<string, unknown>) => UX_OUTPUT.logJson.push(args) as unknown as UX);
     errorStub = sandbox
       .stub(UX.prototype, 'error')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .callsFake((args: any) => UX_OUTPUT.error.push(args) as unknown as UX);
+      .callsFake((args: string | Error) => UX_OUTPUT.error.push(args.toString()) as unknown as UX);
     sandbox
       .stub(UX.prototype, 'errorJson')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .callsFake((args: any) => UX_OUTPUT.errorJson.push(args) as unknown as UX);
+      .callsFake((args: Record<string, unknown>) => UX_OUTPUT.errorJson.push(args) as unknown as UX);
     sandbox
       .stub(UX.prototype, 'table')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .callsFake((args: any) => UX_OUTPUT.table.push(args) as unknown as UX);
+      .callsFake((args: AnyJson) => UX_OUTPUT.table.push(args as Record<string, unknown>) as unknown as UX);
 
     // Ensure BaseTestCommand['result'] is not defined before all tests
     BaseTestCommand.result = {};
@@ -737,7 +746,7 @@ describe('YtKitCommand', () => {
 
     const logJson = UX_OUTPUT['logJson'];
     expect(logJson.length, 'logJson did not get called with error json').to.equal(1);
-    const json = ensureJsonMap(logJson[0]);
+    const json = ensureAnyJson(logJson[0]) as Record<string, string>;
     expect(json.message, 'logJson did not get called with the right error').to.contains('Ahhh!');
     expect(UX_OUTPUT['errorJson'].length, 'errorJson got called when it should not have').to.equal(0);
   });

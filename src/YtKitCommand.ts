@@ -87,11 +87,6 @@ export type VarargsConfig =
   | boolean;
 
 export abstract class YtKitCommand extends Command {
-  // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
-  protected get statics(): typeof YtKitCommand {
-    return this.constructor as typeof YtKitCommand;
-  }
-
   // Property to inherit, override, and configure flags
   protected static flagsConfig: FlagsConfig;
   // Convenience property for simple command output table formating.
@@ -106,7 +101,7 @@ export abstract class YtKitCommand extends Command {
   protected flags!: OutputFlags<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
   // The parsed args for easy reference by this command; assigned in init
-  protected args!: OutputArgs<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  protected args!: OutputArgs;
 
   // The parsed varargs for easy reference by this command
   protected varargs?: JsonMap;
@@ -116,12 +111,18 @@ export abstract class YtKitCommand extends Command {
   // The command output and formatting; assigned in _run
   protected result!: Result;
   private isJson = false;
+
   // Overrides @oclif/command static flags property.  Adds username flags
   // if the command supports them.  Builds flags defined by the command's
   // flagsConfig static property.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public static get flags(): Flags.Input<any> {
     return buildYtKitFlags(this.flagsConfig);
+  }
+
+  // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
+  protected get statics(): typeof YtKitCommand {
+    return this.constructor as typeof YtKitCommand;
   }
 
   public async _run<T>(): Promise<Optional<T>> {

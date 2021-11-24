@@ -83,7 +83,7 @@ export default class Search extends YtKitCommand {
 
   public async run(): Promise<JsonArray | undefined> {
     this.searchOptions = this.getSearchOptions();
-    this.filters = await this.getFilters(this.flags.query);
+    this.filters = await this.getFilters(this.getFlag<string>('query'));
     const url = ensureString(this.filters.get('Type')?.get('Video')?.url);
     this.request = await this.search(url, this.searchOptions);
     return this.getRows();
@@ -96,7 +96,7 @@ export default class Search extends YtKitCommand {
    */
   private getSearchOptions(): ytsr.Options {
     return {
-      limit: parseFloat(this.flags.limit),
+      limit: parseFloat(this.getFlag<string>('limit')),
       safeSearch: Boolean(this.flags['safe-search']),
     } as ytsr.Options;
   }
