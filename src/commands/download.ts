@@ -45,7 +45,7 @@ import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
-import { downloader } from '../utils/downloader';
+import PlaylistDownloader from '../utils/downloader';
 
 declare interface IOutputVideoMeta {
   label: string;
@@ -134,6 +134,7 @@ export default class Download extends YtKitCommand {
         // eslint-disable-next-line no-console
         console.log('ytdlOptions:', this.ytdlOptions);
         // return this.downloadPlaylist(playlistId);
+        const playlistDownloader = await PlaylistDownloader.create({ playlistId, output: this.output });
         // const c = await downloader({ playlistId, output: this.output });
         // eslint-disable-next-line no-console
         // console.log('c', c);
@@ -144,6 +145,11 @@ export default class Download extends YtKitCommand {
           barCompleteChar: '\u2588',
           barIncompleteChar: '\u2591',
         });
+
+        playlistDownloader.on('contentLength', (payload: { item: ytpl.Item; contentLength: number }) => {
+          
+        });
+
         const b1 = multibar.create(200, 0);
         const b2 = multibar.create(1000, 0);
 

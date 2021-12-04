@@ -40,21 +40,12 @@ import { Worker, isMainThread, WorkerOptions } from 'worker_threads';
 import ytdl = require('ytdl-core');
 import * as ytpl from 'ytpl';
 import { AsyncCreatableEventEmitter } from './AsyncCreatable';
+import { DownloadWorker } from './worker';
 
-export interface WorkerDataPayload {
-  url: string;
-  path: string;
-}
-
-export interface WorkerMessage {
-  type: string;
-  videoId: string;
-  details: Record<string, unknown>;
-}
 
 export namespace PlaylistDownloader {
   /**
-   * Constructor options for DownloadWorker.
+   * Constructor options for PlaylistDownloader.
    */
   export interface Options {
     /**
@@ -74,8 +65,17 @@ export namespace PlaylistDownloader {
      */
     downloadOptions?: ytdl.downloadOptions;
   }
+
+  export interface Message {
+    item: ytpl.Item;
+    error: Error;
+    details: Record<string, unknown>;
+  }
 }
 
+/*
+  blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
+*/
 export default class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownloader.Options> {
   private workers = new Map<string, Worker>();
   private playlistId: string;
@@ -119,7 +119,7 @@ export default class PlaylistDownloader extends AsyncCreatableEventEmitter<Playl
   private async downloadWorkers(item: ytpl.Item): Promise<number> {
     const workerOptions: WorkerOptions = {
       workerData: {
-        url: item.url,
+        item,
         output: this.output,
         downloadOptions: this.downloadOptions,
         path: './worker.ts',
@@ -128,33 +128,48 @@ export default class PlaylistDownloader extends AsyncCreatableEventEmitter<Playl
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
       this.workers.set(item.id, worker);
-      worker.on('message', (message: WorkerMessage) => {
+      worker.on('message', (message: DownloadWorker.Message) => {
         switch (message.type) {
           case 'contentLength': {
+            this.emit('contentLength', {
+              item,
+              details: {
+                contentLength: message.details.contentLength,
+              },
+            });
             // eslint-disable-next-line no-console
-            console.log('contentLength:', message.details.contentLength);
+            // console.log('contentLength:', message.details.contentLength);
             break;
           }
           case 'progress': {
+            this.emit('contentLength', {
+              item,
+              details: {
+                progress: message.details.progress,
+              },
+            });
             // eslint-disable-next-line no-console
-            console.log('progress:', message.details.progress);
+            // console.log('progress:', message.details.progress);
             break;
           }
         }
       });
       worker.on('online', () => {
+        this.emit('online', { item });
         // eslint-disable-next-line no-console
         console.log('worker online');
       });
       worker.on('error', (error) => {
         // eslint-disable-next-line no-console
-        console.error('error:', error);
+        // console.error('error:', error);
+        this.emit('error', { item, error });
         this.workers.delete(item.id);
         reject(error);
       });
       worker.on('exit', (code) => {
         // eslint-disable-next-line no-console
-        console.log('exit:', code);
+        // console.log('exit:', code);
+        this.emit('exit', { item, code });
         this.workers.delete(item.id);
         if (code !== 0) {
           reject(new Error(`Worker stopped with exit code ${code}`));
@@ -165,67 +180,64 @@ export default class PlaylistDownloader extends AsyncCreatableEventEmitter<Playl
   }
 }
 
-/*
-  blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
-*/
-export async function downloader(options: {
-  playlistId: string;
-  output?: string;
-  downloadOptions?: ytdl.downloadOptions;
-}): Promise<string | undefined> {
-  if (isMainThread) {
-    const playlist = await ytpl(options.playlistId);
-    const workerOptions: WorkerOptions = {
-      workerData: {
-        url: playlist.items[1].url,
-        output: options.output,
-        downloadOptions: options.downloadOptions,
-        path: './worker.ts',
-      },
-    };
-    return new Promise((resolve, reject) => {
-      const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
-      worker.on('message', (message: WorkerMessage) => {
-        // eslint-disable-next-line no-console
-        console.log(`worker message: ${JSON.stringify(message, null, 2)}`);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        switch (message.type) {
-          case 'contentLength': {
-            // eslint-disable-next-line no-console
-            console.log('contentLength:', message.details.contentLength);
-            break;
-          }
-          case 'progress': {
-            // eslint-disable-next-line no-console
-            console.log('progress:', message.details.progress);
-            break;
-          }
-        }
-        // resolve(message as string);
-      });
-      worker.on('online', () => {
-        // eslint-disable-next-line no-console
-        console.log('online:');
-      });
-      worker.on('error', (error) => {
-        // eslint-disable-next-line no-console
-        console.log('exit:', error);
-        reject(error);
-      });
-      worker.on('caca', (caca) => {
-        // eslint-disable-next-line no-console
-        console.log('caca:', caca);
-      });
-      worker.on('exit', (code) => {
-        // eslint-disable-next-line no-console
-        console.log('exit:', code);
-        if (code !== 0) {
-          reject(new Error(`Worker stopped with exit code ${code}`));
-        }
-      });
-    });
-  }
-}
+// export async function downloader(options: {
+//   playlistId: string;
+//   output?: string;
+//   downloadOptions?: ytdl.downloadOptions;
+// }): Promise<string | undefined> {
+//   if (isMainThread) {
+//     const playlist = await ytpl(options.playlistId);
+//     const workerOptions: WorkerOptions = {
+//       workerData: {
+//         url: playlist.items[1].url,
+//         output: options.output,
+//         downloadOptions: options.downloadOptions,
+//         path: './worker.ts',
+//       },
+//     };
+//     return new Promise((resolve, reject) => {
+//       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
+//       worker.on('message', (message: WorkerMessage) => {
+//         // eslint-disable-next-line no-console
+//         console.log(`worker message: ${JSON.stringify(message, null, 2)}`);
+//         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+//         switch (message.type) {
+//           case 'contentLength': {
+//             // eslint-disable-next-line no-console
+//             console.log('contentLength:', message.details.contentLength);
+//             break;
+//           }
+//           case 'progress': {
+//             // eslint-disable-next-line no-console
+//             console.log('progress:', message.details.progress);
+//             break;
+//           }
+//         }
+//         // resolve(message as string);
+//       });
+//       worker.on('online', () => {
+//         // eslint-disable-next-line no-console
+//         console.log('online:');
+//       });
+//       worker.on('error', (error) => {
+//         // eslint-disable-next-line no-console
+//         console.log('exit:', error);
+//         reject(error);
+//       });
+//       worker.on('caca', (caca) => {
+//         // eslint-disable-next-line no-console
+//         console.log('caca:', caca);
+//       });
+//       worker.on('exit', (code) => {
+//         // eslint-disable-next-line no-console
+//         console.log('exit:', code);
+//         if (code !== 0) {
+//           reject(new Error(`Worker stopped with exit code ${code}`));
+//         }
+//       });
+//     });
+//   }
+// }
 
 /*
 const { Worker, workerData, parentPort, isMainThread } = require('worker_threads'); 

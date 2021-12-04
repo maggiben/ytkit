@@ -3,6 +3,7 @@ import { Readable } from 'stream';
 import * as path from 'path';
 import * as fs from 'fs';
 import ytdl = require('ytdl-core');
+import * as ytpl from 'ytpl';
 import tsNode = require('ts-node');
 import * as progressStream from 'progress-stream';
 import * as utils from './utils';
@@ -15,9 +16,9 @@ export namespace DownloadWorker {
    */
   export interface Options {
     /**
-     * Youtube url.
+     * Playlist item.
      */
-    url: string;
+    item: ytpl.Item;
     /**
      * Output file name.
      */
@@ -27,11 +28,18 @@ export namespace DownloadWorker {
      */
     downloadOptions?: ytdl.downloadOptions;
   }
+
+  export interface Message {
+    type: string;
+    item: ytpl.Item;
+    error: Error;
+    details: Record<string, unknown>;
+  }
 }
 
 class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   protected readStream!: Readable;
-  private url: string;
+  private item: ytpl.Item;
   private output?: string;
   private videoId: string | undefined;
   private downloadOptions?: ytdl.downloadOptions;
@@ -40,8 +48,8 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
   public constructor(options: DownloadWorker.Options) {
     super(options);
-    this.url = options.url;
-    this.videoId = utils.getYoutubeVideoId(options.url);
+    this.item = options.item;
+    this.videoId = utils.getYoutubeVideoId(this.item.shortUrl);
     this.output = options.output ?? '{videoDetails.title}';
     this.downloadOptions = options.downloadOptions;
   }
@@ -126,7 +134,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
     parentPort?.postMessage({
       type: 'contentLength',
-      videoId: this.videoId,
+      item: this.item,
       details: {
         contentLength,
       },
@@ -137,7 +145,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     strPrgs.on('progress', (progress) => {
       parentPort?.postMessage({
         type: 'progress',
-        videoId: this.videoId,
+        item: this.item,
         details: {
           progress,
         },
@@ -184,10 +192,8 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private error(error: Error): void {
     parentPort?.postMessage({
       type: 'error',
-      videoId: this.videoId,
-      details: {
-        error,
-      },
+      item: this.item,
+      error,
     });
   }
 
@@ -197,7 +203,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    return await ytdl.getInfo(this.url);
+    return await ytdl.getInfo(this.item.shortUrl);
   }
 }
 
