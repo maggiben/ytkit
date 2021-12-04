@@ -39,11 +39,13 @@ import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
+import * as ytpl from 'ytpl';
 import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
+import { downloader } from '../utils/downloader';
 
 declare interface IOutputVideoMeta {
   label: string;
@@ -98,6 +100,7 @@ export default class Download extends YtKitCommand {
     output: flags.string({
       char: 'o',
       description: 'Save to file, template by {prop}, default: stdout or {title}',
+      // default: '{videoDetails.title}',
     }),
   };
 
@@ -116,20 +119,49 @@ export default class Download extends YtKitCommand {
   // video format
   protected videoFormat?: ytdl.videoFormat;
 
-  public async run(): Promise<ytdl.videoInfo | string | undefined> {
+  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | undefined> {
     this.ytdlOptions = this.buildDownloadOptions();
 
     this.setFilters();
     this.setOutput();
 
-    if (this.flags.urlonly) {
+    const playlistId = utils.getYoutubePlaylistId(this.getFlag<string>('url'));
+    // const videoId = utils.getYoutubeVideoId(this.getFlag<string>('url'));
+
+    if (playlistId) {
+      const response = await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)');
+      if (response) {
+        // eslint-disable-next-line no-console
+        console.log('ytdlOptions:', this.ytdlOptions);
+        // return this.downloadPlaylist(playlistId);
+        const c = await downloader({ playlistId, output: this.output });
+        // eslint-disable-next-line no-console
+        console.log('c', c);
+        return;
+      }
+      return this.downloadVideo();
+    }
+
+    if (this.flags.urlonly && !playlistId) {
       const url = await this.getDownloadUrl();
       if (url) {
         this.ux.cli.url(url, url);
         return url;
       }
     }
+  }
 
+  /**
+   * Generates a download url
+   *
+   * @returns {string | undefined} download url
+   */
+  private async getDownloadUrl(): Promise<string | undefined> {
+    const info = await ytdl.getInfo(this.getFlag<string>('url'));
+    return info ? ytdl.chooseFormat(info.formats, this.ytdlOptions).url : undefined;
+  }
+
+  private async downloadVideo(): Promise<ytdl.videoInfo | undefined> {
     const videoInfo = await this.getVideoInfo();
     if (videoInfo) {
       this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions);
@@ -146,14 +178,26 @@ export default class Download extends YtKitCommand {
     }
   }
 
-  /**
-   * Generates a download url
-   *
-   * @returns {void}
-   */
-  public async getDownloadUrl(): Promise<string | undefined> {
-    const info = await ytdl.getInfo(this.getFlag<string>('url'));
-    return info ? ytdl.chooseFormat(info.formats, this.ytdlOptions).url : undefined;
+  private async downloadPlaylist(playlistId: string): Promise<ytdl.videoInfo[] | undefined> {
+    const playlist = await ytpl(playlistId);
+    playlist.items.forEach((item) => {
+      // eslint-disable-next-line no-console
+      console.log('title', item.title);
+    });
+    // const videoInfo = await this.getVideoInfo();
+    // if (videoInfo) {
+    //   this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions);
+    //   this.readStream.on('error', this.error.bind(this));
+    //   await this.setVideInfoAndVideoFormat();
+    //   if (this.videoInfo && this.videoFormat) {
+    //     this.setVideoOutput();
+    //     if (!this.flags.json && this.isTTY()) {
+    //       this.outputHuman();
+    //     }
+    //     return this.videoInfo;
+    //   }
+    //   return videoInfo;
+    // }
   }
 
   /**

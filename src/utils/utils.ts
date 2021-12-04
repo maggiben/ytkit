@@ -170,3 +170,31 @@ export function getValueFromMeta<T>(
   }
   return defaultValue as T;
 }
+
+export function getYoutubeVideoId(url: string): string | undefined {
+  const regExp = new RegExp(
+    /(?:http|https|)(?::\/\/|)(?:www.|)(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/ytscreeningroom\?v=|\/feeds\/api\/videos\/|\/user\S*[^\w\-\s]|\S*[^\w\-\s]))([\w\-]{11})[a-z0-9;:@#?&%=+\/\$_.-]*/
+  );
+  const match = url.match(regExp);
+  if (match && match[1]) {
+    return match[1];
+  }
+}
+/**
+ * Get playlist id from url
+ *
+ * @param {string} url the youtube url
+ * @returns {string|undefined} the playlist id
+ */
+export function getYoutubePlaylistId(url: string): string | undefined {
+  const regExp = new RegExp(
+    /(?:http|https|)(?::\/\/|)(?:www.|)(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/ytscreeningroom\?v=|\/feeds\/api\/videos\/|\/user\S*[^\w\-\s]|\S*[^\w\-\s]))([\w\-]{12,})[a-z0-9;:@#?&%=+\/\$_.-]*/
+  );
+  if (url.includes('list=')) {
+    const match = url.match(regExp);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  return;
+}
