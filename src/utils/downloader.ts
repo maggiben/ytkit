@@ -45,6 +45,12 @@ export interface WorkerDataPayload {
   path: string;
 }
 
+export interface WorkerMessage {
+  type: string;
+  videoId: string;
+  details: Record<string, unknown>;
+}
+
 export async function downloader(options: {
   playlistId: string;
   output?: string;
@@ -67,14 +73,20 @@ export async function downloader(options: {
     };
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
-      worker.on('message', (message) => {
+      worker.on('message', (message: WorkerMessage) => {
         // eslint-disable-next-line no-console
         console.log(`worker message: ${JSON.stringify(message, null, 2)}`);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         switch (message.type) {
-          case 'caca': {
+          case 'contentLength': {
             // eslint-disable-next-line no-console
-            console.log('m:', message);
+            console.log('contentLength:', message.details.contentLength);
+            break;
+          }
+          case 'progress': {
+            // eslint-disable-next-line no-console
+            console.log('progress:', message.details.progress);
+            break;
           }
         }
         // resolve(message as string);

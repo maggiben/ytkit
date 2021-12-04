@@ -1,11 +1,12 @@
 import { workerData, parentPort } from 'worker_threads';
-import { EventEmitter, Readable } from 'stream';
+import { Readable } from 'stream';
 import * as path from 'path';
 import * as fs from 'fs';
 import ytdl = require('ytdl-core');
 import tsNode = require('ts-node');
+import * as progressStream from 'progress-stream';
 import * as utils from './utils';
-import CreatableEventEmitter from './CreatableEventEmitter';
+import { AsyncCreatable } from './AsyncCreatable';
 tsNode.register();
 
 const a = async (videoId: string): Promise<string> => {
@@ -42,7 +43,7 @@ export namespace DownloadWorker {
   }
 }
 
-class DownloadWorker extends CreatableEventEmitter<DownloadWorker.Options> {
+class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   protected readStream!: Readable;
   private url: string;
   private output?: string;
@@ -75,6 +76,7 @@ class DownloadWorker extends CreatableEventEmitter<DownloadWorker.Options> {
       this.videoInfo = infoAndVideoFormat.videoInfo;
       this.videoFormat = infoAndVideoFormat.videoFormat;
       if (this.videoInfo && this.videoFormat) {
+        this.reporter();
         this.setVideoOutput();
         return infoAndVideoFormat.videoInfo;
       }
@@ -99,7 +101,7 @@ class DownloadWorker extends CreatableEventEmitter<DownloadWorker.Options> {
    *
    * @returns {void}
    */
-  private outputHuman(): void {
+  private reporter(): void {
     // Print information about the video if not streaming to stdout.
 
     const sizeUnknown =
@@ -130,20 +132,30 @@ class DownloadWorker extends CreatableEventEmitter<DownloadWorker.Options> {
    * @returns {void}
    */
   private printVideoSize(contentLength: number): void {
+    const strPrgs = progressStream({
+      length: contentLength,
+      time: 100,
+      drain: true,
+    });
+
     parentPort?.postMessage({
       type: 'contentLength',
       videoId: this.videoId,
-      contentLength,
+      details: {
+        contentLength,
+      },
     });
 
-    this.readStream.on('data', (data: Buffer) => {
-      utils.throttle(() => {
-        parentPort?.postMessage({
-          type: 'data',
-          videoId: this.videoId,
-          length: data.length,
-        });
-      }, 250);
+    this.readStream.pipe(strPrgs);
+
+    strPrgs.on('progress', (progress) => {
+      parentPort?.postMessage({
+        type: 'progress',
+        videoId: this.videoId,
+        details: {
+          progress,
+        },
+      });
     });
   }
 
@@ -179,12 +191,18 @@ class DownloadWorker extends CreatableEventEmitter<DownloadWorker.Options> {
       this.readStream.once('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
         return resolve({ videoInfo, videoFormat });
       });
-      this.readStream.on('error', reject);
+      this.readStream.once('error', reject);
     });
   }
 
-  private error(error: Error): boolean {
-    return this.emit('error', error);
+  private error(error: Error): void {
+    parentPort?.postMessage({
+      type: 'error',
+      videoId: this.videoId,
+      details: {
+        error,
+      },
+    });
   }
 
   /**
@@ -199,16 +217,4 @@ class DownloadWorker extends CreatableEventEmitter<DownloadWorker.Options> {
 
 export default void (async (options: DownloadWorker.Options): Promise<DownloadWorker> => {
   return await DownloadWorker.create(options);
-  // eslint-disable-next-line no-console
-  console.log(options);
-  // const result = await a(videoId);
-  // parentPort?.postMessage({
-  //   type: 'caca',
-  //   videoId: result,
-  // });
-  // parentPort?.postMessage({
-  //   type: 'length',
-  //   total: 55000,
-  // });
-  // return result;
 })(workerData as DownloadWorker.Options);

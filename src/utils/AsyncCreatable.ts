@@ -38,7 +38,7 @@ import { EventEmitter } from 'stream';
 /**
  * A base class for classes that must be constructed and initialized asynchronously.
  */
-export default abstract class AsyncCreatableEventEmitter<O = object> extends EventEmitter {
+export abstract class AsyncCreatable<O = object> {
   /**
    * Constructs a new `AsyncCreatable` instance. For internal and subclass use only.
    * New subclass instances must be created with the static {@link create} method.
@@ -48,7 +48,39 @@ export default abstract class AsyncCreatableEventEmitter<O = object> extends Eve
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public constructor(options: O) {
     /* leave up to implementer */
-    super();
+  }
+
+  /**
+   * Asynchronously constructs and initializes a new instance of a concrete subclass with the provided `options`.
+   *
+   * @param options An options object providing initialization params to the async constructor.
+   */
+  public static async create<P, T extends AsyncCreatable<P>>(this: new (opts: P) => T, options: P): Promise<T> {
+    const instance = new this(options);
+    await instance.init();
+    return instance;
+  }
+
+  /**
+   * Asynchronously initializes newly constructed instances of a concrete subclass.
+   */
+  protected abstract init(): Promise<void>;
+}
+
+/**
+ * A base class for classes that must be constructed and initialized asynchronously.
+ */
+export abstract class AsyncCreatableEventEmitter<O = object> extends EventEmitter {
+  /**
+   * Constructs a new `AsyncCreatable` instance. For internal and subclass use only.
+   * New subclass instances must be created with the static {@link create} method.
+   *
+   * @param options An options object providing initialization params.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public constructor(options: O) {
+    /* leave up to implementer */
+    super(options);
   }
 
   /**
