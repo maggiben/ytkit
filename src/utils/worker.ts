@@ -41,7 +41,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   protected readStream!: Readable;
   private item: ytpl.Item;
   private output?: string;
-  private videoId: string | undefined;
   private downloadOptions?: ytdl.downloadOptions;
   private videoInfo!: ytdl.videoInfo;
   private videoFormat!: ytdl.videoFormat;
@@ -49,7 +48,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   public constructor(options: DownloadWorker.Options) {
     super(options);
     this.item = options.item;
-    this.videoId = utils.getYoutubeVideoId(this.item.shortUrl);
     this.output = options.output ?? '{videoDetails.title}';
     this.downloadOptions = options.downloadOptions;
   }
@@ -58,6 +56,8 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * Initializes an instance of the Downloader class.
    */
   public async init(): Promise<void> {
+    // eslint-disable-next-line no-console
+    console.log('init', this.item.id, this.item.title);
     await this.downloadVideo();
   }
 
@@ -203,7 +203,13 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    return await ytdl.getInfo(this.item.shortUrl);
+    try {
+      // eslint-disable-next-line no-console
+      console.log('getVideoInfo', this.item.url);
+      return await ytdl.getInfo(this.item.url);
+    } catch (error) {
+      throw new Error((error as Error).message);
+    }
   }
 }
 

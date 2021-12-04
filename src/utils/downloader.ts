@@ -42,7 +42,6 @@ import * as ytpl from 'ytpl';
 import { AsyncCreatableEventEmitter } from './AsyncCreatable';
 import { DownloadWorker } from './worker';
 
-
 export namespace PlaylistDownloader {
   /**
    * Constructor options for PlaylistDownloader.
@@ -76,7 +75,7 @@ export namespace PlaylistDownloader {
 /*
   blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
 */
-export default class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownloader.Options> {
+export class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownloader.Options> {
   private workers = new Map<string, Worker>();
   private playlistId: string;
   private output?: string;
@@ -179,98 +178,3 @@ export default class PlaylistDownloader extends AsyncCreatableEventEmitter<Playl
     });
   }
 }
-
-// export async function downloader(options: {
-//   playlistId: string;
-//   output?: string;
-//   downloadOptions?: ytdl.downloadOptions;
-// }): Promise<string | undefined> {
-//   if (isMainThread) {
-//     const playlist = await ytpl(options.playlistId);
-//     const workerOptions: WorkerOptions = {
-//       workerData: {
-//         url: playlist.items[1].url,
-//         output: options.output,
-//         downloadOptions: options.downloadOptions,
-//         path: './worker.ts',
-//       },
-//     };
-//     return new Promise((resolve, reject) => {
-//       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
-//       worker.on('message', (message: WorkerMessage) => {
-//         // eslint-disable-next-line no-console
-//         console.log(`worker message: ${JSON.stringify(message, null, 2)}`);
-//         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-//         switch (message.type) {
-//           case 'contentLength': {
-//             // eslint-disable-next-line no-console
-//             console.log('contentLength:', message.details.contentLength);
-//             break;
-//           }
-//           case 'progress': {
-//             // eslint-disable-next-line no-console
-//             console.log('progress:', message.details.progress);
-//             break;
-//           }
-//         }
-//         // resolve(message as string);
-//       });
-//       worker.on('online', () => {
-//         // eslint-disable-next-line no-console
-//         console.log('online:');
-//       });
-//       worker.on('error', (error) => {
-//         // eslint-disable-next-line no-console
-//         console.log('exit:', error);
-//         reject(error);
-//       });
-//       worker.on('caca', (caca) => {
-//         // eslint-disable-next-line no-console
-//         console.log('caca:', caca);
-//       });
-//       worker.on('exit', (code) => {
-//         // eslint-disable-next-line no-console
-//         console.log('exit:', code);
-//         if (code !== 0) {
-//           reject(new Error(`Worker stopped with exit code ${code}`));
-//         }
-//       });
-//     });
-//   }
-// }
-
-/*
-const { Worker, workerData, parentPort, isMainThread } = require('worker_threads'); 
-module.exports = async function downloader(videoId) {
-  if (isMainThread) {
-    const workerOptions = {
-      workerData: videoId,
-    };
-    return new Promise((resolve, reject) => {
-      const worker = new Worker(__filename, workerOptions);
-      worker.on('message', (message) => {
-        // eslint-disable-next-line no-console
-        console.log(`worker message: ${JSON.stringify(message)}`);
-        resolve(message);
-      });
-      worker.on('error', (error) => {
-        // eslint-disable-next-line no-console
-        console.log('exit:', error);
-        reject(error);
-      });
-      worker.on('exit', (code) => {
-        // eslint-disable-next-line no-console
-        console.log('exit:', code);
-        if (code !== 0) {
-          reject(new Error(`Worker stopped with exit code ${code}`));
-        }
-      });
-    });
-  } else {
-    const script = workerData as string;
-    // eslint-disable-next-line no-console
-    console.log(script);
-    parentPort?.postMessage({ a: 1 });
-  }
-}
-*/

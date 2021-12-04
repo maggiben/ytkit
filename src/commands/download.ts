@@ -45,7 +45,7 @@ import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
-import PlaylistDownloader from '../utils/downloader';
+import { PlaylistDownloader } from '../utils/downloader';
 
 declare interface IOutputVideoMeta {
   label: string;
@@ -121,7 +121,6 @@ export default class Download extends YtKitCommand {
 
   public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | undefined> {
     this.ytdlOptions = this.buildDownloadOptions();
-
     this.setFilters();
     this.setOutput();
 
@@ -131,6 +130,7 @@ export default class Download extends YtKitCommand {
     if (playlistId) {
       const response = await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)');
       if (response) {
+        const progressbars = new Map<string, SingleBar>();
         // eslint-disable-next-line no-console
         console.log('ytdlOptions:', this.ytdlOptions);
         // return this.downloadPlaylist(playlistId);
@@ -146,25 +146,36 @@ export default class Download extends YtKitCommand {
           barIncompleteChar: '\u2591',
         });
 
-        playlistDownloader.on('contentLength', (payload: { item: ytpl.Item; contentLength: number }) => {
-          
+        playlistDownloader.on('contentLength', (message: PlaylistDownloader.Message) => {
+          const { contentLength } = message.details;
+          // eslint-disable-next-line no-console
+          console.log('item:', message.item, 'contentLength:', contentLength);
+          progressbars.set(message.item.id, multibar.create(contentLength as number, 0));
         });
 
-        const b1 = multibar.create(200, 0);
-        const b2 = multibar.create(1000, 0);
+        playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
+          const { progress } = message.details;
+          // eslint-disable-next-line no-console
+          console.log('item:', message.item, 'progress:', progress);
+          const progressbar = progressbars.get(message.item.id);
+          progressbar?.update(progress as number, { title: message.item.title });
+        });
 
-        // control bars
-        b1.increment();
-        // b2.update(20, { filename: 'helloworld.txt' });
-        let cnt = 0;
-        const timer = setInterval(() => {
-          b2.update(cnt, { title: 'pepe' });
-          cnt += 10;
-          if (cnt > 1000) {
-            clearInterval(timer);
-            multibar.stop();
-          }
-        }, 500);
+        // const b1 = multibar.create(200, 0);
+        // const b2 = multibar.create(1000, 0);
+
+        // // control bars
+        // b1.increment();
+        // // b2.update(20, { filename: 'helloworld.txt' });
+        // let cnt = 0;
+        // const timer = setInterval(() => {
+        //   b2.update(cnt, { title: 'pepe' });
+        //   cnt += 10;
+        //   if (cnt > 1000) {
+        //     clearInterval(timer);
+        //     multibar.stop();
+        //   }
+        // }, 500);
         return;
       }
       return this.downloadVideo();
