@@ -38,7 +38,7 @@
 import * as readline from 'readline';
 import { AnyJson, isArray, isBoolean } from '@salesforce/ts-types';
 import { cli } from 'cli-ux';
-import { SingleBar } from 'cli-progress';
+import { SingleBar, MultiBar } from 'cli-progress';
 import * as chalk from 'chalk';
 
 export interface Column extends Record<string, unknown> {
@@ -68,6 +68,7 @@ export class UX {
   public static readline = readline;
   public cli: typeof cli;
   public chalk: chalk.Chalk & chalk.ChalkFunction;
+  public multibar: typeof MultiBar;
   public readline: typeof readline;
   private isOutputEnabled: boolean;
 
@@ -75,6 +76,7 @@ export class UX {
     this.cli = UX.cli;
     this.chalk = UX.chalk;
     this.readline = UX.readline;
+    this.multibar = MultiBar;
 
     if (isBoolean(isOutputEnabled)) {
       this.isOutputEnabled = isOutputEnabled;

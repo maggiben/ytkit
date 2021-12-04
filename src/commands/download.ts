@@ -134,9 +134,31 @@ export default class Download extends YtKitCommand {
         // eslint-disable-next-line no-console
         console.log('ytdlOptions:', this.ytdlOptions);
         // return this.downloadPlaylist(playlistId);
-        const c = await downloader({ playlistId, output: this.output });
+        // const c = await downloader({ playlistId, output: this.output });
         // eslint-disable-next-line no-console
-        console.log('c', c);
+        // console.log('c', c);
+        const multibar = new this.ux.multibar({
+          clearOnComplete: false,
+          hideCursor: true,
+          format: '[{bar}] Title: {title} | {percentage}% | ETA: {eta}s | Speed: {speed}',
+          barCompleteChar: '\u2588',
+          barIncompleteChar: '\u2591',
+        });
+        const b1 = multibar.create(200, 0);
+        const b2 = multibar.create(1000, 0);
+
+        // control bars
+        b1.increment();
+        // b2.update(20, { filename: 'helloworld.txt' });
+        let cnt = 0;
+        const timer = setInterval(() => {
+          b2.update(cnt, { title: 'pepe' });
+          cnt += 10;
+          if (cnt > 1000) {
+            clearInterval(timer);
+            multibar.stop();
+          }
+        }, 500);
         return;
       }
       return this.downloadVideo();
@@ -176,28 +198,6 @@ export default class Download extends YtKitCommand {
       }
       return videoInfo;
     }
-  }
-
-  private async downloadPlaylist(playlistId: string): Promise<ytdl.videoInfo[] | undefined> {
-    const playlist = await ytpl(playlistId);
-    playlist.items.forEach((item) => {
-      // eslint-disable-next-line no-console
-      console.log('title', item.title);
-    });
-    // const videoInfo = await this.getVideoInfo();
-    // if (videoInfo) {
-    //   this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions);
-    //   this.readStream.on('error', this.error.bind(this));
-    //   await this.setVideInfoAndVideoFormat();
-    //   if (this.videoInfo && this.videoFormat) {
-    //     this.setVideoOutput();
-    //     if (!this.flags.json && this.isTTY()) {
-    //       this.outputHuman();
-    //     }
-    //     return this.videoInfo;
-    //   }
-    //   return videoInfo;
-    // }
   }
 
   /**

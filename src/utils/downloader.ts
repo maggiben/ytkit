@@ -39,6 +39,7 @@ import * as path from 'path';
 import { Worker, isMainThread, WorkerOptions } from 'worker_threads';
 import ytdl = require('ytdl-core');
 import * as ytpl from 'ytpl';
+import { AsyncCreatableEventEmitter } from './AsyncCreatable';
 
 export interface WorkerDataPayload {
   url: string;
@@ -51,17 +52,128 @@ export interface WorkerMessage {
   details: Record<string, unknown>;
 }
 
+export namespace PlaylistDownloader {
+  /**
+   * Constructor options for DownloadWorker.
+   */
+  export interface Options {
+    /**
+     * Youtube playlist id.
+     */
+    playlistId: string;
+    /**
+     * Output file name.
+     */
+    output?: string;
+    /**
+     * Video download options.
+     */
+    playlistOptions?: ytpl.Options;
+    /**
+     * Video download options.
+     */
+    downloadOptions?: ytdl.downloadOptions;
+  }
+}
+
+export default class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownloader.Options> {
+  private workers = new Map<string, Worker>();
+  private playlistId: string;
+  private output?: string;
+  private playlistOptions?: ytpl.Options;
+  private downloadOptions?: ytdl.downloadOptions;
+
+  public constructor(options: PlaylistDownloader.Options) {
+    super(options);
+    this.playlistId = options.playlistId;
+    this.output = options.output ?? '{videoDetails.title}';
+    this.downloadOptions = options.downloadOptions;
+    this.playlistOptions = options.playlistOptions ?? {
+      gl: 'US',
+      hl: 'en',
+      limit: Infinity,
+      pages: Infinity,
+    };
+  }
+
+  /**
+   * Initializes an instance of the Downloader class.
+   */
+  public async init(): Promise<void> {
+    if (isMainThread) {
+      const playlist = await ytpl(this.playlistId, this.playlistOptions);
+      this.emit('playlist', playlist);
+      const workers = Promise.all(
+        playlist.items.map((item) => {
+          return this.downloadWorkers(item);
+        })
+      );
+      try {
+        await workers;
+      } catch {
+        throw new Error('Workers failed');
+      }
+    }
+  }
+
+  private async downloadWorkers(item: ytpl.Item): Promise<number> {
+    const workerOptions: WorkerOptions = {
+      workerData: {
+        url: item.url,
+        output: this.output,
+        downloadOptions: this.downloadOptions,
+        path: './worker.ts',
+      },
+    };
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
+      this.workers.set(item.id, worker);
+      worker.on('message', (message: WorkerMessage) => {
+        switch (message.type) {
+          case 'contentLength': {
+            // eslint-disable-next-line no-console
+            console.log('contentLength:', message.details.contentLength);
+            break;
+          }
+          case 'progress': {
+            // eslint-disable-next-line no-console
+            console.log('progress:', message.details.progress);
+            break;
+          }
+        }
+      });
+      worker.on('online', () => {
+        // eslint-disable-next-line no-console
+        console.log('worker online');
+      });
+      worker.on('error', (error) => {
+        // eslint-disable-next-line no-console
+        console.error('error:', error);
+        this.workers.delete(item.id);
+        reject(error);
+      });
+      worker.on('exit', (code) => {
+        // eslint-disable-next-line no-console
+        console.log('exit:', code);
+        this.workers.delete(item.id);
+        if (code !== 0) {
+          reject(new Error(`Worker stopped with exit code ${code}`));
+        }
+        resolve(code);
+      });
+    });
+  }
+}
+
+/*
+  blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
+*/
 export async function downloader(options: {
   playlistId: string;
   output?: string;
   downloadOptions?: ytdl.downloadOptions;
 }): Promise<string | undefined> {
   if (isMainThread) {
-    // const workerOptions: WorkerOptions = {
-    //   workerData: {
-    //     path: './worker.ts',
-    //   },
-    // };
     const playlist = await ytpl(options.playlistId);
     const workerOptions: WorkerOptions = {
       workerData: {

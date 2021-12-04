@@ -9,20 +9,6 @@ import * as utils from './utils';
 import { AsyncCreatable } from './AsyncCreatable';
 tsNode.register();
 
-const a = async (videoId: string): Promise<string> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(videoId);
-    }, 1000);
-  });
-};
-
-export interface IDownloader {
-  url: string;
-  output: string;
-  downloadOptions: ytdl.downloadOptions;
-}
-
 export namespace DownloadWorker {
   /**
    * Constructor options for DownloadWorker.
