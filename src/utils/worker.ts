@@ -31,7 +31,7 @@ export namespace DownloadWorker {
 
   export interface Message {
     type: string;
-    item: ytpl.Item;
+    source: ytpl.Item;
     error: Error;
     details: Record<string, unknown>;
   }
@@ -56,31 +56,66 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * Initializes an instance of the Downloader class.
    */
   public async init(): Promise<void> {
-    await this.downloadVideo();
+    try {
+      await this.downloadVideo();
+      this.handleMessages();
+      process.exit(0);
+    } catch (error) {
+      this.error(error);
+    }
   }
 
+  private handleMessages(): void {
+    parentPort?.on('retry', this.retryItem.bind(this));
+  }
+
+  private retryItem(serialized: Uint8Array): void {
+    try {
+      const item = JSON.parse(Buffer.from(serialized).toString()) as ytpl.Item;
+      this.item = item;
+      // eslint-disable-next-line no-console
+      console.log('retry', this.item);
+      this.downloadVideo()
+        .then((videoInfo) => {
+          parentPort?.postMessage({
+            type: 'retry:success',
+            source: this.item,
+            details: {
+              videoInfo,
+            },
+          });
+        })
+        .catch(this.error.bind(this));
+    } catch (error) {
+      this.error(error);
+    }
+  }
   /**
    * Downloads a video
    */
-  private async downloadVideo(): Promise<ytdl.videoInfo | undefined> {
+  private async downloadVideo(): Promise<ytdl.videoInfo | void> {
     const videoInfo = await this.getVideoInfo();
     if (videoInfo) {
       parentPort?.postMessage({
         type: 'videoInfo',
-        item: this.item,
+        source: this.item,
         details: {
           videoInfo,
         },
       });
-      this.readStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
-      this.readStream.on('error', this.error.bind(this));
-      const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
-      this.videoInfo = infoAndVideoFormat.videoInfo;
-      this.videoFormat = infoAndVideoFormat.videoFormat;
-      if (this.videoInfo && this.videoFormat) {
-        this.reporter();
-        this.setVideoOutput();
-        return infoAndVideoFormat.videoInfo;
+      try {
+        this.readStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
+        this.readStream.on('error', this.error.bind(this));
+        const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
+        this.videoInfo = infoAndVideoFormat.videoInfo;
+        this.videoFormat = infoAndVideoFormat.videoFormat;
+        if (this.videoInfo && this.videoFormat) {
+          this.reporter();
+          this.setVideoOutput();
+          return infoAndVideoFormat.videoInfo;
+        }
+      } catch (error) {
+        return this.error(error);
       }
       return videoInfo;
     }
@@ -142,7 +177,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
     parentPort?.postMessage({
       type: 'contentLength',
-      item: this.item,
+      source: this.item,
       details: {
         contentLength,
       },
@@ -153,7 +188,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     strPrgs.on('progress', (progress) => {
       parentPort?.postMessage({
         type: 'progress',
-        item: this.item,
+        source: this.item,
         details: {
           progress,
         },
@@ -164,7 +199,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       strPrgs.end();
       parentPort?.postMessage({
         type: 'end',
-        item: this.item,
+        source: this.item,
       });
     });
   }
@@ -201,16 +236,17 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       this.readStream.once('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
         return resolve({ videoInfo, videoFormat });
       });
-      this.readStream.once('error', reject);
+      this.readStream.once('error', (error) => (this.error(error), reject(error)));
     });
   }
 
-  private error(error: Error): void {
+  private error(error: Error | unknown): void {
     parentPort?.postMessage({
       type: 'error',
-      item: this.item,
+      source: this.item,
       error,
     });
+    return process.exit(1);
   }
 
   /**
