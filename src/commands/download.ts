@@ -179,15 +179,20 @@ export default class Download extends YtKitCommand {
       // eslint-disable-next-line no-console
       // console.log('item:', message.item.title, 'videoInfo:', videoInfo);
       this.ux.log(
-        `Got playlist items total: ${this.ux.chalk.yellow((message.details.playlistItems as ytpl.Item[]).length)}`
+        `Got playlist items total: ${this.ux.chalk.yellow((message.details?.playlistItems as ytpl.Item[]).length)}`
       );
     });
 
+    playlistDownloader.on('online', (message: PlaylistDownloader.Message) => {
+      // eslint-disable-next-line no-console
+      // console.log('item:', message.item.title);
+      // this.ux.log(`Worker ${this.ux.chalk.green('online')} ID: ${this.ux.chalk.whiteBright(message.source.id)}`);
+    });
+
     playlistDownloader.on('contentLength', (message: PlaylistDownloader.Message) => {
-      const { contentLength } = message.details;
       // eslint-disable-next-line no-console
       // console.log('item:', message.item.title, 'contentLength:', contentLength);
-      progressbars.set(message.source.id, multibar.create(contentLength as number, 0));
+      progressbars.set(message.source.id, multibar.create(message.details?.contentLength as number, 0));
     });
 
     playlistDownloader.on('end', (message: PlaylistDownloader.Message) => {
@@ -195,15 +200,11 @@ export default class Download extends YtKitCommand {
       if (progressbar) {
         progressbar.stop();
         multibar.remove(progressbar);
-      } else {
-        // eslint-disable-next-line no-console
-        console.log('could not remove multibar:', message);
-        process.exit(1);
       }
     });
 
     playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
-      const progress = message.details.progress as Progress;
+      const progress = message.details?.progress as Progress;
       const progressbar = progressbars.get(message.source.id);
       progressbar?.update(progress.transferred, {
         timeleft: utils.toHumanTime(progress.eta),
@@ -214,19 +215,23 @@ export default class Download extends YtKitCommand {
     });
 
     playlistDownloader.on('error', (message: PlaylistDownloader.Message) => {
-      this.ux.cli.warn('error');
-      this.ux.errorJson(message.error);
+      const progressbar = progressbars.get(message.source.id);
+      if (progressbar) {
+        progressbar.stop();
+        multibar.remove(progressbar);
+      }
+      this.ux.cli.warn(`${message.error?.message}`);
     });
 
     try {
       const codes = await playlistDownloader.download();
       multibar.stop();
       // eslint-disable-next-line no-console
-      console.log('result codes', codes);
+      // console.log('result codes', codes);
     } catch (error) {
       multibar.stop();
       // eslint-disable-next-line no-console
-      console.error('in command error', error);
+      // console.error('in command error', error);
     }
   }
 

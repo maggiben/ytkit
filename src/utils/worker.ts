@@ -56,25 +56,38 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * Initializes an instance of the Downloader class.
    */
   public async init(): Promise<void> {
-    try {
-      await this.downloadVideo();
-      this.handleMessages();
-      process.exit(0);
-    } catch (error) {
-      this.error(error);
-    }
+    // try {
+    this.handleMessages();
+    await this.downloadVideo();
+    // } catch (error) {
+    //   this.error(error);
+    // }
   }
 
   private handleMessages(): void {
-    parentPort?.on('retry', this.retryItem.bind(this));
+    parentPort?.on('retry', () => {
+      console.log('=============== message retry ===============');
+    });
+    parentPort?.on('message', (base64Message: string) => {
+      console.log('parentPort.message:', base64Message);
+      try {
+        const message = JSON.parse(Buffer.from(base64Message, 'base64').toString()) as DownloadWorker.Message;
+        switch (message.type) {
+          case 'retry': {
+            this.retryItem(message.source);
+          }
+        }
+      } catch (error) {
+        return this.error(error);
+      }
+    });
   }
 
-  private retryItem(serialized: Uint8Array): void {
+  private retryItem(item: ytpl.Item): void {
     try {
-      const item = JSON.parse(Buffer.from(serialized).toString()) as ytpl.Item;
-      this.item = item;
+      // this.item = item;
       // eslint-disable-next-line no-console
-      console.log('retry', this.item);
+      console.log('retry', item);
       this.downloadVideo()
         .then((videoInfo) => {
           parentPort?.postMessage({
@@ -185,6 +198,15 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
     this.readStream.pipe(strPrgs);
 
+    const timer = (seconds: number): NodeJS.Timeout => {
+      return setTimeout(() => {
+        this.readStream.destroy();
+        this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`));
+      }, seconds);
+    };
+
+    let timeout = timer(2500);
+
     strPrgs.on('progress', (progress) => {
       parentPort?.postMessage({
         type: 'progress',
@@ -193,6 +215,8 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
           progress,
         },
       });
+      clearTimeout(timeout);
+      timeout = timer(5000);
     });
 
     this.readStream.once('end', () => {
@@ -201,6 +225,8 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
         type: 'end',
         source: this.item,
       });
+      clearTimeout(timeout);
+      this.exit(0);
     });
   }
 
@@ -246,7 +272,10 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       source: this.item,
       error,
     });
-    return process.exit(1);
+  }
+
+  private exit(code: number): never {
+    process.exit(code);
   }
 
   /**
@@ -255,8 +284,26 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
+    let prev = performance.now();
+    function timer(lap?: string): void {
+      if (lap) {
+        // eslint-disable-next-line no-console
+        console.log(`${lap} in: ${utils.toHumanTime(Math.floor((performance.now() - prev) / 1000))}`);
+      }
+      prev = performance.now();
+    }
     try {
-      return await ytdl.getInfo(this.item.url);
+      // timer();
+      // let cnt = 0;
+      // const t = setInterval(() => {
+      //   // eslint-disable-next-line no-console
+      //   console.log(`id: ${this.item.id}: ${utils.toHumanTime(cnt)}`);
+      //   cnt++;
+      // }, 1000);
+      const videoInfo = await ytdl.getInfo(this.item.url);
+      // timer('getInfo');
+      // clearInterval(t);
+      return videoInfo;
     } catch (error) {
       throw new Error((error as Error).message);
     }

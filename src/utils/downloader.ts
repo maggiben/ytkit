@@ -74,9 +74,10 @@ export namespace PlaylistDownloader {
   }
 
   export interface Message {
-    source: ytpl.Item & ytpl.Result;
-    error: Error;
-    details: Record<string, unknown>;
+    type: string;
+    source: ytpl.Item | ytpl.Result;
+    error?: Error;
+    details?: Record<string, unknown>;
   }
 
   export interface RetryItems {
@@ -98,7 +99,6 @@ export class PlaylistDownloader extends EventEmitter {
   private retries: number;
   private playlistOptions?: ytpl.Options;
   private downloadOptions?: ytdl.downloadOptions;
-  private readonly transferListItem = new Uint8Array(); //new ArrayBuffer(item.id.length);
 
   public constructor(options: PlaylistDownloader.Options) {
     super();
@@ -110,8 +110,8 @@ export class PlaylistDownloader extends EventEmitter {
     this.playlistOptions = options.playlistOptions ?? {
       gl: 'US',
       hl: 'en',
-      limit: Infinity,
-      pages: Infinity,
+      // limit: Infinity,
+      // pages: Infinity,
     };
   }
 
@@ -127,10 +127,6 @@ export class PlaylistDownloader extends EventEmitter {
         workers.push(code ?? 1);
       }
     } catch (error) {
-      console.log('=========== STACK ============');
-      console.log((error as Error).stack);
-      console.log((error as Error).message);
-      console.log('=========== STACK ============');
       throw new Error((error as Error).message);
     }
     return workers;
@@ -154,9 +150,9 @@ export class PlaylistDownloader extends EventEmitter {
     const tasks = [];
     for (let i = 0; i < 20; i++) {
       tasks.push(async () => {
-        console.log(`start ${i}`);
+        // console.log(`start ${i}`);
         await this.sleep(Math.random() * 1000);
-        console.log(`end ${i}`);
+        // console.log(`end ${i}`);
         return i;
       });
     }
@@ -172,7 +168,7 @@ export class PlaylistDownloader extends EventEmitter {
       // }
       const ms = Math.random() * 15000;
       // eslint-disable-next-line no-console
-      console.log('task', index, ms);
+      // console.log('task', index, ms);
       await this.sleep(ms);
       return Math.floor(Math.random() * (1 - 0 + 1)) + 0;
     });
@@ -232,6 +228,42 @@ export class PlaylistDownloader extends EventEmitter {
     yield* this.raceAsyncIterators(workers);
   }
 
+  /**
+   * Retry download if failed
+   *
+   * @param {ytpl.Item} item the playlist item
+   * @param {Worker} worker the worker currently executing
+   * @returns {boolean} returns false if exceeded the maximum allowed retries otherwise returns true
+   */
+  private retryDownloadWorker(item: ytpl.Item, worker: Worker): boolean {
+    if (!this.retryItems.has(item.id)) {
+      this.retryItems.set(item.id, {
+        item,
+        left: this.retries,
+      });
+    }
+    const retryItem = this.retryItems.get(item.id);
+    if (retryItem && retryItem.left > 0) {
+      this.postWorkerMessage(worker, {
+        type: 'retry',
+        source: item,
+        details: {
+          left: retryItem.left,
+        },
+      });
+      retryItem.left -= 1;
+      this.retryItems.set(item.id, retryItem);
+      return true;
+    } else if (retryItem && retryItem.left <= 0) {
+      return false;
+    }
+    return false;
+  }
+
+  private postWorkerMessage(worker: Worker, message: PlaylistDownloader.Message): void {
+    return worker.postMessage(Buffer.from(JSON.stringify(message)).toString('base64'));
+  }
+
   private async downloadWorkers(item: ytpl.Item): Promise<number> {
     const workerOptions: WorkerOptions = {
       workerData: {
@@ -245,43 +277,39 @@ export class PlaylistDownloader extends EventEmitter {
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
       this.workers.set(item.id, worker);
       worker.on('message', (message: DownloadWorker.Message) => {
-        if (!['progress', 'contentLength', 'videoInfo', 'error', 'end'].includes(message.type)) {
-          console.error('===========MESSAGE============');
-          console.error(message);
-          console.error('===========MESSAGE============');
-        }
-        if (message.type === 'error') {
-          console.error('===========ERROR-MESSAGE============');
-          console.error(message.error);
-          console.error('===========ERROR-MESSAGE============');
-          this.workers.delete(item.id);
-          return reject(message.error);
-        }
         this.emit(message.type, message);
+        if (message.type === 'error') {
+          const retry = this.retryDownloadWorker(item, worker);
+          if (!retry) {
+            this.workers.delete(item.id);
+            this.retryItems.delete(item.id);
+            worker
+              .terminate()
+              .then((code) => {
+                this.emit('worker:terminated', {
+                  source: item,
+                  details: {
+                    code,
+                  },
+                });
+              })
+              .catch((error) => {
+                this.emit('worker:terminated:error', {
+                  source: item,
+                  error: error as Error,
+                });
+              });
+            return reject(message.error);
+          }
+        }
       });
       worker.on('online', () => {
         return this.emit('online', { source: item });
       });
       worker.on('error', (error) => {
         this.emit('error', { source: item, error });
-        console.log('===========ERROR============');
-        console.error(error);
-        console.log('===========ERROR============');
+        this.retryItems.delete(item.id);
         this.workers.delete(item.id);
-        if (!this.retryItems.has(item.id)) {
-          this.retryItems.set(item.id, {
-            item,
-            left: this.retries,
-          });
-        }
-        const retryItem = this.retryItems.get(item.id);
-        if (retryItem && retryItem.left > 0) {
-          const serialized = new Uint8Array(Buffer.from(JSON.stringify(item)));
-          worker.postMessage('retry', [serialized]);
-          retryItem.left -= 1;
-          this.retryItems.set(item.id, retryItem);
-        }
-        return reject(error);
       });
       worker.on('exit', (code) => {
         this.emit('exit', { source: item, code });
