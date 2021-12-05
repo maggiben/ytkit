@@ -56,6 +56,10 @@ export namespace PlaylistDownloader {
      */
     output?: string;
     /**
+     * Property specifies the maximum number of simultaneous connections to a server
+     */
+    maxconnections?: number;
+    /**
      * Video download options.
      */
     playlistOptions?: ytpl.Options;
@@ -79,7 +83,8 @@ export namespace PlaylistDownloader {
 export class PlaylistDownloader extends EventEmitter {
   private workers = new Map<string, Worker>();
   private playlistId: string;
-  private output?: string;
+  private output: string;
+  private maxconnections: number;
   private playlistOptions?: ytpl.Options;
   private downloadOptions?: ytdl.downloadOptions;
 
@@ -87,6 +92,7 @@ export class PlaylistDownloader extends EventEmitter {
     super();
     this.playlistId = options.playlistId;
     this.output = options.output ?? '{videoDetails.title}';
+    this.maxconnections = options.maxconnections ?? 2;
     this.downloadOptions = options.downloadOptions;
     this.playlistOptions = options.playlistOptions ?? {
       gl: 'US',
@@ -99,19 +105,84 @@ export class PlaylistDownloader extends EventEmitter {
   /**
    * Initializes an instance of the Downloader class.
    */
-  public async download(): Promise<number[]> {
+  public async download(): Promise<ytpl.Item[]> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlist', playlist);
-    const workers = Promise.all(
-      playlist.items.slice(0, 3).map((item) => {
-        return this.downloadWorkers(item);
-      })
-    );
+    const workers = [];
+    for await (const items of this.runTasks(3, this.tasks(playlist.items))) {
+      workers.push(items);
+    }
     try {
-      return await workers;
+      return workers;
     } catch {
       throw new Error('downloadWorkers failed');
     }
+  }
+
+  private tasks(items: ytpl.Item[]): Array<Promise<ytpl.Item>> {
+    return items.map(async (item) => {
+      // await this.downloadWorkers(item);
+      await this.sleep(Math.random() * 5000);
+      return item;
+    });
+  }
+
+  private async *raceAsyncIterators(iterators: Array<Iterator<ytpl.Item>>): AsyncGenerator<ytpl.Item, void, unknown> {
+    console.log('iterators', iterators, Object.keys(iterators));
+    async function queueNext(iteratorResult: {
+      result?: IteratorResult<ytpl.Item>;
+      iterator: Iterator<ytpl.Item>;
+    }): Promise<{
+      result?: IteratorResult<ytpl.Item>;
+      iterator: Iterator<ytpl.Item>;
+    }> {
+      delete iteratorResult.result; // Release previous result ASAP
+      iteratorResult.result = await (iteratorResult.iterator.next() as unknown as Promise<IteratorResult<ytpl.Item>>);
+      return iteratorResult;
+    }
+    const iteratorResults = new Map(iterators.map((iterator) => [iterator, queueNext({ iterator })]));
+    while (iteratorResults.size) {
+      const winner: {
+        result?: IteratorResult<ytpl.Item>;
+        iterator: Iterator<ytpl.Item>;
+      } = await Promise.race(iteratorResults.values());
+      if (winner.result?.done) {
+        iteratorResults.delete(winner.iterator);
+      } else {
+        const value = winner.result?.value;
+        iteratorResults.set(winner.iterator, queueNext(winner));
+        yield value;
+      }
+    }
+  }
+
+  private async *runTasks(
+    maxConcurrency: number,
+    iterator: Array<Promise<ytpl.Item>>
+  ): AsyncGenerator<ytpl.Item, void, unknown> {
+    // Each worker is an async generator that polls for tasks
+    // from the shared iterator.
+    // Sharing the iterator ensures that each worker gets unique tasks.
+    const workers = new Array(maxConcurrency) as Array<AsyncGenerator<ytpl.Item>>;
+    for (let i = 0; i < maxConcurrency; i++) {
+      workers[i] = (async function* (): AsyncGenerator<ytpl.Item, void, unknown> {
+        // workers[i] = (async function* (): AsyncGenerator<Iterator<ytpl.Item>> {
+        for (const task of iterator) {
+          yield await task;
+        }
+      })();
+    }
+
+    // yield* this.raceAsyncIterators(workers as Array<Iterator<ytpl.Item>>);
+    yield* this.raceAsyncIterators(workers);
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  private splitPlaylist(items: ytpl.Item[], maxconnections: number = this.maxconnections): ytpl.Item[][] {
+    return [items.slice(0, maxconnections), items.slice(maxconnections, -1)];
   }
 
   private async downloadWorkers(item: ytpl.Item): Promise<number> {

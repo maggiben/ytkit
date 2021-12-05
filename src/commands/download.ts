@@ -102,6 +102,10 @@ export default class Download extends YtKitCommand {
       description: 'Save to file, template by {prop}, default: stdout or {title}',
       // default: '{videoDetails.title}',
     }),
+    maxconnections: flags.integer({
+      char: 'm',
+      description: 'specifies the maximum number of simultaneous connections to a server',
+    }),
   };
 
   // The parsed args for easy reference by this command; assigned in init
@@ -186,7 +190,7 @@ export default class Download extends YtKitCommand {
           .then((codes) => {
             multibar.stop();
             // eslint-disable-next-line no-console
-            console.log('codes', codes);
+            // console.log('codes', codes);
           })
           .catch((error) => {
             multibar.stop();
