@@ -56,14 +56,22 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * Initializes an instance of the Downloader class.
    */
   public async init(): Promise<void> {
-    // eslint-disable-next-line no-console
-    console.log('init', this.item.id, this.item.title);
     await this.downloadVideo();
   }
 
+  /**
+   * Downloads a video
+   */
   private async downloadVideo(): Promise<ytdl.videoInfo | undefined> {
     const videoInfo = await this.getVideoInfo();
     if (videoInfo) {
+      parentPort?.postMessage({
+        type: 'videoInfo',
+        item: this.item,
+        details: {
+          videoInfo,
+        },
+      });
       this.readStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
       this.readStream.on('error', this.error.bind(this));
       const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
@@ -151,6 +159,14 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
         },
       });
     });
+
+    this.readStream.once('end', () => {
+      strPrgs.end();
+      parentPort?.postMessage({
+        type: 'end',
+        item: this.item,
+      });
+    });
   }
 
   /**
@@ -204,8 +220,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
     try {
-      // eslint-disable-next-line no-console
-      console.log('getVideoInfo', this.item.url);
       return await ytdl.getInfo(this.item.url);
     } catch (error) {
       throw new Error((error as Error).message);

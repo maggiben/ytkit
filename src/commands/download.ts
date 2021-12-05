@@ -39,7 +39,7 @@ import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
-import * as ytpl from 'ytpl';
+import { Progress } from 'progress-stream';
 import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
@@ -128,54 +128,72 @@ export default class Download extends YtKitCommand {
     // const videoId = utils.getYoutubeVideoId(this.getFlag<string>('url'));
 
     if (playlistId) {
-      const response = await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)');
+      // const response = await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)');
+      const response = true;
       if (response) {
         const progressbars = new Map<string, SingleBar>();
         // eslint-disable-next-line no-console
         console.log('ytdlOptions:', this.ytdlOptions);
         // return this.downloadPlaylist(playlistId);
-        const playlistDownloader = await PlaylistDownloader.create({ playlistId, output: this.output });
-        // const c = await downloader({ playlistId, output: this.output });
-        // eslint-disable-next-line no-console
-        // console.log('c', c);
+        const playlistDownloader = new PlaylistDownloader({ playlistId, output: this.output });
+
         const multibar = new this.ux.multibar({
           clearOnComplete: false,
           hideCursor: true,
-          format: '[{bar}] Title: {title} | {percentage}% | ETA: {eta}s | Speed: {speed}',
+          format: '[{bar}] Title: {title} | {percentage}% | ETA: {timeleft} | Speed: {speed}',
           barCompleteChar: '\u2588',
           barIncompleteChar: '\u2591',
+        });
+
+        playlistDownloader.on('online', (message: PlaylistDownloader.Message) => {
+          // eslint-disable-next-line no-console
+          // console.log('item:', message.item.title);
+        });
+
+        playlistDownloader.on('videoInfo', (message: PlaylistDownloader.Message) => {
+          // const { videoInfo } = message.details;
+          // eslint-disable-next-line no-console
+          // console.log('item:', message.item.title, 'videoInfo:', videoInfo);
         });
 
         playlistDownloader.on('contentLength', (message: PlaylistDownloader.Message) => {
           const { contentLength } = message.details;
           // eslint-disable-next-line no-console
-          console.log('item:', message.item, 'contentLength:', contentLength);
+          // console.log('item:', message.item.title, 'contentLength:', contentLength);
           progressbars.set(message.item.id, multibar.create(contentLength as number, 0));
         });
 
-        playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
-          const { progress } = message.details;
-          // eslint-disable-next-line no-console
-          console.log('item:', message.item, 'progress:', progress);
+        playlistDownloader.on('end', (message: PlaylistDownloader.Message) => {
           const progressbar = progressbars.get(message.item.id);
-          progressbar?.update(progress as number, { title: message.item.title });
+          if (progressbar) {
+            multibar.remove(progressbar);
+          }
         });
 
-        // const b1 = multibar.create(200, 0);
-        // const b2 = multibar.create(1000, 0);
+        playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
+          const progress = message.details.progress as Progress;
+          const progressbar = progressbars.get(message.item.id);
+          progressbar?.update(progress.transferred, {
+            timeleft: utils.toHumanTime(progress.eta),
+            percentage: progress.percentage,
+            title: message.item.title,
+            speed: utils.toHumanSize(progress.speed),
+          });
+        });
 
-        // // control bars
-        // b1.increment();
-        // // b2.update(20, { filename: 'helloworld.txt' });
-        // let cnt = 0;
-        // const timer = setInterval(() => {
-        //   b2.update(cnt, { title: 'pepe' });
-        //   cnt += 10;
-        //   if (cnt > 1000) {
-        //     clearInterval(timer);
-        //     multibar.stop();
-        //   }
-        // }, 500);
+        playlistDownloader
+          .download()
+          .then((codes) => {
+            multibar.stop();
+            // eslint-disable-next-line no-console
+            console.log('codes', codes);
+          })
+          .catch((error) => {
+            multibar.stop();
+            // eslint-disable-next-line no-console
+            console.error('error', error);
+          });
+
         return;
       }
       return this.downloadVideo();

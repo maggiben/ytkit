@@ -36,10 +36,10 @@
 // import { Readable } from 'stream';
 // import * as fs from 'fs';
 import * as path from 'path';
-import { Worker, isMainThread, WorkerOptions } from 'worker_threads';
+import { EventEmitter } from 'stream';
+import { Worker, WorkerOptions } from 'worker_threads';
 import ytdl = require('ytdl-core');
 import * as ytpl from 'ytpl';
-import { AsyncCreatableEventEmitter } from './AsyncCreatable';
 import { DownloadWorker } from './worker';
 
 export namespace PlaylistDownloader {
@@ -75,7 +75,8 @@ export namespace PlaylistDownloader {
 /*
   blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
 */
-export class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownloader.Options> {
+// export class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownloader.Options> {
+export class PlaylistDownloader extends EventEmitter {
   private workers = new Map<string, Worker>();
   private playlistId: string;
   private output?: string;
@@ -83,7 +84,7 @@ export class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownl
   private downloadOptions?: ytdl.downloadOptions;
 
   public constructor(options: PlaylistDownloader.Options) {
-    super(options);
+    super();
     this.playlistId = options.playlistId;
     this.output = options.output ?? '{videoDetails.title}';
     this.downloadOptions = options.downloadOptions;
@@ -98,20 +99,18 @@ export class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownl
   /**
    * Initializes an instance of the Downloader class.
    */
-  public async init(): Promise<void> {
-    if (isMainThread) {
-      const playlist = await ytpl(this.playlistId, this.playlistOptions);
-      this.emit('playlist', playlist);
-      const workers = Promise.all(
-        playlist.items.map((item) => {
-          return this.downloadWorkers(item);
-        })
-      );
-      try {
-        await workers;
-      } catch {
-        throw new Error('Workers failed');
-      }
+  public async download(): Promise<number[]> {
+    const playlist = await ytpl(this.playlistId, this.playlistOptions);
+    this.emit('playlist', playlist);
+    const workers = Promise.all(
+      playlist.items.slice(0, 3).map((item) => {
+        return this.downloadWorkers(item);
+      })
+    );
+    try {
+      return await workers;
+    } catch {
+      throw new Error('downloadWorkers failed');
     }
   }
 
@@ -128,46 +127,17 @@ export class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownl
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
       this.workers.set(item.id, worker);
       worker.on('message', (message: DownloadWorker.Message) => {
-        switch (message.type) {
-          case 'contentLength': {
-            this.emit('contentLength', {
-              item,
-              details: {
-                contentLength: message.details.contentLength,
-              },
-            });
-            // eslint-disable-next-line no-console
-            // console.log('contentLength:', message.details.contentLength);
-            break;
-          }
-          case 'progress': {
-            this.emit('contentLength', {
-              item,
-              details: {
-                progress: message.details.progress,
-              },
-            });
-            // eslint-disable-next-line no-console
-            // console.log('progress:', message.details.progress);
-            break;
-          }
-        }
+        this.emit(message.type, message);
       });
       worker.on('online', () => {
         this.emit('online', { item });
-        // eslint-disable-next-line no-console
-        console.log('worker online');
       });
       worker.on('error', (error) => {
-        // eslint-disable-next-line no-console
-        // console.error('error:', error);
         this.emit('error', { item, error });
         this.workers.delete(item.id);
         reject(error);
       });
       worker.on('exit', (code) => {
-        // eslint-disable-next-line no-console
-        // console.log('exit:', code);
         this.emit('exit', { item, code });
         this.workers.delete(item.id);
         if (code !== 0) {
