@@ -33,7 +33,6 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
 /**
  * A base class for classes that must be constructed and initialized asynchronously.
  */

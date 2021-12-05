@@ -146,6 +146,7 @@ export class PlaylistDownloader extends EventEmitter {
     return tasks.values();
   }
 
+  /*
   private tasks3(items: ytpl.Item[]): IterableIterator<() => Promise<number>> {
     const tasks = [];
     for (let i = 0; i < 20; i++) {
@@ -173,6 +174,7 @@ export class PlaylistDownloader extends EventEmitter {
       return Math.floor(Math.random() * (1 - 0 + 1)) + 0;
     });
   }
+  */
 
   private sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
@@ -251,6 +253,12 @@ export class PlaylistDownloader extends EventEmitter {
           left: retryItem.left,
         },
       });
+      this.emit('retry', {
+        source: item,
+        details: {
+          left: retryItem.left,
+        },
+      });
       retryItem.left -= 1;
       this.retryItems.set(item.id, retryItem);
       return true;
@@ -307,7 +315,7 @@ export class PlaylistDownloader extends EventEmitter {
         return this.emit('online', { source: item });
       });
       worker.on('error', (error) => {
-        this.emit('error', { source: item, error });
+        this.emit('fatal', { source: item, error });
         this.retryItems.delete(item.id);
         this.workers.delete(item.id);
       });

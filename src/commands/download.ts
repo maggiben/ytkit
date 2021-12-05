@@ -159,6 +159,7 @@ export default class Download extends YtKitCommand {
 
   private async downloadPlaylist(playlistId: string): Promise<void> {
     const progressbars = new Map<string, SingleBar>();
+    const retryItems = new Map<string, PlaylistDownloader.RetryItems>();
     const playlistDownloader = new PlaylistDownloader({
       playlistId,
       output: this.output,
@@ -169,7 +170,7 @@ export default class Download extends YtKitCommand {
     const multibar = new this.ux.multibar({
       clearOnComplete: false,
       hideCursor: true,
-      format: '[{bar}] Title: {title} | {percentage}% | ETA: {timeleft} | Speed: {speed}',
+      format: '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed} | Retries: {retries} | Title: {title} ',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
     });
@@ -192,7 +193,9 @@ export default class Download extends YtKitCommand {
     playlistDownloader.on('contentLength', (message: PlaylistDownloader.Message) => {
       // eslint-disable-next-line no-console
       // console.log('item:', message.item.title, 'contentLength:', contentLength);
-      progressbars.set(message.source.id, multibar.create(message.details?.contentLength as number, 0));
+      if (!progressbars.has(message.source.id)) {
+        progressbars.set(message.source.id, multibar.create(message.details?.contentLength as number, 0));
+      }
     });
 
     playlistDownloader.on('end', (message: PlaylistDownloader.Message) => {
@@ -206,21 +209,34 @@ export default class Download extends YtKitCommand {
     playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
       const progress = message.details?.progress as Progress;
       const progressbar = progressbars.get(message.source.id);
+      const retryItem = retryItems.get(message.source.id);
       progressbar?.update(progress.transferred, {
         timeleft: utils.toHumanTime(progress.eta),
         percentage: progress.percentage,
         title: message.source.title,
         speed: utils.toHumanSize(progress.speed),
+        retries: retryItem?.left ?? this.getFlag<number>('retries'),
+      });
+    });
+
+    playlistDownloader.on('retry', (message: PlaylistDownloader.Message) => {
+      retryItems.set(message.source.id, {
+        item: message.source as ytpl.Item,
+        left: message.details?.left as number,
       });
     });
 
     playlistDownloader.on('error', (message: PlaylistDownloader.Message) => {
+      this.ux.cli.warn(`item: ${message.source.title} message: ${message.error?.message}`);
+    });
+
+    playlistDownloader.on('fatal', (message: PlaylistDownloader.Message) => {
       const progressbar = progressbars.get(message.source.id);
       if (progressbar) {
         progressbar.stop();
         multibar.remove(progressbar);
       }
-      this.ux.cli.warn(`${message.error?.message}`);
+      this.ux.cli.warn(`fatal error on thread item: ${message.source.title} message: ${message.error?.message}`);
     });
 
     try {

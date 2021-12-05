@@ -65,11 +65,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private handleMessages(): void {
-    parentPort?.on('retry', () => {
-      console.log('=============== message retry ===============');
-    });
     parentPort?.on('message', (base64Message: string) => {
-      console.log('parentPort.message:', base64Message);
       try {
         const message = JSON.parse(Buffer.from(base64Message, 'base64').toString()) as DownloadWorker.Message;
         switch (message.type) {
@@ -83,11 +79,9 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
-  private retryItem(item: ytpl.Item): void {
+  private retryItem(item?: ytpl.Item): void {
     try {
-      // this.item = item;
-      // eslint-disable-next-line no-console
-      console.log('retry', item);
+      this.item = item ?? this.item;
       this.downloadVideo()
         .then((videoInfo) => {
           parentPort?.postMessage({
@@ -278,31 +272,27 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     process.exit(code);
   }
 
+  private elapsed(): (lap?: string) => void {
+    let prev = performance.now();
+    return (lap?: string): void => {
+      if (lap) {
+        // eslint-disable-next-line no-console
+        return console.log(`${lap} in: ${utils.toHumanTime(Math.floor((performance.now() - prev) / 1000))}`);
+      }
+      prev = performance.now();
+    };
+  }
+
   /**
    * Gets info from a video additional formats and deciphered URLs.
    *
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    let prev = performance.now();
-    function timer(lap?: string): void {
-      if (lap) {
-        // eslint-disable-next-line no-console
-        console.log(`${lap} in: ${utils.toHumanTime(Math.floor((performance.now() - prev) / 1000))}`);
-      }
-      prev = performance.now();
-    }
     try {
-      // timer();
-      // let cnt = 0;
-      // const t = setInterval(() => {
-      //   // eslint-disable-next-line no-console
-      //   console.log(`id: ${this.item.id}: ${utils.toHumanTime(cnt)}`);
-      //   cnt++;
-      // }, 1000);
+      // const elapsed = this.elapsed();
       const videoInfo = await ytdl.getInfo(this.item.url);
-      // timer('getInfo');
-      // clearInterval(t);
+      // elapsed('getInfo');
       return videoInfo;
     } catch (error) {
       throw new Error((error as Error).message);
