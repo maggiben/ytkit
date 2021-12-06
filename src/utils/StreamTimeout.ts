@@ -1,4 +1,40 @@
+/*
+ * @file         : StreamTimeout.ts
+ * @summary      : Stream timeout
+ * @version      : 1.0.0
+ * @project      : YtKit
+ * @description  : Emits a timeout if the stream has been quiet (no writes) for too long
+ * @author       : Benjamin Maggi
+ * @email        : benjaminmaggi@gmail.com
+ * @date         : 06 Dev 2021
+ * @license:     : MIT
+ *
+ * Copyright 2021 Benjamin Maggi <benjaminmaggi@gmail.com>
+ *
+ *
+ * License:
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files
+ * (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to permit
+ * persons to whom the Software is furnished to do so, subject to the
+ * following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 import { Writable, WritableOptions } from 'stream';
+import * as utils from './utils';
 
 export interface StreamTimeoutOptions extends WritableOptions {
   timeout?: number;
@@ -6,6 +42,7 @@ export interface StreamTimeoutOptions extends WritableOptions {
 export default class StreamTimeout extends Writable {
   private timeout: number;
   private timer!: NodeJS.Timeout;
+  private prev!: number;
   public constructor(options?: StreamTimeoutOptions) {
     super(options);
     this.timeout = options?.timeout ?? 5000;
@@ -17,6 +54,10 @@ export default class StreamTimeout extends Writable {
     this.clearTimeout();
     this.setTTimeout();
     return callback();
+  }
+
+  public elapsed(): string {
+    return utils.toHumanTime(Math.floor((performance.now() - this.prev) / 1000));
   }
 
   public end(): void {
@@ -36,6 +77,7 @@ export default class StreamTimeout extends Writable {
   }
 
   private setTTimeout(): NodeJS.Timeout {
+    this.prev = performance.now();
     this.timer = setTimeout(() => {
       this.emit('timeout');
     }, this.timeout);

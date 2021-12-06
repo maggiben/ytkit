@@ -113,6 +113,11 @@ export default class Download extends YtKitCommand {
       description: 'Total number of connection attempts, including the initial connection attempt',
       default: 5,
     }),
+    timeout: flags.integer({
+      char: 't',
+      description: 'Timeout value prevents network operations from blocking indefinitely',
+      default: 5,
+    }),
   };
 
   // The parsed args for easy reference by this command; assigned in init
@@ -170,7 +175,8 @@ export default class Download extends YtKitCommand {
     const multibar = new this.ux.multibar({
       clearOnComplete: false,
       hideCursor: true,
-      format: '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed} | Retries: {retries} | Title: {title} ',
+      format:
+        '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed} | Elapsed: {elapsed} | Retries: {retries} | Title: {title} ',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
     });
@@ -214,17 +220,46 @@ export default class Download extends YtKitCommand {
       }
     });
 
+    ['timeout', 'retry', 'error', 'fatal', 'promise', 'exit', 'progressBar'].forEach((name) => {
+      const file = path.join('.', `${name}.txt`);
+      if (fs.existsSync(file)) {
+        fs.unlinkSync(file);
+      }
+    });
+
     playlistDownloader.on('timeout', (message: PlaylistDownloader.Message) => {
       const progressbar = progressbars.get(message.source.id);
       if (progressbar) {
         progressbar.stop();
         multibar.remove(progressbar);
+      } else {
+        fs.promises
+          .appendFile(
+            './progressBar.txt',
+            `failed to delete progressBar for id: ${message.source.id} entries: ${Array.from(progressbars.keys()).join(
+              ','
+            )} \n`
+          )
+          .then((r) => {
+            return r;
+          })
+          // eslint-disable-next-line no-console
+          .catch(() => console.log);
       }
-      this.ux.cli.warn(`item: ${message.source.title} timed out`);
+      fs.promises
+        .appendFile('./timeout.txt', `item: id: ${message.source.id} title: ${message.source.title} timed out \n`)
+        .then((r) => {
+          return r;
+        })
+        // eslint-disable-next-line no-console
+        .catch(() => console.log);
     });
 
     playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
-      const progress = message.details?.progress as Progress;
+      interface ExtendedProgress extends Progress {
+        elapsed: string;
+      }
+      const progress = message.details?.progress as ExtendedProgress;
       const progressbar = progressbars.get(message.source.id);
       const retryItem = retryItems.get(message.source.id);
       progressbar?.update(progress.transferred, {
@@ -232,6 +267,24 @@ export default class Download extends YtKitCommand {
         percentage: progress.percentage,
         title: message.source.title,
         speed: utils.toHumanSize(progress.speed),
+        elapsed: progress.elapsed,
+        retries: retryItem?.left ?? this.getFlag<number>('retries'),
+      });
+    });
+
+    playlistDownloader.on('elapsed', (message: PlaylistDownloader.Message) => {
+      interface ExtendedProgress extends Progress {
+        elapsed: string;
+      }
+      const progress = message.details?.progress as ExtendedProgress;
+      const progressbar = progressbars.get(message.source.id);
+      const retryItem = retryItems.get(message.source.id);
+      progressbar?.update(progress.transferred, {
+        timeleft: utils.toHumanTime(progress.eta),
+        percentage: progress.percentage,
+        title: message.source.title,
+        speed: utils.toHumanSize(progress.speed),
+        elapsed: progress.elapsed,
         retries: retryItem?.left ?? this.getFlag<number>('retries'),
       });
     });
@@ -241,10 +294,30 @@ export default class Download extends YtKitCommand {
         item: message.source as ytpl.Item,
         left: message.details?.left as number,
       });
+      fs.promises
+        .appendFile(
+          './retry.txt',
+          `item: id: ${message.source.id} title: ${message.source.title} retry ${message.details?.left as number} \n`
+        )
+        .then((r) => {
+          return r;
+        })
+        // eslint-disable-next-line no-console
+        .catch(() => console.log);
     });
 
     playlistDownloader.on('error', (message: PlaylistDownloader.Message) => {
       this.ux.cli.warn(`item: ${message.source.title} message: ${message.error?.message}`);
+      fs.promises
+        .appendFile(
+          './error.txt',
+          `item: id: ${message.source.id} title: ${message.source.title} message: ${message.error?.message} \n`
+        )
+        .then((r) => {
+          return r;
+        })
+        // eslint-disable-next-line no-console
+        .catch(() => console.log);
     });
 
     playlistDownloader.on('fatal', (message: PlaylistDownloader.Message) => {
@@ -252,8 +325,64 @@ export default class Download extends YtKitCommand {
       if (progressbar) {
         progressbar.stop();
         multibar.remove(progressbar);
+      } else {
+        fs.promises
+          .appendFile(
+            './progressBar.txt',
+            `failed to delete progressBar for id: ${message.source.id} entries: ${Array.from(progressbars.keys()).join(
+              ','
+            )} \n`
+          )
+          .then((r) => {
+            return r;
+          })
+          // eslint-disable-next-line no-console
+          .catch(() => console.log);
       }
       this.ux.cli.warn(`fatal error on thread item: ${message.source.title} message: ${message.error?.message}`);
+      fs.promises
+        .appendFile(
+          './fatal.txt',
+          `fatal error on thread item: ${message.source.title} message: ${message.error?.message} \n`
+        )
+        .then((r) => {
+          return r;
+        })
+        // eslint-disable-next-line no-console
+        .catch(() => console.log);
+    });
+
+    playlistDownloader.on('exit', (message: PlaylistDownloader.Message) => {
+      const progressbar = progressbars.get(message.source.id);
+      const code = message.details?.code as number;
+      if (progressbar) {
+        progressbar.stop();
+        multibar.remove(progressbar);
+      } else {
+        fs.promises
+          .appendFile(
+            './progressBar.txt',
+            `failed to delete progressBar for id: ${message.source.id} entries: ${Array.from(progressbars.keys()).join(
+              ','
+            )} \n`
+          )
+          .then((r) => {
+            return r;
+          })
+          // eslint-disable-next-line no-console
+          .catch(() => console.log);
+      }
+      // this.ux.cli.warn(`exit on thread item: ${message.source.title} message: ${message.error?.message}`);
+      fs.promises
+        .appendFile(
+          './exit.txt',
+          `exit on thread item: ${message.source.id} title: ${message.source.title} code: ${code} \n`
+        )
+        .then((r) => {
+          return r;
+        })
+        // eslint-disable-next-line no-console
+        .catch(() => console.log);
     });
 
     try {
@@ -262,7 +391,18 @@ export default class Download extends YtKitCommand {
       // eslint-disable-next-line no-console
       // console.log('result codes', codes);
     } catch (error) {
+      progressbars.forEach((progressbar) => {
+        progressbar.stop();
+        multibar.remove(progressbar);
+      });
       multibar.stop();
+      fs.promises
+        .appendFile('./promise.txt', error as string)
+        .then((r) => {
+          return r;
+        })
+        // eslint-disable-next-line no-console
+        .catch(() => console.log);
       // eslint-disable-next-line no-console
       // console.error('in command error', error);
     }

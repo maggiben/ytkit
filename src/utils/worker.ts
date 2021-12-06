@@ -1,3 +1,38 @@
+/*
+ * @file         : worker.ts
+ * @summary      : video download worker
+ * @version      : 1.0.0
+ * @project      : YtKit
+ * @description  : downloads a video in a new worker
+ * @author       : Benjamin Maggi
+ * @email        : benjaminmaggi@gmail.com
+ * @date         : 06 Dev 2021
+ * @license:     : MIT
+ *
+ * Copyright 2021 Benjamin Maggi <benjaminmaggi@gmail.com>
+ *
+ *
+ * License:
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files
+ * (the "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to permit
+ * persons to whom the Software is furnished to do so, subject to the
+ * following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 import { workerData, parentPort } from 'worker_threads';
 import { Readable } from 'stream';
 import * as path from 'path';
@@ -25,7 +60,7 @@ export namespace DownloadWorker {
      */
     output?: string;
     /**
-     * Output file name.
+     * Timeout value prevents network operations from blocking indefinitely.
      */
     timeout?: number;
     /**
@@ -50,6 +85,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private videoInfo!: ytdl.videoInfo;
   private videoFormat!: ytdl.videoFormat;
   private streamTimeout!: StreamTimeout;
+  private progress?: progressStream.Progress;
 
   public constructor(options: DownloadWorker.Options) {
     super(options);
@@ -119,7 +155,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       });
       try {
         this.readStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
-        this.readStream.pipe(this.streamTimeout);
         this.readStream.on('error', this.error.bind(this));
         const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
         this.videoInfo = infoAndVideoFormat.videoInfo;
@@ -199,6 +234,24 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
 
     this.readStream.pipe(strPrgs);
+    this.readStream.pipe(this.streamTimeout);
+
+    if (this.item.id === 'GJ0mO8P37Eg' || this.item.title === 'ＢＩＧ ＩＲＯＮ') {
+      setInterval(() => {
+        // eslint-disable-next-line no-console
+        // console.log(`Lass time read: ${this.streamTimeout.elapsed()}}`);
+      }, 500);
+    }
+
+    setInterval(() => {
+      parentPort?.postMessage({
+        type: 'elapsed',
+        source: this.item,
+        details: {
+          progress: { ...this.progress, elapsed: this.streamTimeout.elapsed() },
+        },
+      });
+    }, 500);
 
     this.streamTimeout.once('timeout', () => {
       this.readStream.destroy();
@@ -209,12 +262,26 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       });
     });
 
+    if (fs.existsSync('./progress.txt')) {
+      fs.unlinkSync('./progress.txt');
+    }
     strPrgs.on('progress', (progress) => {
+      fs.promises
+        .appendFile(
+          './progress.txt',
+          `item: id: ${this.item.id} title: ${this.item.title} progress ${progress.percentage} \n`
+        )
+        .then((r) => {
+          return r;
+        })
+        // eslint-disable-next-line no-console
+        .catch(() => console.log);
+      this.progress = progress;
       parentPort?.postMessage({
         type: 'progress',
         source: this.item,
         details: {
-          progress,
+          progress: { ...progress, elapsed: this.streamTimeout.elapsed() },
         },
       });
     });
@@ -270,7 +337,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       this.readStream.once('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
         return resolve({ videoInfo, videoFormat });
       });
-      this.readStream.once('error', (error) => (this.error(error), reject(error)));
+      this.readStream.once('error', reject);
     });
   }
 
