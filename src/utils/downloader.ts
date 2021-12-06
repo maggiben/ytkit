@@ -121,9 +121,17 @@ export class PlaylistDownloader extends EventEmitter {
   public async download(): Promise<number[]> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
+    try {
+      return await this.sheduler(playlist.items);
+    } catch (error) {
+      throw new Error((error as Error).message);
+    }
+  }
+
+  private async sheduler(items: ytpl.Item[]): Promise<number[]> {
     const workers: number[] = [];
     try {
-      for await (const code of this.runTasks(this.maxconnections, this.tasks(playlist.items))) {
+      for await (const code of this.runTasks(this.maxconnections, this.tasks(items))) {
         workers.push(code ?? 1);
       }
     } catch (error) {
@@ -245,20 +253,16 @@ export class PlaylistDownloader extends EventEmitter {
       });
     }
     const retryItem = this.retryItems.get(item.id);
-    if (retryItem && retryItem.left > 0) {
-      this.postWorkerMessage(worker, {
+    if (retryItem && retryItem.left > 0 && this.workers.has(item.id)) {
+      const message: PlaylistDownloader.Message = {
         type: 'retry',
         source: item,
         details: {
           left: retryItem.left,
         },
-      });
-      this.emit('retry', {
-        source: item,
-        details: {
-          left: retryItem.left,
-        },
-      });
+      };
+      this.postWorkerMessage(worker, message);
+      this.emit(message.type, message);
       retryItem.left -= 1;
       this.retryItems.set(item.id, retryItem);
       return true;
@@ -284,9 +288,11 @@ export class PlaylistDownloader extends EventEmitter {
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
       this.workers.set(item.id, worker);
+      return this.handleWorkerEvents<number>(worker, item, resolve, reject);
+      /*
       worker.on('message', (message: DownloadWorker.Message) => {
         this.emit(message.type, message);
-        if (message.type === 'error') {
+        if (['error', 'timeout'].includes(message.type)) {
           const retry = this.retryDownloadWorker(item, worker);
           if (!retry) {
             this.workers.delete(item.id);
@@ -294,7 +300,7 @@ export class PlaylistDownloader extends EventEmitter {
             worker
               .terminate()
               .then((code) => {
-                this.emit('worker:terminated', {
+                this.emit('worker:terminated:success', {
                   source: item,
                   details: {
                     code,
@@ -318,6 +324,7 @@ export class PlaylistDownloader extends EventEmitter {
         this.emit('fatal', { source: item, error });
         this.retryItems.delete(item.id);
         this.workers.delete(item.id);
+        return reject(error);
       });
       worker.on('exit', (code) => {
         this.emit('exit', { source: item, code });
@@ -328,6 +335,61 @@ export class PlaylistDownloader extends EventEmitter {
         }
         resolve(code);
       });
+       */
+    });
+  }
+
+  private handleWorkerEvents<T>(
+    worker: Worker,
+    item: ytpl.Item,
+    resolve: (value: number | PromiseLike<T>) => void,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    reject: (reason?: any) => void
+  ): void {
+    worker.on('message', (message: DownloadWorker.Message) => {
+      this.emit(message.type, message);
+      if (['error', 'timeout'].includes(message.type)) {
+        const retry = this.retryDownloadWorker(item, worker);
+        if (!retry) {
+          this.workers.delete(item.id);
+          this.retryItems.delete(item.id);
+          worker
+            .terminate()
+            .then((code) => {
+              this.emit('worker:terminated:success', {
+                source: item,
+                details: {
+                  code,
+                },
+              });
+            })
+            .catch((error) => {
+              this.emit('worker:terminated:error', {
+                source: item,
+                error: error as Error,
+              });
+            });
+          return reject(message.error);
+        }
+      }
+    });
+    worker.on('online', () => {
+      return this.emit('online', { source: item });
+    });
+    worker.on('error', (error) => {
+      this.emit('fatal', { source: item, error });
+      this.retryItems.delete(item.id);
+      this.workers.delete(item.id);
+      return reject(error);
+    });
+    worker.on('exit', (code) => {
+      this.emit('exit', { source: item, code });
+      this.retryItems.delete(item.id);
+      this.workers.delete(item.id);
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+      resolve(code);
     });
   }
 }

@@ -8,6 +8,7 @@ import tsNode = require('ts-node');
 import * as progressStream from 'progress-stream';
 import * as utils from './utils';
 import { AsyncCreatable } from './AsyncCreatable';
+import StreamTimeout from './StreamTimeout';
 tsNode.register();
 
 export namespace DownloadWorker {
@@ -23,6 +24,10 @@ export namespace DownloadWorker {
      * Output file name.
      */
     output?: string;
+    /**
+     * Output file name.
+     */
+    timeout?: number;
     /**
      * Video download options.
      */
@@ -44,12 +49,14 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private downloadOptions?: ytdl.downloadOptions;
   private videoInfo!: ytdl.videoInfo;
   private videoFormat!: ytdl.videoFormat;
+  private streamTimeout!: StreamTimeout;
 
   public constructor(options: DownloadWorker.Options) {
     super(options);
     this.item = options.item;
     this.output = options.output ?? '{videoDetails.title}';
     this.downloadOptions = options.downloadOptions;
+    this.streamTimeout = new StreamTimeout({ timeout: options.timeout });
   }
 
   /**
@@ -112,6 +119,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       });
       try {
         this.readStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
+        this.readStream.pipe(this.streamTimeout);
         this.readStream.on('error', this.error.bind(this));
         const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
         this.videoInfo = infoAndVideoFormat.videoInfo;
@@ -192,14 +200,14 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
     this.readStream.pipe(strPrgs);
 
-    const timer = (seconds: number): NodeJS.Timeout => {
-      return setTimeout(() => {
-        this.readStream.destroy();
-        this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`));
-      }, seconds);
-    };
-
-    let timeout = timer(2500);
+    this.streamTimeout.once('timeout', () => {
+      this.readStream.destroy();
+      // this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`));
+      parentPort?.postMessage({
+        type: 'timeout',
+        source: this.item,
+      });
+    });
 
     strPrgs.on('progress', (progress) => {
       parentPort?.postMessage({
@@ -209,8 +217,15 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
           progress,
         },
       });
-      clearTimeout(timeout);
-      timeout = timer(5000);
+    });
+
+    this.readStream.once('close', () => {
+      strPrgs.end();
+      parentPort?.postMessage({
+        type: 'close',
+        source: this.item,
+      });
+      this.exit(0);
     });
 
     this.readStream.once('end', () => {
@@ -219,7 +234,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
         type: 'end',
         source: this.item,
       });
-      clearTimeout(timeout);
       this.exit(0);
     });
   }

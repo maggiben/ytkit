@@ -206,6 +206,23 @@ export default class Download extends YtKitCommand {
       }
     });
 
+    playlistDownloader.on('close', (message: PlaylistDownloader.Message) => {
+      const progressbar = progressbars.get(message.source.id);
+      if (progressbar) {
+        progressbar.stop();
+        multibar.remove(progressbar);
+      }
+    });
+
+    playlistDownloader.on('timeout', (message: PlaylistDownloader.Message) => {
+      const progressbar = progressbars.get(message.source.id);
+      if (progressbar) {
+        progressbar.stop();
+        multibar.remove(progressbar);
+      }
+      this.ux.cli.warn(`item: ${message.source.title} timed out`);
+    });
+
     playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
       const progress = message.details?.progress as Progress;
       const progressbar = progressbars.get(message.source.id);
