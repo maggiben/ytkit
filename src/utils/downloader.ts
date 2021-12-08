@@ -89,6 +89,11 @@ export namespace PlaylistDownloader {
     item: ytpl.Item;
     left: number;
   }
+
+  export interface Result {
+    item: ytpl.Item;
+    code: number;
+  }
 }
 
 /*
@@ -117,15 +122,15 @@ export class PlaylistDownloader extends EventEmitter {
     this.playlistOptions = options.playlistOptions ?? {
       gl: 'US',
       hl: 'en',
-      // limit: Infinity,
-      // pages: Infinity,
+      limit: 30,
+      pages: 0,
     };
   }
 
   /**
    * Initializes an instance of the Downloader class.
    */
-  public async download(): Promise<number[]> {
+  public async download(): Promise<PlaylistDownloader.Result[]> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
 
@@ -140,23 +145,22 @@ export class PlaylistDownloader extends EventEmitter {
     }
   }
 
-  private async sheduler(items: ytpl.Item[]): Promise<number[]> {
-    const workers: number[] = [];
+  private async sheduler(items: ytpl.Item[]): Promise<Array<PlaylistDownloader.Result | undefined>> {
+    const workers = [];
     try {
-      for await (const code of this.runTasks(this.maxconnections, this.tasks(items))) {
-        workers.push(code ?? 1);
+      for await (const result of this.runTasks<PlaylistDownloader.Result>(this.maxconnections, this.tasks(items))) {
+        workers.push(result);
       }
     } catch (error) {
-      await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
       throw new Error((error as Error).message);
     }
     return workers;
   }
 
-  private tasks(items: ytpl.Item[]): IterableIterator<() => Promise<number>> {
+  private tasks<T>(items: ytpl.Item[]): IterableIterator<() => Promise<T>> {
     const tasks = [];
     for (const item of items) {
-      tasks.push(async () => {
+      tasks.push(async (): Promise<T> => {
         try {
           return await this.downloadWorkers(item);
         } catch (error) {
@@ -168,59 +172,22 @@ export class PlaylistDownloader extends EventEmitter {
     return tasks.values();
   }
 
-  /*
-  private tasks3(items: ytpl.Item[]): IterableIterator<() => Promise<number>> {
-    const tasks = [];
-    for (let i = 0; i < 20; i++) {
-      tasks.push(async () => {
-        // console.log(`start ${i}`);
-        await this.sleep(Math.random() * 1000);
-        // console.log(`end ${i}`);
-        return i;
-      });
-    }
-    return tasks.values();
-  }
-
-  private tasks2(items: ytpl.Item[]): Array<Promise<number>> {
-    return items.map(async (item, index) => {
-      // try {
-      //   return this.downloadWorkers(item);
-      // } catch (error) {
-      //   throw new Error((error as Error).message);
-      // }
-      const ms = Math.random() * 15000;
-      // eslint-disable-next-line no-console
-      // console.log('task', index, ms);
-      await this.sleep(ms);
-      return Math.floor(Math.random() * (1 - 0 + 1)) + 0;
-    });
-  }
-  */
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((r) => setTimeout(r, ms));
-  }
-
-  private async *raceAsyncIterators(
-    iterators: Array<AsyncIterator<number>>
-  ): AsyncGenerator<number | undefined, void, unknown> {
-    async function queueNext(iteratorResult: {
-      result?: IteratorResult<number>;
-      iterator: AsyncIterator<number>;
-    }): Promise<{
-      result?: IteratorResult<number>;
-      iterator: AsyncIterator<number>;
+  private async *raceAsyncIterators<T>(
+    iterators: Array<AsyncIterator<T>>
+  ): AsyncGenerator<T | undefined, void, unknown> {
+    async function queueNext(iteratorResult: { result?: IteratorResult<T>; iterator: AsyncIterator<T> }): Promise<{
+      result?: IteratorResult<T>;
+      iterator: AsyncIterator<T>;
     }> {
       delete iteratorResult.result; // Release previous result ASAP
-      iteratorResult.result = await (iteratorResult.iterator.next() as unknown as Promise<IteratorResult<number>>);
+      iteratorResult.result = await (iteratorResult.iterator.next() as unknown as Promise<IteratorResult<T>>);
       return iteratorResult;
     }
     const iteratorResults = new Map(iterators.map((iterator) => [iterator, queueNext({ iterator })]));
     while (iteratorResults.size) {
       const winner: {
-        result?: IteratorResult<number>;
-        iterator: AsyncIterator<number>;
+        result?: IteratorResult<T>;
+        iterator: AsyncIterator<T>;
       } = await Promise.race(iteratorResults.values());
       if (winner.result?.done) {
         iteratorResults.delete(winner.iterator);
@@ -232,17 +199,16 @@ export class PlaylistDownloader extends EventEmitter {
     }
   }
 
-  private async *runTasks(
+  private async *runTasks<T>(
     maxConcurrency: number,
-    // iterator: IterableIterator<Promise<number>>
-    iterator: IterableIterator<() => Promise<number>>
-  ): AsyncGenerator<number | undefined, void, unknown> {
+    iterator: IterableIterator<() => Promise<T>>
+  ): AsyncGenerator<T | undefined, void, unknown> {
     // Each worker is an async generator that polls for tasks
     // from the shared iterator.
     // Sharing the iterator ensures that each worker gets unique tasks.
-    const workers = new Array(maxConcurrency) as Array<AsyncIterator<number>>;
+    const workers = new Array(maxConcurrency) as Array<AsyncIterator<T>>;
     for (let i = 0; i < maxConcurrency; i++) {
-      workers[i] = (async function* (): AsyncIterator<number, void, unknown> {
+      workers[i] = (async function* (): AsyncIterator<T, void, unknown> {
         for (const task of iterator) {
           try {
             yield await task();
@@ -253,12 +219,15 @@ export class PlaylistDownloader extends EventEmitter {
       })();
     }
 
-    yield* this.raceAsyncIterators(workers);
+    yield* this.raceAsyncIterators<T>(workers);
   }
 
   /**
    * Retry download if failed
    *
+   * @name retryDownloadWorker
+   * @memberOf PlaylistDownloader:retryDownloadWorker
+   * @category Control Flow
    * @param {ytpl.Item} item the playlist item
    * @param {Worker} worker the worker currently executing
    * @returns {boolean} returns false if exceeded the maximum allowed retries otherwise returns true
@@ -284,17 +253,34 @@ export class PlaylistDownloader extends EventEmitter {
       retryItem.left -= 1;
       this.retryItems.set(item.id, retryItem);
       return true;
-    } else if (retryItem && retryItem.left <= 0) {
-      return false;
     }
     return false;
+  }
+
+  private async terminateDownloadWorker(item: ytpl.Item, worker: Worker): Promise<boolean> {
+    try {
+      this.workers.delete(item.id);
+      this.retryItems.delete(item.id);
+      const code = await worker.terminate();
+      return this.emit('worker:terminated:success', {
+        source: item,
+        details: {
+          code,
+        },
+      });
+    } catch (error) {
+      return this.emit('worker:terminated:error', {
+        source: item,
+        error: error as Error,
+      });
+    }
   }
 
   private postWorkerMessage(worker: Worker, message: PlaylistDownloader.Message): void {
     return worker.postMessage(Buffer.from(JSON.stringify(message)).toString('base64'));
   }
 
-  private async downloadWorkers(item: ytpl.Item): Promise<number> {
+  private async downloadWorkers<T>(item: ytpl.Item): Promise<T> {
     const workerOptions: WorkerOptions = {
       workerData: {
         item,
@@ -307,41 +293,24 @@ export class PlaylistDownloader extends EventEmitter {
     return new Promise((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
       this.workers.set(item.id, worker);
-      return this.handleWorkerEvents<number>(worker, item, resolve, reject);
+      return this.handleWorkerEvents<T>(worker, item, resolve, reject);
     });
   }
 
   private handleWorkerEvents<T>(
     worker: Worker,
     item: ytpl.Item,
-    resolve: (value: number | PromiseLike<T>) => void,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    reject: (reason?: any) => void
+    resolve: (value: T) => void,
+    reject: (reason?: Error) => void
   ): void {
     worker.on('message', (message: DownloadWorker.Message) => {
       this.emit(message.type, message);
       if (['error', 'timeout'].includes(message.type)) {
         const retry = this.retryDownloadWorker(item, worker);
         if (!retry) {
-          this.workers.delete(item.id);
-          this.retryItems.delete(item.id);
-          worker
-            .terminate()
-            .then((code) => {
-              this.emit('worker:terminated:success', {
-                source: item,
-                details: {
-                  code,
-                },
-              });
-            })
-            .catch((error) => {
-              this.emit('worker:terminated:error', {
-                source: item,
-                error: error as Error,
-              });
-            });
-          return reject(message.error);
+          this.terminateDownloadWorker(item, worker).finally(() => {
+            return reject(message.error);
+          });
         }
       }
     });
@@ -359,9 +328,13 @@ export class PlaylistDownloader extends EventEmitter {
       this.retryItems.delete(item.id);
       this.workers.delete(item.id);
       if (code !== 0) {
-        reject(new Error(`Worker stopped with exit code ${code}`));
+        reject(new Error(`Worker: ${item.id} stopped with exit code ${code}`));
       }
-      resolve(code);
+      const result: PlaylistDownloader.Result = {
+        item,
+        code,
+      };
+      resolve(result as unknown as T);
     });
   }
 }

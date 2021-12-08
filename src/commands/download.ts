@@ -135,7 +135,7 @@ export default class Download extends YtKitCommand {
   // video format
   protected videoFormat?: ytdl.videoFormat;
 
-  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | undefined> {
+  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void> {
     this.ytdlOptions = this.buildDownloadOptions();
     this.setFilters();
     this.setOutput();
@@ -147,10 +147,17 @@ export default class Download extends YtKitCommand {
       // const response = await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)');
       const response = true;
       if (response) {
-        await this.downloadPlaylist(playlistId);
+        try {
+          return await this.downloadPlaylist(playlistId);
+        } catch (error) {
+          return;
+        }
+      }
+      try {
+        return await this.downloadVideo();
+      } catch (error) {
         return;
       }
-      return this.downloadVideo();
     }
 
     if (this.flags.urlonly && !playlistId) {
@@ -162,7 +169,7 @@ export default class Download extends YtKitCommand {
     }
   }
 
-  private async downloadPlaylist(playlistId: string): Promise<void> {
+  private async downloadPlaylist(playlistId: string): Promise<number[] | void> {
     const progressbars = new Map<string, SingleBar>();
     const retryItems = new Map<string, PlaylistDownloader.RetryItems>();
     const playlistDownloader = new PlaylistDownloader({
@@ -173,12 +180,19 @@ export default class Download extends YtKitCommand {
     });
 
     const multibar = new this.ux.multibar({
-      clearOnComplete: false,
+      clearOnComplete: true,
       hideCursor: true,
       format:
         '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed} | Elapsed: {elapsed} | Retries: {retries} | Title: {title} ',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
+    });
+
+    ['timeout', 'retry', 'error', 'fatal', 'promise', 'exit', 'progressBar'].forEach((name) => {
+      const file = path.join('.', `${name}.txt`);
+      if (fs.existsSync(file)) {
+        fs.unlinkSync(file);
+      }
     });
 
     playlistDownloader.on('playlistItems', (message: PlaylistDownloader.Message) => {
@@ -190,15 +204,13 @@ export default class Download extends YtKitCommand {
       );
     });
 
-    playlistDownloader.on('online', (message: PlaylistDownloader.Message) => {
-      // eslint-disable-next-line no-console
-      // console.log('item:', message.item.title);
-      // this.ux.log(`Worker ${this.ux.chalk.green('online')} ID: ${this.ux.chalk.whiteBright(message.source.id)}`);
-    });
+    // playlistDownloader.on('online', (message: PlaylistDownloader.Message) => {
+    // eslint-disable-next-line no-console
+    // console.log('item:', message.item.title);
+    // this.ux.log(`Worker ${this.ux.chalk.green('online')} ID: ${this.ux.chalk.whiteBright(message.source.id)}`);
+    // });
 
     playlistDownloader.on('contentLength', (message: PlaylistDownloader.Message) => {
-      // eslint-disable-next-line no-console
-      // console.log('item:', message.item.title, 'contentLength:', contentLength);
       if (!progressbars.has(message.source.id)) {
         progressbars.set(message.source.id, multibar.create(message.details?.contentLength as number, 0));
       }
@@ -307,7 +319,7 @@ export default class Download extends YtKitCommand {
     });
 
     playlistDownloader.on('error', (message: PlaylistDownloader.Message) => {
-      this.ux.cli.warn(`item: ${message.source.title} message: ${message.error?.message}`);
+      // this.ux.cli.warn(`item: ${message.source.title} message: ${message.error?.message}`);
       fs.promises
         .appendFile(
           './error.txt',
@@ -339,7 +351,7 @@ export default class Download extends YtKitCommand {
           // eslint-disable-next-line no-console
           .catch(() => console.log);
       }
-      this.ux.cli.warn(`fatal error on thread item: ${message.source.title} message: ${message.error?.message}`);
+      // this.ux.cli.warn(`fatal error on thread item: ${message.source.title} message: ${message.error?.message}`);
       fs.promises
         .appendFile(
           './fatal.txt',
@@ -385,27 +397,23 @@ export default class Download extends YtKitCommand {
         .catch(() => console.log);
     });
 
+    let codes: number[] = [];
     try {
-      const codes = await playlistDownloader.download();
-      multibar.stop();
-      // eslint-disable-next-line no-console
-      // console.log('result codes', codes);
+      codes = await playlistDownloader.download();
     } catch (error) {
+      this.ux.cli.warn('failed to fetch the playlist');
+    } finally {
+      const failed = codes.filter(Boolean).length;
+      const completed = codes.length - failed;
       progressbars.forEach((progressbar) => {
         progressbar.stop();
         multibar.remove(progressbar);
       });
       multibar.stop();
-      fs.promises
-        .appendFile('./promise.txt', error as string)
-        .then((r) => {
-          return r;
-        })
-        // eslint-disable-next-line no-console
-        .catch(() => console.log);
-      // eslint-disable-next-line no-console
-      // console.error('in command error', error);
+      this.ux.cli.log(`finally completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
+      this.ux.log(`codes: ${codes.join(', ')}`);
     }
+    return;
   }
 
   /**
