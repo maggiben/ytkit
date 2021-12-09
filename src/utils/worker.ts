@@ -101,9 +101,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * Initializes an instance of the Downloader class.
    */
   public async init(): Promise<void> {
-    if (fs.existsSync('./worker_error.txt')) {
-      fs.unlinkSync('./worker_error.txt');
-    }
+    ['worker_error', 'file_error'].forEach((name) => {
+      const file = path.join('.', `${name}.txt`);
+      if (fs.existsSync(file)) {
+        fs.unlinkSync(file);
+      }
+    });
     try {
       this.handleMessages();
       await this.downloadVideo();
@@ -329,10 +332,18 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.streamTimeout.end();
     // end the progress stream
     this.progressStream.end();
-    // close the file stream
-    this.outputStream.close();
+    // end the file stream
+    this.outputStream.end();
     // remove the file
-    fs.unlinkSync(this.getOutputFile());
+    fs.appendFileSync(
+      './file_error.txt',
+      `path: ${this.outputStream.path.toString()} destroyed: ${this.outputStream.destroyed} \n`
+    );
+    const file = this.getOutputFile();
+    if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+      fs.appendFileSync('./file_error.txt', `file ${file} exists: ${fs.existsSync(file)} \n`);
+    }
     this.exit(1);
   }
 

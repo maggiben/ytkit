@@ -99,7 +99,6 @@ export namespace PlaylistDownloader {
 /*
   blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
 */
-// export class PlaylistDownloader extends AsyncCreatableEventEmitter<PlaylistDownloader.Options> {
 export class PlaylistDownloader extends EventEmitter {
   private workers = new Map<string, Worker>();
   private retryItems = new Map<string, PlaylistDownloader.RetryItems>();
@@ -147,32 +146,36 @@ export class PlaylistDownloader extends EventEmitter {
     }
   }
 
+  public postWorkerMessage(worker: Worker, message: PlaylistDownloader.Message): void {
+    return worker.postMessage(Buffer.from(JSON.stringify(message)).toString('base64'));
+  }
+
   private async sheduler(items: ytpl.Item[]): Promise<Array<PlaylistDownloader.Result | undefined>> {
-    const workers = [];
     try {
+      const workers: Array<PlaylistDownloader.Result | undefined> = [];
       for await (const result of this.runTasks<PlaylistDownloader.Result>(this.maxconnections, this.tasks(items))) {
         workers.push(result);
       }
+      return workers;
     } catch (error) {
       await fs.promises.appendFile('./shedulerError.txt', `error in for await: ${error as string} \n`);
-      throw new Error((error as Error).message);
+      throw error;
     }
-    return workers;
   }
 
-  private tasks<T>(items: ytpl.Item[]): IterableIterator<() => Promise<T>> {
+  private tasks<T extends PlaylistDownloader.Result>(items: ytpl.Item[]): IterableIterator<() => Promise<T>> {
     const tasks = [];
-    for (const item of items) {
-      tasks.push(async (): Promise<T> => {
-        try {
+    try {
+      for (const item of items) {
+        tasks.push(async (): Promise<T> => {
           return await this.downloadWorkers<T>(item);
-        } catch (error) {
-          await fs.promises.appendFile('./taskError.txt', `${error as string} \n`);
-          throw new Error((error as Error).message);
-        }
-      });
+        });
+      }
+      return tasks.values();
+    } catch (error) {
+      fs.appendFileSync('./taskError.txt', `${error as string} \n`);
+      throw error;
     }
-    return tasks.values();
   }
 
   private async *raceAsyncIterators<T>(
@@ -183,7 +186,7 @@ export class PlaylistDownloader extends EventEmitter {
       iterator: AsyncIterator<T>;
     }> {
       delete iteratorResult.result; // Release previous result ASAP
-      iteratorResult.result = await (iteratorResult.iterator.next() as unknown as Promise<IteratorResult<T>>);
+      iteratorResult.result = await iteratorResult.iterator.next();
       return iteratorResult;
     }
     const iteratorResults = new Map(iterators.map((iterator) => [iterator, queueNext({ iterator })]));
@@ -209,21 +212,20 @@ export class PlaylistDownloader extends EventEmitter {
     // Each worker is an async generator that polls for tasks
     // from the shared iterator.
     // Sharing the iterator ensures that each worker gets unique tasks.
-    const workers = new Array(maxConcurrency) as Array<AsyncIterator<T>>;
-    for (let i = 0; i < maxConcurrency; i++) {
-      workers[i] = (async function* (): AsyncIterator<T, void, unknown> {
-        for (const task of iterator) {
-          try {
+    try {
+      const workers = new Array(maxConcurrency) as Array<AsyncIterator<T>>;
+      for (let i = 0; i < maxConcurrency; i++) {
+        workers[i] = (async function* (): AsyncIterator<T, void, unknown> {
+          for (const task of iterator) {
             yield await task();
-          } catch (error) {
-            await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
-            throw new Error((error as Error).message);
           }
-        }
-      })();
+        })();
+      }
+      yield* this.raceAsyncIterators<T>(workers);
+    } catch (error) {
+      await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
+      throw error;
     }
-
-    yield* this.raceAsyncIterators<T>(workers);
   }
 
   /**
@@ -236,7 +238,7 @@ export class PlaylistDownloader extends EventEmitter {
    * @param {Worker} worker the worker currently executing
    * @returns {boolean} returns false if exceeded the maximum allowed retries otherwise returns true
    */
-  private retryDownloadWorker(item: ytpl.Item, worker: Worker): boolean {
+  private async retryDownloadWorker<T extends PlaylistDownloader.Result>(item: ytpl.Item): Promise<T> {
     if (!this.retryItems.has(item.id)) {
       this.retryItems.set(item.id, {
         item,
@@ -244,32 +246,7 @@ export class PlaylistDownloader extends EventEmitter {
       });
     }
     const retryItem = this.retryItems.get(item.id);
-    if (retryItem && retryItem.left > 0 && this.workers.has(item.id)) {
-      const message: PlaylistDownloader.Message = {
-        type: 'retry',
-        source: item,
-        details: {
-          left: retryItem.left,
-        },
-      };
-      this.postWorkerMessage(worker, message);
-      this.emit(message.type, message);
-      retryItem.left -= 1;
-      this.retryItems.set(item.id, retryItem);
-      return true;
-    }
-    return false;
-  }
-
-  private async retryDownloadWorker2<T>(item: ytpl.Item): Promise<T> {
-    if (!this.retryItems.has(item.id)) {
-      this.retryItems.set(item.id, {
-        item,
-        left: this.retries,
-      });
-    }
-    const retryItem = this.retryItems.get(item.id);
-    if (retryItem && retryItem.left > 0 && this.workers.has(item.id)) {
+    if (retryItem && retryItem.left > 0 && !this.workers.has(item.id)) {
       try {
         this.emit('retry', {
           source: item,
@@ -288,30 +265,27 @@ export class PlaylistDownloader extends EventEmitter {
     return Promise.reject();
   }
 
-  private async terminateDownloadWorker(item: ytpl.Item, worker: Worker): Promise<boolean> {
+  private async terminateDownloadWorker(item: ytpl.Item, worker: Worker): Promise<void> {
     try {
       this.workers.delete(item.id);
       this.retryItems.delete(item.id);
       const code = await worker.terminate();
-      return this.emit('worker:terminated:success', {
+      this.emit('worker:terminated:success', {
         source: item,
         details: {
           code,
         },
       });
     } catch (error) {
-      return this.emit('worker:terminated:error', {
+      this.emit('worker:terminated:error', {
         source: item,
-        error: error as Error,
+        error,
       });
+      throw error;
     }
   }
 
-  private postWorkerMessage(worker: Worker, message: PlaylistDownloader.Message): void {
-    return worker.postMessage(Buffer.from(JSON.stringify(message)).toString('base64'));
-  }
-
-  private async downloadWorkers<T>(item: ytpl.Item): Promise<T> {
+  private async downloadWorkers<T extends PlaylistDownloader.Result>(item: ytpl.Item): Promise<T> {
     const workerOptions: WorkerOptions = {
       workerData: {
         item,
@@ -321,14 +295,14 @@ export class PlaylistDownloader extends EventEmitter {
         downloadOptions: this.downloadOptions,
       },
     };
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
       this.workers.set(item.id, worker);
       return this.handleWorkerEvents<T>(worker, item, resolve, reject);
     });
   }
 
-  private handleWorkerEvents<T>(
+  private handleWorkerEvents<T extends PlaylistDownloader.Result>(
     worker: Worker,
     item: ytpl.Item,
     resolve: (value: T) => void,
@@ -337,30 +311,31 @@ export class PlaylistDownloader extends EventEmitter {
     worker.on('message', (message: DownloadWorker.Message) => {
       this.emit(message.type, message);
       if (['error', 'timeout'].includes(message.type)) {
-        this.terminateDownloadWorker(item, worker).finally(() => {
-          return reject(message.error);
-        });
+        this.terminateDownloadWorker(item, worker)
+          .then(() => reject(message.error))
+          .catch(reject);
       }
     });
     worker.on('online', () => {
       return this.emit('online', { source: item });
     });
     worker.on('error', (error) => {
-      this.emit('fatal', { source: item, error });
+      this.emit('error', { source: item, error });
       this.workers.delete(item.id);
-      this.retryDownloadWorker2<T>(item).then(resolve).catch(reject);
+      this.retryDownloadWorker<T>(item)
+        .then(resolve)
+        .catch(() => reject(error));
     });
     worker.on('exit', (code) => {
       this.emit('exit', { source: item, details: { code } });
-      this.retryItems.delete(item.id);
       this.workers.delete(item.id);
       if (code !== 0) {
-        this.retryDownloadWorker2<T>(item).then(resolve).catch(reject);
+        this.retryDownloadWorker<T>(item).then(resolve).catch(reject);
       }
       const result = {
         item,
         code,
-      } as unknown as T;
+      } as T;
       resolve(result);
     });
   }
