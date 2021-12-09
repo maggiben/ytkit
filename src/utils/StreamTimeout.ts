@@ -52,7 +52,7 @@ export default class StreamTimeout extends Writable {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public _write(chunk: any, encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
     this.clearTimeout();
-    this.setTTimeout();
+    this.setTimeout();
     return callback();
   }
 
@@ -66,7 +66,7 @@ export default class StreamTimeout extends Writable {
 
   private handleEvents(): void {
     this.once('pipe', () => {
-      this.setTTimeout();
+      this.setTimeout();
     });
     this.once('close', () => {
       this.clearTimeout();
@@ -76,7 +76,7 @@ export default class StreamTimeout extends Writable {
     });
   }
 
-  private setTTimeout(): NodeJS.Timeout {
+  private setTimeout(): NodeJS.Timeout {
     this.prev = performance.now();
     this.timer = setTimeout(() => {
       this.emit('timeout');
@@ -87,23 +87,4 @@ export default class StreamTimeout extends Writable {
   private clearTimeout(): void {
     return clearTimeout(this.timer);
   }
-
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public setEncoding(encoding: string): void {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public pause(): StreamTimeout {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public resume(): void {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public pipe<T extends NodeJS.WritableStream>(destination: T, options?: { end?: boolean; }): T {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public unpipe<T extends NodeJS.WritableStream>(destination?: T): StreamTimeout {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public unshift(chunk: any): void {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public wrap(oldStream: NodeJS.ReadableStream): NodeJS.ReadableStream {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // public push(chunk: any, encoding?: string): boolean {}
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-explicit-any
-  // private _read(size: number): void {}
 }

@@ -130,13 +130,15 @@ export class PlaylistDownloader extends EventEmitter {
   /**
    * Initializes an instance of the Downloader class.
    */
-  public async download(): Promise<PlaylistDownloader.Result[]> {
+  public async download(): Promise<Array<PlaylistDownloader.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
-
-    if (fs.existsSync('./downloaderError.txt')) {
-      fs.unlinkSync('./downloaderError.txt');
-    }
+    ['downloaderError', 'shedulerError', 'taskError'].forEach((name) => {
+      const file = path.join('.', `${name}.txt`);
+      if (fs.existsSync(file)) {
+        fs.unlinkSync(file);
+      }
+    });
     try {
       return await this.sheduler(playlist.items);
     } catch (error) {
@@ -152,6 +154,7 @@ export class PlaylistDownloader extends EventEmitter {
         workers.push(result);
       }
     } catch (error) {
+      await fs.promises.appendFile('./shedulerError.txt', `error in for await: ${error as string} \n`);
       throw new Error((error as Error).message);
     }
     return workers;
@@ -162,9 +165,9 @@ export class PlaylistDownloader extends EventEmitter {
     for (const item of items) {
       tasks.push(async (): Promise<T> => {
         try {
-          return await this.downloadWorkers(item);
+          return await this.downloadWorkers<T>(item);
         } catch (error) {
-          await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
+          await fs.promises.appendFile('./taskError.txt', `${error as string} \n`);
           throw new Error((error as Error).message);
         }
       });
@@ -214,6 +217,7 @@ export class PlaylistDownloader extends EventEmitter {
             yield await task();
           } catch (error) {
             await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
+            throw new Error((error as Error).message);
           }
         }
       })();
@@ -255,6 +259,33 @@ export class PlaylistDownloader extends EventEmitter {
       return true;
     }
     return false;
+  }
+
+  private async retryDownloadWorker2<T>(item: ytpl.Item): Promise<T> {
+    if (!this.retryItems.has(item.id)) {
+      this.retryItems.set(item.id, {
+        item,
+        left: this.retries,
+      });
+    }
+    const retryItem = this.retryItems.get(item.id);
+    if (retryItem && retryItem.left > 0 && this.workers.has(item.id)) {
+      try {
+        this.emit('retry', {
+          source: item,
+          details: {
+            left: retryItem.left,
+          },
+        });
+        return await this.downloadWorkers<T>(item);
+      } catch (error) {
+        throw new Error((error as Error).message);
+      } finally {
+        retryItem.left -= 1;
+        this.retryItems.set(item.id, retryItem);
+      }
+    }
+    return Promise.reject();
   }
 
   private async terminateDownloadWorker(item: ytpl.Item, worker: Worker): Promise<boolean> {
@@ -306,12 +337,9 @@ export class PlaylistDownloader extends EventEmitter {
     worker.on('message', (message: DownloadWorker.Message) => {
       this.emit(message.type, message);
       if (['error', 'timeout'].includes(message.type)) {
-        const retry = this.retryDownloadWorker(item, worker);
-        if (!retry) {
-          this.terminateDownloadWorker(item, worker).finally(() => {
-            return reject(message.error);
-          });
-        }
+        this.terminateDownloadWorker(item, worker).finally(() => {
+          return reject(message.error);
+        });
       }
     });
     worker.on('online', () => {
@@ -319,22 +347,21 @@ export class PlaylistDownloader extends EventEmitter {
     });
     worker.on('error', (error) => {
       this.emit('fatal', { source: item, error });
-      this.retryItems.delete(item.id);
       this.workers.delete(item.id);
-      return reject(error);
+      this.retryDownloadWorker2<T>(item).then(resolve).catch(reject);
     });
     worker.on('exit', (code) => {
       this.emit('exit', { source: item, details: { code } });
       this.retryItems.delete(item.id);
       this.workers.delete(item.id);
       if (code !== 0) {
-        reject(new Error(`Worker: ${item.id} stopped with exit code ${code}`));
+        this.retryDownloadWorker2<T>(item).then(resolve).catch(reject);
       }
-      const result: PlaylistDownloader.Result = {
+      const result = {
         item,
         code,
-      };
-      resolve(result as unknown as T);
+      } as unknown as T;
+      resolve(result);
     });
   }
 }

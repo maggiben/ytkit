@@ -394,30 +394,37 @@ export default class Download extends YtKitCommand {
           return r;
         })
         // eslint-disable-next-line no-console
-        .catch(() => console.log);
+        .catch(() => console.error);
     });
 
-    let codes: number[] = [];
+    let results: Array<PlaylistDownloader.Result | undefined> = [];
     try {
-      codes = await playlistDownloader.download();
+      results = await playlistDownloader.download();
     } catch (error) {
       this.ux.cli.warn('failed to fetch the playlist');
     } finally {
-      const failed = codes.filter(Boolean).length;
-      const completed = codes.length - failed;
       progressbars.forEach((progressbar) => {
         progressbar.stop();
         multibar.remove(progressbar);
       });
       multibar.stop();
+      const failed = results.filter((result) => Boolean(result?.code)).length;
+      const completed = results.length - failed;
       this.ux.cli.log(`finally completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
-      this.ux.log(`codes: ${codes.join(', ')}`);
+      this.ux.logJson(
+        results.map((result) => {
+          return {
+            id: result?.item.id,
+            code: result?.code,
+          };
+        }) as unknown as Record<string, unknown>
+      );
     }
     return;
   }
 
   /**
-   * Generates a download url
+   * Generates a download url.
    *
    * @returns {string | undefined} download url
    */

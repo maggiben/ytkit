@@ -163,12 +163,13 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
         if (this.videoInfo && this.videoFormat) {
           this.reporter();
           this.setVideoOutput();
-          return infoAndVideoFormat.videoInfo;
+          this.readStream.on('end', () => {
+            return infoAndVideoFormat.videoInfo;
+          });
         }
       } catch (error) {
         return this.error(error);
       }
-      return videoInfo;
     }
   }
 
@@ -264,15 +265,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       });
     });
 
-    this.readStream.once('close', () => {
-      this.progressStream.end();
-      parentPort?.postMessage({
-        type: 'close',
-        source: this.item,
-      });
-      this.exit(0);
-    });
-
     this.readStream.once('end', () => {
       this.progressStream.end();
       parentPort?.postMessage({
@@ -329,10 +321,14 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       source: this.item,
       error,
     });
-    this.readStream.unpipe(this.outputStream);
     this.readStream.unpipe(this.progressStream);
+    this.readStream.unpipe(this.outputStream);
     this.readStream.unpipe(this.streamTimeout);
     this.readStream.destroy();
+    // end the timoeut stream
+    this.streamTimeout.end();
+    // end the progress stream
+    this.progressStream.end();
     // close the file stream
     this.outputStream.close();
     // remove the file
