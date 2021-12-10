@@ -116,7 +116,7 @@ export class PlaylistDownloader extends EventEmitter {
     this.output = options.output ?? '{videoDetails.title}';
     this.maxconnections = options.maxconnections ?? 5;
     this.retries = options.retries ?? 5;
-    this.timeout = options.timeout ?? 15000;
+    this.timeout = options.timeout ?? 120 * 1000; // 120 seconds
     this.downloadOptions = options.downloadOptions;
     this.playlistOptions = options.playlistOptions ?? {
       gl: 'US',
@@ -132,7 +132,7 @@ export class PlaylistDownloader extends EventEmitter {
   public async download(): Promise<Array<PlaylistDownloader.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
-    ['downloaderError', 'shedulerError', 'taskError'].forEach((name) => {
+    ['downloaderError', 'shedulerError', 'taskError', 'elapsedError', 'ack_elapsed', 'worker_videoInfo'].forEach((name) => {
       const file = path.join('.', `${name}.txt`);
       if (fs.existsSync(file)) {
         fs.unlinkSync(file);
@@ -228,6 +228,29 @@ export class PlaylistDownloader extends EventEmitter {
     }
   }
 
+  private async threadTimeout(item: ytpl.Item, worker: Worker): Promise<void> {
+    this.postWorkerMessage(worker, {
+      type: 'ack:elapsed',
+      source: item,
+    });
+    /*
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        fs.appendFileSync('./elapsedError.txt', `Response from id: ${item.id} took too much to complete \n`);
+        this.terminateDownloadWorker(item, worker).then(reject).catch(reject);
+      }, 1000);
+      return worker.once('ack:elapsed', ({ details: { elapsed } }: DownloadWorker.Message) => {
+        if ((elapsed as number) < 15) {
+          clearTimeout(timer);
+          return resolve(true);
+        }
+        fs.appendFileSync('./elapsedError.txt', 'Elapsed longer than 15 seconds \n');
+        this.terminateDownloadWorker(item, worker).then(reject).catch(reject);
+      });
+    });
+    */
+  }
+
   /**
    * Retry download if failed
    *
@@ -308,26 +331,40 @@ export class PlaylistDownloader extends EventEmitter {
     resolve: (value: T) => void,
     reject: (reason?: Error) => void
   ): void {
+    let interval: NodeJS.Timer;
     worker.on('message', (message: DownloadWorker.Message) => {
       this.emit(message.type, message);
       if (['error', 'timeout'].includes(message.type)) {
+        clearInterval(interval);
         this.terminateDownloadWorker(item, worker)
           .then(() => reject(message.error))
           .catch(reject);
       }
     });
     worker.on('online', () => {
+      interval = setInterval(() => {
+        this.postWorkerMessage(worker, {
+          type: 'ack:elapsed',
+          source: item,
+        });
+        // this.threadTimeout(item, worker).catch((error) => {
+        //   // reject
+        //   clearInterval(interval);
+        // });
+      }, 5000);
       return this.emit('online', { source: item });
     });
     worker.on('error', (error) => {
       this.emit('error', { source: item, error });
       this.workers.delete(item.id);
+      clearInterval(interval);
       this.retryDownloadWorker<T>(item)
         .then(resolve)
         .catch(() => reject(error));
     });
     worker.on('exit', (code) => {
       this.emit('exit', { source: item, details: { code } });
+      clearInterval(interval);
       this.workers.delete(item.id);
       if (code !== 0) {
         this.retryDownloadWorker<T>(item).then(resolve).catch(reject);

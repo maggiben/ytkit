@@ -36,14 +36,14 @@
 import { Writable, WritableOptions } from 'stream';
 import * as utils from './utils';
 
-export interface StreamTimeoutOptions extends WritableOptions {
+export interface TimeoutStreamOptions extends WritableOptions {
   timeout?: number;
 }
-export default class StreamTimeout extends Writable {
+export default class TimeoutStream extends Writable {
   private timeout: number;
   private timer!: NodeJS.Timeout;
   private prev!: number;
-  public constructor(options?: StreamTimeoutOptions) {
+  public constructor(options?: TimeoutStreamOptions) {
     super(options);
     this.timeout = options?.timeout ?? 5000;
     this.handleEvents();
