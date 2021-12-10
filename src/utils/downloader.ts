@@ -277,12 +277,11 @@ export class PlaylistDownloader extends EventEmitter {
             left: retryItem.left,
           },
         });
+        retryItem.left -= 1;
+        this.retryItems.set(item.id, retryItem);
         return await this.downloadWorkers<T>(item);
       } catch (error) {
         throw new Error((error as Error).message);
-      } finally {
-        retryItem.left -= 1;
-        this.retryItems.set(item.id, retryItem);
       }
     }
     return Promise.reject();

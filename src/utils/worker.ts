@@ -113,7 +113,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
     try {
       this.handleMessages();
-      await this.downloadVideo();
       const videoInfo = await this.downloadVideo();
       if (videoInfo) {
         this.exit(0);
@@ -171,8 +170,10 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * Downloads a video
    */
   private async downloadVideo(): Promise<ytdl.videoInfo | void> {
+    this.functions.push('downloadVideo');
     try {
       const videoInfo = await this.getVideoInfo();
+      this.functions.push('downloadVideo:hasvideo');
       if (videoInfo) {
         parentPort?.postMessage({
           type: 'videoInfo',
@@ -477,11 +478,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    if (this.functions.includes('getVideoInfo')) {
-      this.functions.push('DOUBLE = getVideoInfo = DOUBLE');
-    } else {
-      this.functions.push('getVideoInfo');
-    }
+    this.functions.push('getVideoInfo');
     try {
       const timer = setTimeout(() => {
         throw new Error('Could not retrieve videoInfo');
