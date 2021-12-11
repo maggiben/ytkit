@@ -33,18 +33,73 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import { workerData, parentPort } from 'worker_threads';
-import { Readable } from 'stream';
+import { workerData, parentPort, isMainThread } from 'worker_threads';
+import { Readable, Writable } from 'stream';
 import * as path from 'path';
 import * as fs from 'fs';
 import ytdl = require('ytdl-core');
+
+import ffmpegStatic = require('ffmpeg-static');
+import ffmpeg = require('fluent-ffmpeg');
 import * as ytpl from 'ytpl';
 import tsNode = require('ts-node');
 import * as progressStream from 'progress-stream';
 import * as utils from './utils';
 import { AsyncCreatable } from './AsyncCreatable';
 import TimeoutStream from './TimeoutStream';
+
+ffmpeg.setFfmpegPath(ffmpegStatic);
 tsNode.register();
+
+export namespace Ffmpeg {
+  export enum AudioCodec {
+    aac = 'aac',
+    flac = 'flac',
+    libopus = 'libopus',
+    libmp3lame = 'libmp3lame',
+    libvorbis = 'libvorbis',
+  }
+
+  export enum VideoCodec {
+    gif = 'GIF',
+    png = 'png',
+    libx264 = 'libx264',
+    mpeg2 = 'mpeg2',
+  }
+
+  export enum AudioBitrate {
+    low = 64,
+    normal = 128,
+    decent = 196,
+    good = 256,
+    excellent = 320,
+  }
+
+  export enum Format {
+    mp3 = 'mp3',
+    mp4 = 'mp4',
+    flv = 'flv',
+  }
+
+  export interface EncoderOptions {
+    /**
+     * Set audio codec
+     */
+    audioCodec?: AudioCodec;
+    /**
+     * Set video codec
+     */
+    videoCodec?: VideoCodec;
+    /**
+     * Set audio bitrate
+     */
+    audioBitrate?: AudioBitrate;
+    /**
+     * Set output format
+     */
+    format?: Format;
+  }
+}
 
 export namespace DownloadWorker {
   /**
@@ -67,6 +122,10 @@ export namespace DownloadWorker {
      * Video download options.
      */
     downloadOptions?: ytdl.downloadOptions;
+    /**
+     * Media encoder options
+     */
+    encoderOptions?: Ffmpeg.EncoderOptions;
   }
 
   export interface Message {
@@ -84,6 +143,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private timeout: number;
   private outputFile!: string;
   private downloadOptions?: ytdl.downloadOptions;
+  private encoderOptions?: Ffmpeg.EncoderOptions;
   private videoInfo!: ytdl.videoInfo;
   private videoFormat!: ytdl.videoFormat;
   private timeoutStream!: TimeoutStream;
@@ -98,6 +158,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.timeout = options.timeout ?? 120 * 1000;
     this.output = options.output ?? '{videoDetails.title}';
     this.downloadOptions = options.downloadOptions;
+    this.encoderOptions = options.encoderOptions;
     this.timeoutStream = new TimeoutStream({ timeout: this.timeout });
   }
 
@@ -153,18 +214,18 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private retryItem(item?: ytpl.Item): void {
-    this.item = item ?? this.item;
-    this.downloadVideo()
-      .then((videoInfo) => {
-        parentPort?.postMessage({
-          type: 'retry:success',
-          source: this.item,
-          details: {
-            videoInfo,
-          },
-        });
-      })
-      .catch(this.error.bind(this));
+    // this.item = item ?? this.item;
+    // this.downloadVideo()
+    //   .then((videoInfo) => {
+    //     parentPort?.postMessage({
+    //       type: 'retry:success',
+    //       source: this.item,
+    //       details: {
+    //         videoInfo,
+    //       },
+    //     });
+    //   })
+    //   .catch(this.error.bind(this));
   }
   /**
    * Downloads a video
@@ -190,6 +251,18 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     }
   }
 
+  private async onEnd(): Promise<void> {
+    return new Promise((resolve) => {
+      this.readStream.once('end', () => {
+        parentPort?.postMessage({
+          type: 'end',
+          source: this.item,
+        });
+        resolve();
+      });
+    });
+  }
+
   private async downloadFromInfo(videoInfo: ytdl.videoInfo): Promise<ytdl.videoInfo | undefined> {
     this.functions.push('downloadFromInfo');
     try {
@@ -206,15 +279,11 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
           this.postProgress();
           this.postElapsed();
           this.onTimeout();
+          this.encode();
         }
         this.setVideoOutput();
-        this.readStream.once('end', () => {
-          parentPort?.postMessage({
-            type: 'end',
-            source: this.item,
-          });
-          return infoAndVideoFormat.videoInfo;
-        });
+        await this.onEnd();
+        return infoAndVideoFormat.videoInfo;
       }
       return videoInfo;
     } catch (error) {
@@ -228,9 +297,20 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    *
    * @returns {void}
    */
-  private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream {
+  private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream | Writable {
     this.functions.push('setVideoOutput');
     /* stream to file */
+    if (this.encoderOptions) {
+      const file = this.getOutputFile(
+        this.output ?? '{videoDetails.title}',
+        this.videoInfo,
+        this.videoFormat,
+        this.encoderOptions.format
+      );
+      this.outputStream = fs.createWriteStream(file);
+      const ffmpegCommand = this.encode(this.readStream, this.encoderOptions);
+      return ffmpegCommand.pipe(this.outputStream, { end: true });
+    }
     this.outputStream = fs.createWriteStream(this.getOutputFile());
     return this.readStream.pipe(this.outputStream);
   }
@@ -263,7 +343,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       });
     }
   }
-
 
   private postVideoSize(contentLength: number): void {
     this.functions.push('postVideoSize');
@@ -384,6 +463,14 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
+  private encode(stream: Readable, encoderOptions: Ffmpeg.EncoderOptions): ffmpeg.FfmpegCommand {
+    let encoder = ffmpeg(stream);
+    encoder = encoderOptions.videoCodec ? encoder.videoCodec(encoderOptions.videoCodec) : encoder;
+    encoder = encoderOptions.audioCodec ? encoder.audioCodec(encoderOptions.audioCodec) : encoder;
+    encoder = encoderOptions.audioBitrate ? encoder.audioBitrate(encoderOptions.audioBitrate) : encoder;
+    encoder = encoderOptions.format ? encoder.toFormat(encoderOptions.format) : encoder;
+    return encoder.on('error', this.error.bind(this));
+  }
   /**
    * Gets the ouput file fiven a file name or string template
    *
@@ -397,11 +484,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private getOutputFile(
     output: string = this.output ?? '{videoDetails.title}',
     videoInfo: ytdl.videoInfo = this.videoInfo,
-    videoFormat: ytdl.videoFormat = this.videoFormat
+    videoFormat: ytdl.videoFormat = this.videoFormat,
+    format: Ffmpeg.Format | string = utils.getValueFrom<string>(this.videoFormat, 'container', '')
   ): string {
     return path.format({
       name: utils.tmpl(output, [videoInfo, videoFormat]),
-      ext: `.${utils.getValueFrom<string>(videoFormat, 'container', '')}`,
+      ext: `.${format}`,
     });
   }
 
@@ -493,9 +581,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 }
 
 export default void (async (options: DownloadWorker.Options): Promise<DownloadWorker> => {
-  try {
-    return await DownloadWorker.create(options);
-  } catch (error) {
-    process.exit(1);
+  if (!isMainThread) {
+    try {
+      return await DownloadWorker.create(options);
+    } catch (error) {
+      process.exit(1);
+    }
   }
+  process.exit(1);
 })(workerData as DownloadWorker.Options);

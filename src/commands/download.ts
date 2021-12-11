@@ -47,6 +47,7 @@ import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
 import { PlaylistDownloader } from '../utils/downloader';
+import { Ffmpeg } from '../utils/worker';
 
 declare interface IOutputVideoMeta {
   label: string;
@@ -118,6 +119,11 @@ export default class Download extends YtKitCommand {
       description: 'Timeout value prevents network operations from blocking indefinitely',
       default: 5,
     }),
+    format: flags.enum({
+      char: 'f',
+      description: 'Output format container',
+      options: Object.keys(Ffmpeg.Format),
+    }),
   };
 
   // The parsed args for easy reference by this command; assigned in init
@@ -177,6 +183,7 @@ export default class Download extends YtKitCommand {
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
+      encoderOptions: this.getEncoderOptions(),
     });
 
     const multibar = new this.ux.multibar({
@@ -535,6 +542,15 @@ export default class Download extends YtKitCommand {
       base: parsedOutput.base,
     });
     return output;
+  }
+
+  private getEncoderOptions(): Ffmpeg.EncoderOptions {
+    const format = this.getFlag<Ffmpeg.Format>('format');
+    return {
+      audioCodec: Ffmpeg.AudioCodec.libmp3lame,
+      audioBitrate: Ffmpeg.AudioBitrate.normal,
+      format,
+    };
   }
 
   /**

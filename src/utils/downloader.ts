@@ -41,7 +41,7 @@ import { EventEmitter } from 'stream';
 import { Worker, WorkerOptions } from 'worker_threads';
 import ytdl = require('ytdl-core');
 import * as ytpl from 'ytpl';
-import { DownloadWorker } from './worker';
+import { DownloadWorker, Ffmpeg } from './worker';
 
 export namespace PlaylistDownloader {
   /**
@@ -76,6 +76,10 @@ export namespace PlaylistDownloader {
      * Video download options.
      */
     downloadOptions?: ytdl.downloadOptions;
+    /**
+     * Media encoder options
+     */
+    encoderOptions?: Ffmpeg.EncoderOptions;
   }
 
   export interface Message {
@@ -98,10 +102,12 @@ export namespace PlaylistDownloader {
 
 /*
   blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
+  live items playlist: https://www.youtube.com/watch?v=5qap5aO4i9A&list=RDLV5qap5aO4i9A&start_radio=1&rv=5qap5aO4i9A&t=15666341
 */
 export class PlaylistDownloader extends EventEmitter {
   private workers = new Map<string, Worker>();
   private retryItems = new Map<string, PlaylistDownloader.RetryItems>();
+  private resultItems = new Map<string, PlaylistDownloader.Result>();
   private playlistId: string;
   private output: string;
   private maxconnections: number;
@@ -109,6 +115,7 @@ export class PlaylistDownloader extends EventEmitter {
   private timeout: number;
   private playlistOptions?: ytpl.Options;
   private downloadOptions?: ytdl.downloadOptions;
+  private encoderOptions?: Ffmpeg.EncoderOptions;
 
   public constructor(options: PlaylistDownloader.Options) {
     super();
@@ -124,6 +131,7 @@ export class PlaylistDownloader extends EventEmitter {
       limit: 30,
       pages: 0,
     };
+    this.encoderOptions = options.encoderOptions;
   }
 
   /**
@@ -153,8 +161,12 @@ export class PlaylistDownloader extends EventEmitter {
   private async sheduler(items: ytpl.Item[]): Promise<Array<PlaylistDownloader.Result | undefined>> {
     try {
       const workers: Array<PlaylistDownloader.Result | undefined> = [];
+      // const workers: PlaylistDownloader.Result[] = [];
       for await (const result of this.runTasks<PlaylistDownloader.Result>(this.maxconnections, this.tasks(items))) {
         workers.push(result);
+        if (result) {
+          this.resultItems.set(result.item.id, result);
+        }
       }
       return workers;
     } catch (error) {
@@ -163,6 +175,9 @@ export class PlaylistDownloader extends EventEmitter {
     }
   }
 
+  /*
+    from: https://stackoverflow.com/questions/40639432/what-is-the-best-way-to-limit-concurrency-when-using-es6s-promise-all
+  */
   private tasks<T extends PlaylistDownloader.Result>(items: ytpl.Item[]): IterableIterator<() => Promise<T>> {
     const tasks = [];
     try {
@@ -315,6 +330,7 @@ export class PlaylistDownloader extends EventEmitter {
         output: this.output,
         timeout: this.timeout,
         downloadOptions: this.downloadOptions,
+        encoderOptions: this.encoderOptions,
       },
     };
     return new Promise<T>((resolve, reject) => {
