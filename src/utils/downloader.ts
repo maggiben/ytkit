@@ -139,14 +139,22 @@ export class PlaylistDownloader extends EventEmitter {
   public async download(): Promise<Array<PlaylistDownloader.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
-    ['downloaderError', 'schedulerError', 'taskError', 'elapsedError', 'ack_elapsed', 'worker_videoInfo'].forEach(
-      (name) => {
-        const file = path.join('.', `${name}.txt`);
-        if (fs.existsSync(file)) {
-          fs.unlinkSync(file);
-        }
+    [
+      'downloaderError',
+      'schedulerError',
+      'taskError',
+      'elapsedError',
+      'ack_elapsed',
+      'worker_videoInfo',
+      'task_exit',
+      'scheduler_exit',
+      'scheduler_error',
+    ].forEach((name) => {
+      const file = path.join('.', `${name}.txt`);
+      if (fs.existsSync(file)) {
+        fs.unlinkSync(file);
       }
-    );
+    });
     return await this.scheduler(playlist.items);
     /*
     try {
@@ -188,7 +196,7 @@ export class PlaylistDownloader extends EventEmitter {
           fs.appendFileSync('./taskError.txt', `${error as string} \n`);
           return {
             item,
-            error,
+            error: (error as Error).message,
           } as T;
         }
       };
@@ -258,6 +266,7 @@ export class PlaylistDownloader extends EventEmitter {
    * @returns {boolean} returns false if exceeded the maximum allowed retries otherwise returns true
    */
   private async retryDownloadWorker<T extends PlaylistDownloader.Result>(item: ytpl.Item): Promise<T> {
+    this.workers.delete(item.id);
     if (!this.retryItems.has(item.id)) {
       this.retryItems.set(item.id, {
         item,
@@ -286,7 +295,6 @@ export class PlaylistDownloader extends EventEmitter {
   private async terminateDownloadWorker(item: ytpl.Item, worker: Worker): Promise<void> {
     try {
       this.workers.delete(item.id);
-      this.retryItems.delete(item.id);
       const code = await worker.terminate();
       this.emit('worker:terminated:success', {
         source: item,
@@ -325,12 +333,13 @@ export class PlaylistDownloader extends EventEmitter {
     worker: Worker,
     item: ytpl.Item,
     resolve: (value: T) => void,
-    reject: (reason?: Error | number) => void
+    reject: (reason?: Error | number | unknown) => void
   ): void {
     let interval: NodeJS.Timer;
     worker.on('message', (message: DownloadWorker.Message) => {
       this.emit(message.type, message);
       if (['error', 'timeout'].includes(message.type)) {
+        /* error and timeout exit the thread so they're not needed here */
         clearInterval(interval);
         this.terminateDownloadWorker(item, worker)
           .then(() => reject(message.error))
@@ -348,20 +357,20 @@ export class PlaylistDownloader extends EventEmitter {
     });
     worker.on('error', (error) => {
       this.emit('error', { source: item, error });
-      this.workers.delete(item.id);
       clearInterval(interval);
-      this.retryDownloadWorker<T>(item)
-        .then(resolve)
-        .catch(() => reject(error));
+      this.retryDownloadWorker<T>(item).catch(() => {
+        fs.appendFileSync('scheduler_error.txt', `worker id: ${item.id} error: ${error.message}\n`);
+        reject(error);
+      });
     });
     worker.on('exit', (code) => {
       this.emit('exit', { source: item, details: { code } });
       clearInterval(interval);
-      this.workers.delete(item.id);
+      fs.appendFileSync('scheduler_exit.txt', `worker id: ${item.id} exit code ${code}\n`);
       if (code !== 0) {
-        this.retryDownloadWorker<T>(item)
-          .then(resolve)
-          .catch(() => reject(new Error(`Worker id: ${item.id} exited with code ${code}`)));
+        this.retryDownloadWorker<T>(item).catch(() =>
+          reject(new Error(`Worker id: ${item.id} exited with code ${code}`))
+        );
       } else {
         const result = {
           item,
