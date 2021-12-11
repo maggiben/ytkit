@@ -33,15 +33,14 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-// import { Readable } from 'stream';
-// import * as fs from 'fs';
 import * as path from 'path';
 import * as fs from 'fs';
 import { EventEmitter } from 'stream';
 import { Worker, WorkerOptions } from 'worker_threads';
 import ytdl = require('ytdl-core');
 import * as ytpl from 'ytpl';
-import { DownloadWorker, Ffmpeg } from './worker';
+import { DownloadWorker } from './worker';
+import { FfmpegStream } from './FfmpegStream';
 
 export namespace PlaylistDownloader {
   /**
@@ -79,7 +78,7 @@ export namespace PlaylistDownloader {
     /**
      * Media encoder options
      */
-    encoderOptions?: Ffmpeg.EncoderOptions;
+    encoderOptions?: FfmpegStream.Options;
   }
 
   export interface Message {
@@ -96,7 +95,8 @@ export namespace PlaylistDownloader {
 
   export interface Result {
     item: ytpl.Item;
-    code: number;
+    error?: Error | string;
+    code?: number;
   }
 }
 
@@ -107,7 +107,6 @@ export namespace PlaylistDownloader {
 export class PlaylistDownloader extends EventEmitter {
   private workers = new Map<string, Worker>();
   private retryItems = new Map<string, PlaylistDownloader.RetryItems>();
-  private resultItems = new Map<string, PlaylistDownloader.Result>();
   private playlistId: string;
   private output: string;
   private maxconnections: number;
@@ -115,7 +114,7 @@ export class PlaylistDownloader extends EventEmitter {
   private timeout: number;
   private playlistOptions?: ytpl.Options;
   private downloadOptions?: ytdl.downloadOptions;
-  private encoderOptions?: Ffmpeg.EncoderOptions;
+  private encoderOptions?: FfmpegStream.Options;
 
   public constructor(options: PlaylistDownloader.Options) {
     super();
@@ -140,37 +139,38 @@ export class PlaylistDownloader extends EventEmitter {
   public async download(): Promise<Array<PlaylistDownloader.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
-    ['downloaderError', 'shedulerError', 'taskError', 'elapsedError', 'ack_elapsed', 'worker_videoInfo'].forEach((name) => {
-      const file = path.join('.', `${name}.txt`);
-      if (fs.existsSync(file)) {
-        fs.unlinkSync(file);
+    ['downloaderError', 'schedulerError', 'taskError', 'elapsedError', 'ack_elapsed', 'worker_videoInfo'].forEach(
+      (name) => {
+        const file = path.join('.', `${name}.txt`);
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+        }
       }
-    });
+    );
+    return await this.scheduler(playlist.items);
+    /*
     try {
-      return await this.sheduler(playlist.items);
+      return await this.scheduler(playlist.items);
     } catch (error) {
       await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
       throw new Error((error as Error).message);
     }
+    */
   }
 
   public postWorkerMessage(worker: Worker, message: PlaylistDownloader.Message): void {
     return worker.postMessage(Buffer.from(JSON.stringify(message)).toString('base64'));
   }
 
-  private async sheduler(items: ytpl.Item[]): Promise<Array<PlaylistDownloader.Result | undefined>> {
+  private async scheduler(items: ytpl.Item[]): Promise<Array<PlaylistDownloader.Result | undefined>> {
     try {
       const workers: Array<PlaylistDownloader.Result | undefined> = [];
-      // const workers: PlaylistDownloader.Result[] = [];
       for await (const result of this.runTasks<PlaylistDownloader.Result>(this.maxconnections, this.tasks(items))) {
         workers.push(result);
-        if (result) {
-          this.resultItems.set(result.item.id, result);
-        }
       }
       return workers;
     } catch (error) {
-      await fs.promises.appendFile('./shedulerError.txt', `error in for await: ${error as string} \n`);
+      fs.appendFileSync('./schedulerError.txt', `error in for await: ${error as string} \n`);
       throw error;
     }
   }
@@ -180,17 +180,21 @@ export class PlaylistDownloader extends EventEmitter {
   */
   private tasks<T extends PlaylistDownloader.Result>(items: ytpl.Item[]): IterableIterator<() => Promise<T>> {
     const tasks = [];
-    try {
-      for (const item of items) {
-        tasks.push(async (): Promise<T> => {
+    for (const item of items) {
+      const task = async (): Promise<T> => {
+        try {
           return await this.downloadWorkers<T>(item);
-        });
-      }
-      return tasks.values();
-    } catch (error) {
-      fs.appendFileSync('./taskError.txt', `${error as string} \n`);
-      throw error;
+        } catch (error) {
+          fs.appendFileSync('./taskError.txt', `${error as string} \n`);
+          return {
+            item,
+            error,
+          } as T;
+        }
+      };
+      tasks.push(task);
     }
+    return tasks.values();
   }
 
   private async *raceAsyncIterators<T>(
@@ -241,29 +245,6 @@ export class PlaylistDownloader extends EventEmitter {
       await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
       throw error;
     }
-  }
-
-  private async threadTimeout(item: ytpl.Item, worker: Worker): Promise<void> {
-    this.postWorkerMessage(worker, {
-      type: 'ack:elapsed',
-      source: item,
-    });
-    /*
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        fs.appendFileSync('./elapsedError.txt', `Response from id: ${item.id} took too much to complete \n`);
-        this.terminateDownloadWorker(item, worker).then(reject).catch(reject);
-      }, 1000);
-      return worker.once('ack:elapsed', ({ details: { elapsed } }: DownloadWorker.Message) => {
-        if ((elapsed as number) < 15) {
-          clearTimeout(timer);
-          return resolve(true);
-        }
-        fs.appendFileSync('./elapsedError.txt', 'Elapsed longer than 15 seconds \n');
-        this.terminateDownloadWorker(item, worker).then(reject).catch(reject);
-      });
-    });
-    */
   }
 
   /**
@@ -344,7 +325,7 @@ export class PlaylistDownloader extends EventEmitter {
     worker: Worker,
     item: ytpl.Item,
     resolve: (value: T) => void,
-    reject: (reason?: Error) => void
+    reject: (reason?: Error | number) => void
   ): void {
     let interval: NodeJS.Timer;
     worker.on('message', (message: DownloadWorker.Message) => {
@@ -362,10 +343,6 @@ export class PlaylistDownloader extends EventEmitter {
           type: 'ack:elapsed',
           source: item,
         });
-        // this.threadTimeout(item, worker).catch((error) => {
-        //   // reject
-        //   clearInterval(interval);
-        // });
       }, 5000);
       return this.emit('online', { source: item });
     });
@@ -382,13 +359,16 @@ export class PlaylistDownloader extends EventEmitter {
       clearInterval(interval);
       this.workers.delete(item.id);
       if (code !== 0) {
-        this.retryDownloadWorker<T>(item).then(resolve).catch(reject);
+        this.retryDownloadWorker<T>(item)
+          .then(resolve)
+          .catch(() => reject(new Error(`Worker id: ${item.id} exited with code ${code}`)));
+      } else {
+        const result = {
+          item,
+          code,
+        } as T;
+        resolve(result);
       }
-      const result = {
-        item,
-        code,
-      } as T;
-      resolve(result);
     });
   }
 }

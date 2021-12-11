@@ -38,7 +38,6 @@ import { Readable, Writable } from 'stream';
 import * as path from 'path';
 import * as fs from 'fs';
 import ytdl = require('ytdl-core');
-
 import ffmpegStatic = require('ffmpeg-static');
 import ffmpeg = require('fluent-ffmpeg');
 import * as ytpl from 'ytpl';
@@ -47,59 +46,10 @@ import * as progressStream from 'progress-stream';
 import * as utils from './utils';
 import { AsyncCreatable } from './AsyncCreatable';
 import TimeoutStream from './TimeoutStream';
+import { FfmpegStream } from './FfmpegStream';
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
 tsNode.register();
-
-export namespace Ffmpeg {
-  export enum AudioCodec {
-    aac = 'aac',
-    flac = 'flac',
-    libopus = 'libopus',
-    libmp3lame = 'libmp3lame',
-    libvorbis = 'libvorbis',
-  }
-
-  export enum VideoCodec {
-    gif = 'GIF',
-    png = 'png',
-    libx264 = 'libx264',
-    mpeg2 = 'mpeg2',
-  }
-
-  export enum AudioBitrate {
-    low = 64,
-    normal = 128,
-    decent = 196,
-    good = 256,
-    excellent = 320,
-  }
-
-  export enum Format {
-    mp3 = 'mp3',
-    mp4 = 'mp4',
-    flv = 'flv',
-  }
-
-  export interface EncoderOptions {
-    /**
-     * Set audio codec
-     */
-    audioCodec?: AudioCodec;
-    /**
-     * Set video codec
-     */
-    videoCodec?: VideoCodec;
-    /**
-     * Set audio bitrate
-     */
-    audioBitrate?: AudioBitrate;
-    /**
-     * Set output format
-     */
-    format?: Format;
-  }
-}
 
 export namespace DownloadWorker {
   /**
@@ -125,7 +75,7 @@ export namespace DownloadWorker {
     /**
      * Media encoder options
      */
-    encoderOptions?: Ffmpeg.EncoderOptions;
+    encoderOptions?: FfmpegStream.Options;
   }
 
   export interface Message {
@@ -143,7 +93,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private timeout: number;
   private outputFile!: string;
   private downloadOptions?: ytdl.downloadOptions;
-  private encoderOptions?: Ffmpeg.EncoderOptions;
+  private encoderOptions?: FfmpegStream.Options;
   private videoInfo!: ytdl.videoInfo;
   private videoFormat!: ytdl.videoFormat;
   private timeoutStream!: TimeoutStream;
@@ -196,7 +146,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
             break;
           }
           case 'ack:elapsed': {
-            fs.appendFileSync('./ack_elapsed.txt', `ack_elapsed ${message.source.id} elapsed: ${this.timeoutStream.elapsed()} functions: ${this.functions.join(', ')}\n`);
+            fs.appendFileSync(
+              './ack_elapsed.txt',
+              `ack_elapsed ${
+                message.source.id
+              } elapsed: ${this.timeoutStream.elapsed()} functions: ${this.functions.join(', ')}\n`
+            );
             parentPort?.postMessage({
               type: 'ack:elapsed',
               source: this.item,
@@ -279,7 +234,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
           this.postProgress();
           this.postElapsed();
           this.onTimeout();
-          this.encode();
+          // this.encode();
         }
         this.setVideoOutput();
         await this.onEnd();
@@ -301,15 +256,15 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.functions.push('setVideoOutput');
     /* stream to file */
     if (this.encoderOptions) {
-      const file = this.getOutputFile(
-        this.output ?? '{videoDetails.title}',
-        this.videoInfo,
-        this.videoFormat,
-        this.encoderOptions.format
-      );
+      const file = this.getOutputFile({
+        format: this.encoderOptions.format,
+      });
       this.outputStream = fs.createWriteStream(file);
-      const ffmpegCommand = this.encode(this.readStream, this.encoderOptions);
-      return ffmpegCommand.pipe(this.outputStream, { end: true });
+      const ffmpegStream = new FfmpegStream(this.readStream, this.outputStream, this.encoderOptions);
+      // const ffmpegCommand = this.encode(this.readStream, this.encoderOptions);
+      // return ffmpegCommand.pipe(this.outputStream, { end: true });
+      ffmpegStream.ffmpegCommand.on('error', this.error.bind(this));
+      return ffmpegStream.stream;
     }
     this.outputStream = fs.createWriteStream(this.getOutputFile());
     return this.readStream.pipe(this.outputStream);
@@ -463,14 +418,14 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
-  private encode(stream: Readable, encoderOptions: Ffmpeg.EncoderOptions): ffmpeg.FfmpegCommand {
-    let encoder = ffmpeg(stream);
-    encoder = encoderOptions.videoCodec ? encoder.videoCodec(encoderOptions.videoCodec) : encoder;
-    encoder = encoderOptions.audioCodec ? encoder.audioCodec(encoderOptions.audioCodec) : encoder;
-    encoder = encoderOptions.audioBitrate ? encoder.audioBitrate(encoderOptions.audioBitrate) : encoder;
-    encoder = encoderOptions.format ? encoder.toFormat(encoderOptions.format) : encoder;
-    return encoder.on('error', this.error.bind(this));
-  }
+  // private encode(stream: Readable, encoderOptions: FfmpegStream.Options): ffmpeg.FfmpegCommand {
+  //   let encoder = ffmpeg(stream);
+  //   encoder = encoderOptions.videoCodec ? encoder.videoCodec(encoderOptions.videoCodec) : encoder;
+  //   encoder = encoderOptions.audioCodec ? encoder.audioCodec(encoderOptions.audioCodec) : encoder;
+  //   encoder = encoderOptions.audioBitrate ? encoder.audioBitrate(encoderOptions.audioBitrate) : encoder;
+  //   encoder = encoderOptions.format ? encoder.toFormat(encoderOptions.format) : encoder;
+  //   return encoder.on('error', this.error.bind(this));
+  // }
   /**
    * Gets the ouput file fiven a file name or string template
    *
@@ -481,12 +436,18 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    *
    * @returns {string} output file
    */
-  private getOutputFile(
-    output: string = this.output ?? '{videoDetails.title}',
-    videoInfo: ytdl.videoInfo = this.videoInfo,
-    videoFormat: ytdl.videoFormat = this.videoFormat,
-    format: Ffmpeg.Format | string = utils.getValueFrom<string>(this.videoFormat, 'container', '')
-  ): string {
+  private getOutputFile(options?: {
+    output?: string;
+    videoInfo?: ytdl.videoInfo;
+    videoFormat?: ytdl.videoFormat;
+    format?: FfmpegStream.Format | string;
+  }): string {
+    const {
+      output = this.output ?? '{videoDetails.title}',
+      videoInfo = this.videoInfo,
+      videoFormat = this.videoFormat,
+      format = utils.getValueFrom<string>(this.videoFormat, 'container', ''),
+    } = options ?? {};
     return path.format({
       name: utils.tmpl(output, [videoInfo, videoFormat]),
       ext: `.${format}`,

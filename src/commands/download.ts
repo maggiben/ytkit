@@ -47,7 +47,7 @@ import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
 import { PlaylistDownloader } from '../utils/downloader';
-import { Ffmpeg } from '../utils/worker';
+import { FfmpegStream } from '../utils/FfmpegStream';
 
 declare interface IOutputVideoMeta {
   label: string;
@@ -122,7 +122,7 @@ export default class Download extends YtKitCommand {
     format: flags.enum({
       char: 'f',
       description: 'Output format container',
-      options: Object.keys(Ffmpeg.Format),
+      options: Object.keys(FfmpegStream.Format),
     }),
   };
 
@@ -313,13 +313,14 @@ export default class Download extends YtKitCommand {
         multibar.remove(progressbar);
       });
       multibar.stop();
-      const failed = results.filter((result) => Boolean(result?.code)).length;
+      const failed = results.filter((result) => Boolean(result?.code || result?.error)).length;
       const completed = results.length - failed;
       this.ux.cli.log(`finally completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
       this.ux.logJson(
         results.map((result) => {
           return {
             id: result?.item.id,
+            error: result?.error,
             code: result?.code,
           };
         }) as unknown as Record<string, unknown>
@@ -544,13 +545,16 @@ export default class Download extends YtKitCommand {
     return output;
   }
 
-  private getEncoderOptions(): Ffmpeg.EncoderOptions {
-    const format = this.getFlag<Ffmpeg.Format>('format');
-    return {
-      audioCodec: Ffmpeg.AudioCodec.libmp3lame,
-      audioBitrate: Ffmpeg.AudioBitrate.normal,
-      format,
-    };
+  private getEncoderOptions(): FfmpegStream.Options | undefined {
+    const format = this.getFlag<FfmpegStream.Format>('format');
+    if (format) {
+      return {
+        audioCodec: FfmpegStream.AudioCodec.libmp3lame,
+        audioBitrate: FfmpegStream.AudioBitrate.normal,
+        format,
+      };
+    }
+    return undefined;
   }
 
   /**
