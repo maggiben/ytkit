@@ -146,12 +146,14 @@ export default class Download extends YtKitCommand {
     this.setFilters();
     this.setOutput();
 
+    if (!ytdl.validateURL(this.getFlag<string>('url'))) {
+      return;
+    }
     const playlistId = utils.getYoutubePlaylistId(this.getFlag<string>('url'));
-    // const videoId = utils.getYoutubeVideoId(this.getFlag<string>('url'));
+    const videoId = utils.getYoutubeVideoId(this.getFlag<string>('url'));
 
     if (playlistId) {
-      // const response = await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)');
-      const response = true;
+      const response = videoId ? await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)') : true;
       if (response) {
         try {
           return await this.downloadPlaylist(playlistId);
@@ -172,6 +174,12 @@ export default class Download extends YtKitCommand {
         this.ux.cli.url(url, url);
         return url;
       }
+    }
+
+    try {
+      return await this.downloadVideo();
+    } catch (error) {
+      return;
     }
   }
 

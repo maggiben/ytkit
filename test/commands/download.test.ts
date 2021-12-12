@@ -37,7 +37,7 @@ const passThorughStream = () => {
 
 describe('video download', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -150,7 +150,7 @@ describe('video download', () => {
 });
 
 describe('do not download only return source video url', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -198,7 +198,7 @@ describe('do not download only return source video url', () => {
 
 describe('try to retrieve vode source url but getInfo throws', () => {
   const getInfoError = new Error('GetInfoError');
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
@@ -223,7 +223,7 @@ describe('try to retrieve vode source url but getInfo throws', () => {
 });
 
 describe('try to retrieve vode source url but getInfo returns undefined', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
@@ -246,7 +246,7 @@ describe('try to retrieve vode source url but getInfo returns undefined', () => 
 
 describe('video download quality options', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -336,7 +336,7 @@ describe('video download quality options', () => {
 });
 
 describe('download video without an output flag', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -398,7 +398,7 @@ describe('download video without an output flag', () => {
 
 describe('download a video using custom filters', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const audioOnlyFormat = {
     itag: '123',
     container: 'mp4',
@@ -612,7 +612,7 @@ describe('download a video using custom filters', () => {
 });
 
 describe('video download custom ranges', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -673,7 +673,7 @@ describe('video download custom ranges', () => {
 describe('download a live video with known size with contentLenght and progress with a timer', () => {
   let clock: sinon.SinonFakeTimers;
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -799,7 +799,7 @@ describe('download a live video with known size with contentLenght and progress 
 describe('download a live video with known size with contentLenght and progress with a timer with a quick end', () => {
   let clock: sinon.SinonFakeTimers;
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -928,7 +928,7 @@ describe('download a live video with known size with contentLenght and progress 
 
 describe('download a live video with known size with no contentLenght', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -1026,7 +1026,7 @@ describe('download a live video with known size with no contentLenght', () => {
 
 describe('download a live video with size unknown', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -1130,7 +1130,7 @@ describe('download a live video with size unknown with chunks bigger than 1024 b
       .map(() => charset.charAt(Math.floor(Math.random() * charset.length)))
       .join('');
   const randomBuffer = Buffer.from(randomStr(1024), 'utf8');
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -1235,7 +1235,7 @@ describe('download a live video with size unknown with chunks bigger than 1024 b
 
 describe('video download file stream', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1307,7 +1307,7 @@ describe('video download file stream', () => {
 });
 
 describe('video download stdout stream', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1379,7 +1379,7 @@ describe('video download stdout stream', () => {
 });
 
 describe('video download stdout stream', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1446,7 +1446,7 @@ describe('video download stdout stream', () => {
 
 /* TODO: test is not clear the handlers of the 'end' event are not being tested */
 describe('video fails to set info', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1509,7 +1509,7 @@ describe('video download stream error handling when download is active (simulate
    */
   let clock: sinon.SinonFakeTimers;
   const streamError = new Error('StreamError');
-  const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',

@@ -7,7 +7,7 @@ import { UX } from '../../src/Ux';
 import * as util from '../../src/utils/utils';
 import Info from '../../src/commands/info';
 
-const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
 const formats = [
   {
     itag: '123',
