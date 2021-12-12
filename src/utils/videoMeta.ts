@@ -50,9 +50,9 @@ export declare interface IOutputVideoMeta {
  * @returns {IOutputVideoMeta[]} a collection of labels and values to print
  */
 export default function videoMeta(
-  videoInfo: ytdl.videoInfo,
-  videoFormat: ytdl.videoFormat,
-  output: string
+  videoInfo?: ytdl.videoInfo,
+  videoFormat?: ytdl.videoFormat,
+  output?: string
 ): IOutputVideoMeta[] {
   return [
     {

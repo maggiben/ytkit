@@ -46,16 +46,9 @@ import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
+import videoMeta, { IOutputVideoMeta } from '../utils/videoMeta';
 import { Scheduler } from '../utils/scheduler';
 import { FfmpegStream } from '../utils/FfmpegStream';
-
-declare interface IOutputVideoMeta {
-  label: string;
-  from: Record<string, unknown>;
-  path: string;
-  requires?: string | boolean | ((value: unknown) => boolean);
-  transformValue?: <T>(value: T) => T;
-}
 
 export interface IFilter {
   [name: string]: (format: Record<string, string>) => boolean;
@@ -365,89 +358,6 @@ export default class Download extends YtKitCommand {
   }
 
   /**
-   * Prepares video metadata information.
-   *
-   * @returns {IOutputVideoMeta[]} a collection of labels and values to print
-   */
-  private prepareVideoMetaBatch(): IOutputVideoMeta[] {
-    const batch = [
-      {
-        label: 'title',
-        from: this.videoInfo,
-        path: 'videoDetails.title',
-      },
-      {
-        label: 'author',
-        from: this.videoInfo,
-        path: 'videoDetails.author.name',
-      },
-      {
-        label: 'avg rating',
-        from: this.videoInfo,
-        path: 'videoDetails.averageRating',
-      },
-      {
-        label: 'views',
-        from: this.videoInfo,
-        path: 'videoDetails.viewCount',
-      },
-      {
-        label: 'publish date',
-        from: this.videoInfo,
-        path: 'videoDetails.publishDate',
-      },
-      {
-        label: 'length',
-        from: this.videoInfo,
-        path: 'videoDetails.lengthSeconds',
-        requires: utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive),
-        transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
-      },
-      {
-        label: 'quality',
-        from: this.videoFormat,
-        path: 'quality',
-        requires: !utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
-      },
-      {
-        label: 'video bitrate:',
-        from: this.videoFormat,
-        path: 'bitrate',
-        requires: !utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
-        transformValue: (value: string): string => utils.toHumanSize(parseInt(value, 10)),
-      },
-      {
-        label: 'audio bitrate',
-        from: this.videoFormat,
-        path: 'audioBitrate',
-        requires: !utils.getValueFrom<string>(this.videoFormat, 'audioBitrate'),
-        transformValue: (value: string): string => `${value}KB`,
-      },
-      {
-        label: 'codecs',
-        from: this.videoFormat,
-        path: 'codecs',
-      },
-      {
-        label: 'itag',
-        from: this.videoFormat,
-        path: 'itag',
-      },
-      {
-        label: 'container',
-        from: this.videoFormat,
-        path: 'container',
-      },
-      {
-        label: 'output',
-        from: this,
-        path: 'output',
-      },
-    ] as unknown[] as IOutputVideoMeta[];
-    return batch;
-  }
-
-  /**
    * Print stilized output
    *
    * @param {string} label the label for the value
@@ -463,7 +373,7 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private printVideoMeta(): void {
-    this.prepareVideoMetaBatch().forEach((outputVideoMeta: IOutputVideoMeta) => {
+    videoMeta(this.videoInfo, this.videoFormat, this.output).forEach((outputVideoMeta: IOutputVideoMeta) => {
       const { label, from } = outputVideoMeta;
       const value = utils.getValueFrom<string>(from, outputVideoMeta.path, '');
       if (!outputVideoMeta.requires) {
