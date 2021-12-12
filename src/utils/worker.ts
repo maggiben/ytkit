@@ -138,8 +138,9 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       try {
         const message = JSON.parse(Buffer.from(base64Message, 'base64').toString()) as DownloadWorker.Message;
         switch (message.type) {
-          case 'retry': {
-            this.retryItem(message.source);
+          case 'kill': {
+            this.endStreams();
+            this.exit(1);
             break;
           }
         }
@@ -149,20 +150,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
-  private retryItem(item?: ytpl.Item): void {
-    // this.item = item ?? this.item;
-    // this.downloadVideo()
-    //   .then((videoInfo) => {
-    //     parentPort?.postMessage({
-    //       type: 'retry:success',
-    //       source: this.item,
-    //       details: {
-    //         videoInfo,
-    //       },
-    //     });
-    //   })
-    //   .catch(this.error.bind(this));
-  }
   /**
    * Downloads a video
    */

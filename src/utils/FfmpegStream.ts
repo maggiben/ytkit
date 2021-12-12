@@ -33,7 +33,6 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import * as fs from 'fs';
 import { Readable, Writable } from 'stream';
 import ffmpegStatic = require('ffmpeg-static');
 import Ffmpeg = require('fluent-ffmpeg');
@@ -51,21 +50,12 @@ export class FfmpegStream {
     excellent: 320,
   };
   public constructor(private inputSteam: Readable, private outputStream: Writable, options: FfmpegStream.Options) {
-    const outputOptions = [
-      '-id3v2_version',
-      '4',
-      '-metadata',
-      'title=Summertime a',
-      '-metadata',
-      'artist=Seasick Steve',
-    ];
     let encoder = Ffmpeg(this.inputSteam);
     encoder = options.videoCodec ? encoder.videoCodec(options.videoCodec) : encoder;
     encoder = options.audioCodec ? encoder.audioCodec(options.audioCodec) : encoder;
     encoder = options.audioBitrate ? encoder.audioBitrate(this.audioBitrate[options.audioBitrate]) : encoder;
     encoder = options.format ? encoder.toFormat(options.format) : encoder;
     this.ffmpegCommand = encoder;
-    // this.ffmpegCommand.outputOptions(outputOptions);
     this.stream = encoder.pipe(this.outputStream, { end: true });
   }
 }
