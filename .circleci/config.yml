@@ -46,7 +46,7 @@ jobs:
   node-12:
     <<: *test
     docker:
-      - image: node:14
+      - image: node:12
   cache:
     <<: *test
     steps:
@@ -153,6 +153,7 @@ workflows:
   'ytkit':
     jobs:
       - node-latest
+      - node-16
       - node-14
       - node-12
       - cache:
@@ -165,6 +166,7 @@ workflows:
           requires:
             - cache
             - node-latest
+            - node-16
             - node-14
             - node-12
           filters:
