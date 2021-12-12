@@ -139,36 +139,7 @@ export class PlaylistDownloader extends EventEmitter {
   public async download(): Promise<Array<PlaylistDownloader.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
-    [
-      'downloaderError',
-      'schedulerError',
-      'taskError',
-      'elapsedError',
-      'ack_elapsed',
-      'worker_videoInfo',
-      'task_exit',
-      'scheduler_exit',
-      'scheduler_error',
-      'terminate_worker',
-      'worker_kill_error',
-      'worker_kill',
-      'scheduler_message_error',
-      'scheduler_message',
-    ].forEach((name) => {
-      const file = path.join('.', `${name}.txt`);
-      if (fs.existsSync(file)) {
-        fs.unlinkSync(file);
-      }
-    });
     return await this.scheduler(playlist.items);
-    /*
-    try {
-      return await this.scheduler(playlist.items);
-    } catch (error) {
-      await fs.promises.appendFile('./downloaderError.txt', `${error as string} \n`);
-      throw new Error((error as Error).message);
-    }
-    */
   }
 
   public postWorkerMessage(worker: Worker, message: PlaylistDownloader.Message): void {
@@ -183,8 +154,7 @@ export class PlaylistDownloader extends EventEmitter {
       }
       return workers;
     } catch (error) {
-      fs.appendFileSync('./schedulerError.txt', `error in for await: ${error as string} \n`);
-      throw error;
+      throw new Error((error as Error).message);
     }
   }
 
@@ -198,7 +168,6 @@ export class PlaylistDownloader extends EventEmitter {
         try {
           return await this.downloadWorkers<T>(item);
         } catch (error) {
-          fs.appendFileSync('./taskError.txt', `${error as string} \n`);
           return {
             item,
             error: (error as Error).message,
@@ -255,8 +224,7 @@ export class PlaylistDownloader extends EventEmitter {
       }
       yield* this.raceAsyncIterators<T>(workers);
     } catch (error) {
-      fs.appendFileSync('./downloaderError.txt', `${error as string} \n`);
-      throw error;
+      throw new Error((error as Error).message);
     }
   }
 
@@ -300,7 +268,6 @@ export class PlaylistDownloader extends EventEmitter {
     if (this.workers.has(item.id)) {
       const worker = this.workers.get(item.id);
       try {
-        fs.appendFileSync('terminate_worker.txt', `terminate id: ${item.id}\n`);
         const code = await worker?.terminate();
         this.workers.delete(item.id);
         this.emit('worker:terminated:success', {
@@ -310,7 +277,6 @@ export class PlaylistDownloader extends EventEmitter {
           },
         });
       } catch (error) {
-        fs.appendFileSync('terminate_worker.txt', `terminate id: ${item.id} error\n`);
         this.emit('worker:terminated:error', {
           source: item,
           error,
@@ -332,13 +298,7 @@ export class PlaylistDownloader extends EventEmitter {
       },
     };
     if (this.workers.has(item.id)) {
-      try {
-        await this.terminateDownloadWorker(item);
-        fs.appendFileSync('./worker_kill.txt', `worker id: ${item.id} killed \n`);
-      } catch (error) {
-        fs.appendFileSync('./worker_kill_error.txt', `${error as string} \n`);
-        throw error;
-      }
+      await this.terminateDownloadWorker(item);
     }
     return new Promise<T>((resolve, reject) => {
       const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
@@ -353,56 +313,24 @@ export class PlaylistDownloader extends EventEmitter {
     resolve: (value: T) => void,
     reject: (reason?: Error | number | unknown) => void
   ): void {
-    let interval: NodeJS.Timer;
     worker.on('message', (message: DownloadWorker.Message) => {
       this.emit(message.type, message);
-      if (['error', 'timeout'].includes(message.type)) {
-        /* error and timeout exit the thread so they're not needed here */
-        // clearInterval(interval);
-        /* before */
-        // this.terminateDownloadWorker(item)
-        //   .then(() => {
-        //     fs.appendFileSync('scheduler_message.txt', `worker id: ${item.id} error: ${message.error.message}\n`);
-        //     reject(message.error);
-        //   })
-        //   .catch((error) => {
-        //     fs.appendFileSync('scheduler_message_error.txt', `worker id: ${item.id} error: ${error as string}\n`);
-        //     reject(error);
-        //   });
-      }
     });
     worker.on('online', () => {
-      interval = setInterval(() => {
-        this.postWorkerMessage(worker, {
-          type: 'ack:elapsed',
-          source: item,
-        });
-      }, 5000);
       return this.emit('online', { source: item });
     });
     worker.on('error', (error) => {
       this.emit('error', { source: item, error });
-      clearInterval(interval);
       this.retryDownloadWorker<T>(item)
         .then(resolve)
-        .catch((err) => {
-          fs.appendFileSync('scheduler_error.txt', `worker id: ${item.id} error: ${err as string}\n`);
-          reject(error);
-        });
+        .catch(() => reject(error));
     });
     worker.on('exit', (code) => {
       this.emit('exit', { source: item, details: { code } });
-      clearInterval(interval);
       if (code !== 0) {
         this.retryDownloadWorker<T>(item)
           .then(resolve)
-          .catch((error) => {
-            fs.appendFileSync(
-              'scheduler_exit.txt',
-              `worker id: ${item.id} exit code ${code} error: "${error as string}" \n`
-            );
-            reject(new Error(`Worker id: ${item.id} exited with code ${code}`));
-          });
+          .catch(() => reject(new Error(`Worker id: ${item.id} exited with code ${code}`)));
       } else {
         const result = {
           item,
