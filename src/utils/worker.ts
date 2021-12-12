@@ -473,17 +473,20 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private error(error: Error | unknown, type = 'error'): void {
     fs.appendFileSync(
       './worker_error.txt',
-      `item id: ${this.item.id} title: ${this.item.title} type: ${type} error: ${error as string} \n`
+      `item id: ${this.item.id} title: "${this.item.title}" type: "${type}" error: "${error as string}" \n`
     );
     this.endStreams();
     fs.appendFileSync(
       './file_error.txt',
       `path: ${this.outputStream.path.toString()} destroyed: ${this.outputStream.destroyed} \n`
     );
-    const file = this.getOutputFile();
-    if (fs.existsSync(file)) {
-      fs.unlinkSync(file);
-      fs.appendFileSync('./file_error.txt', `file ${file} exists: ${fs.existsSync(file)} \n`);
+    if (fs.existsSync(this.outputStream.path.toString())) {
+      this.outputStream.destroy();
+      fs.unlinkSync(this.outputStream.path.toString());
+      fs.appendFileSync(
+        './file_error.txt',
+        `file ${this.outputStream.path.toString()} exists: ${fs.existsSync(this.outputStream.path.toString())} \n`
+      );
     }
     parentPort?.postMessage({
       type,
@@ -495,8 +498,9 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
   private endStreams(): void {
     this.readStream.destroy();
-    this.readStream.unpipe(this.progressStream);
+    this.outputStream.destroy();
     this.readStream.unpipe(this.outputStream);
+    this.readStream.unpipe(this.progressStream);
     this.readStream.unpipe(this.timeoutStream);
     // end the timoeut stream
     this.timeoutStream.end();
