@@ -180,7 +180,7 @@ export class UX {
    * @returns {UX}
    * @throws {TypeError} If the object is not JSON-serializable.
    */
-  public errorJson(obj: Error): UX {
+  public errorJson(obj: Record<string, unknown>): UX {
     const error = JSON.stringify(obj, null, 4);
     console.error(error);
     return this;
