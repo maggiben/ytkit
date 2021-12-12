@@ -100,7 +100,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private outputStream!: fs.WriteStream;
   private progressStream!: progressStream.ProgressStream;
   private progress?: progressStream.Progress;
-  private functions: string[] = [];
 
   public constructor(options: DownloadWorker.Options) {
     super(options);
@@ -135,30 +134,13 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private handleMessages(): void {
-    this.functions.push('handleMessages');
     parentPort?.on('message', (base64Message: string) => {
       try {
         const message = JSON.parse(Buffer.from(base64Message, 'base64').toString()) as DownloadWorker.Message;
-        fs.appendFileSync('./worker_messages.txt', `worker_messages ${message.type} id: ${message.source.id} \n`);
         switch (message.type) {
-          case 'retry': {
-            this.retryItem(message.source);
-            break;
-          }
-          case 'ack:elapsed': {
-            fs.appendFileSync(
-              './ack_elapsed.txt',
-              `ack_elapsed ${
-                message.source.id
-              } elapsed: ${this.timeoutStream.elapsed()} functions: ${this.functions.join(', ')}\n`
-            );
-            parentPort?.postMessage({
-              type: 'ack:elapsed',
-              source: this.item,
-              details: {
-                elapsed: this.timeoutStream.elapsed(),
-              },
-            });
+          case 'kill': {
+            this.endStreams();
+            this.exit(1);
             break;
           }
         }
@@ -168,28 +150,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
-  private retryItem(item?: ytpl.Item): void {
-    // this.item = item ?? this.item;
-    // this.downloadVideo()
-    //   .then((videoInfo) => {
-    //     parentPort?.postMessage({
-    //       type: 'retry:success',
-    //       source: this.item,
-    //       details: {
-    //         videoInfo,
-    //       },
-    //     });
-    //   })
-    //   .catch(this.error.bind(this));
-  }
   /**
    * Downloads a video
    */
   private async downloadVideo(): Promise<ytdl.videoInfo | void> {
-    this.functions.push('downloadVideo');
     try {
       const videoInfo = await this.getVideoInfo();
-      this.functions.push('downloadVideo:hasvideo');
       if (videoInfo) {
         parentPort?.postMessage({
           type: 'videoInfo',
@@ -219,12 +185,10 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private async downloadFromInfo(videoInfo: ytdl.videoInfo): Promise<ytdl.videoInfo | undefined> {
-    this.functions.push('downloadFromInfo');
     try {
       this.readStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
       this.readStream.once('error', this.error.bind(this));
       const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
-      this.functions.push('downloadFromInfo:setVideInfoAndVideoFormat');
       this.videoInfo = infoAndVideoFormat.videoInfo;
       this.videoFormat = infoAndVideoFormat.videoFormat;
       if (this.videoInfo && this.videoFormat) {
@@ -253,7 +217,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void}
    */
   private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream | Writable {
-    this.functions.push('setVideoOutput');
     /* stream to file */
     if (this.encoderOptions) {
       const file = this.getOutputFile({
@@ -277,7 +240,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void}
    */
   private getVideoSize(): number | undefined {
-    this.functions.push('getVideoSize');
     const sizeUnknown =
       !utils.getValueFrom(this.videoFormat, 'clen') &&
       (utils.getValueFrom(this.videoFormat, 'isLive') ||
@@ -299,8 +261,13 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     }
   }
 
+  /**
+   * sends a contentLength message to the main thread
+   *
+   * @param {number} contentLength size of the video, in bytes.
+   * @returns {void}
+   */
   private postVideoSize(contentLength: number): void {
-    this.functions.push('postVideoSize');
     this.progressStream = progressStream({
       length: contentLength,
       time: 100,
@@ -316,8 +283,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
+  /**
+   * uses progress-stream to download progress to the main thread.
+   *
+   * @returns {void}
+   */
   private postProgress(): void {
-    this.functions.push('postProgress');
     this.readStream.pipe(this.progressStream);
     this.progressStream.on('progress', (progress) => {
       this.progress = progress;
@@ -331,8 +302,13 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
+  /**
+   * uses TimeoutStream to monitor the download status and times out after some period
+   * of inactivity
+   *
+   * @returns {void}
+   */
   private postElapsed(): void {
-    this.functions.push('postElapsed');
     const timer = setInterval(() => {
       parentPort?.postMessage({
         type: 'elapsed',
@@ -349,83 +325,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private onTimeout(): void {
-    this.functions.push('onTimeout');
     this.readStream.pipe(this.timeoutStream);
     this.timeoutStream.once('timeout', () => {
-      this.functions.push('timeout trigger');
       this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`), 'timeout');
     });
   }
 
-  /**
-   * Prints video size with a progress bar as it downloads.
-   *
-   * @param {number} size
-   * @returns {void}
-   */
-  private printVideoSize(contentLength: number): void {
-    this.functions.push('printVideoSize');
-    this.progressStream = progressStream({
-      length: contentLength,
-      time: 100,
-      drain: true,
-    });
-
-    parentPort?.postMessage({
-      type: 'contentLength',
-      source: this.item,
-      details: {
-        contentLength,
-      },
-    });
-
-    this.readStream.pipe(this.progressStream);
-    // this.readStream.pipe(this.timeoutStream);
-
-    setInterval(() => {
-      parentPort?.postMessage({
-        type: 'elapsed',
-        source: this.item,
-        details: {
-          progress: { ...this.progress, elapsed: this.timeoutStream.elapsed() },
-        },
-      });
-    }, 1000);
-
-    this.timeoutStream.once('timeout', () => {
-      const error = new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`);
-      this.error(error, 'timeout');
-    });
-
-    this.progressStream.on('progress', (progress) => {
-      this.progress = progress;
-      parentPort?.postMessage({
-        type: 'progress',
-        source: this.item,
-        details: {
-          progress: { ...progress, elapsed: this.timeoutStream.elapsed() },
-        },
-      });
-    });
-
-    this.readStream.once('end', () => {
-      this.progressStream.end();
-      parentPort?.postMessage({
-        type: 'end',
-        source: this.item,
-      });
-      this.exit(0);
-    });
-  }
-
-  // private encode(stream: Readable, encoderOptions: FfmpegStream.Options): ffmpeg.FfmpegCommand {
-  //   let encoder = ffmpeg(stream);
-  //   encoder = encoderOptions.videoCodec ? encoder.videoCodec(encoderOptions.videoCodec) : encoder;
-  //   encoder = encoderOptions.audioCodec ? encoder.audioCodec(encoderOptions.audioCodec) : encoder;
-  //   encoder = encoderOptions.audioBitrate ? encoder.audioBitrate(encoderOptions.audioBitrate) : encoder;
-  //   encoder = encoderOptions.format ? encoder.toFormat(encoderOptions.format) : encoder;
-  //   return encoder.on('error', this.error.bind(this));
-  // }
   /**
    * Gets the ouput file fiven a file name or string template
    *
@@ -461,7 +366,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {string} output file
    */
   private setVideInfoAndVideoFormat(): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat }> {
-    this.functions.push('setVideInfoAndVideoFormat');
     return new Promise((resolve, reject) => {
       this.readStream.once('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
         return resolve({ videoInfo, videoFormat });
@@ -471,23 +375,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private error(error: Error | unknown, type = 'error'): void {
-    fs.appendFileSync(
-      './worker_error.txt',
-      `item id: ${this.item.id} title: "${this.item.title}" type: "${type}" error: "${error as string}" \n`
-    );
     this.endStreams();
-    fs.appendFileSync(
-      './file_error.txt',
-      `path: ${this.outputStream.path.toString()} destroyed: ${this.outputStream.destroyed} \n`
-    );
-    if (fs.existsSync(this.outputStream.path.toString())) {
-      this.outputStream.destroy();
-      fs.unlinkSync(this.outputStream.path.toString());
-      fs.appendFileSync(
-        './file_error.txt',
-        `file ${this.outputStream.path.toString()} exists: ${fs.existsSync(this.outputStream.path.toString())} \n`
-      );
-    }
     parentPort?.postMessage({
       type,
       source: this.item,
@@ -496,9 +384,13 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.exit(1);
   }
 
+  /**
+   * Ends all streams and removed the output file
+   *
+   * @returns {void} output file
+   */
   private endStreams(): void {
     this.readStream.destroy();
-    this.outputStream.destroy();
     this.readStream.unpipe(this.outputStream);
     this.readStream.unpipe(this.progressStream);
     this.readStream.unpipe(this.timeoutStream);
@@ -508,6 +400,11 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.progressStream.end();
     // end the file stream
     this.outputStream.end();
+    // Remove ouput file
+    if (fs.existsSync(this.outputStream.path.toString())) {
+      this.outputStream.destroy();
+      fs.unlinkSync(this.outputStream.path.toString());
+    }
   }
 
   private exit(code: number): never {
@@ -531,10 +428,9 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    this.functions.push('getVideoInfo');
     try {
       const timer = setTimeout(() => {
-        throw new Error('Could not retrieve videoInfo');
+        this.error(new Error(`Could not retrieve videoInfo for videoId: ${this.item.id}`), 'timeout');
       }, this.timeout);
       const videoInfo = await ytdl.getInfo(this.item.url);
       clearTimeout(timer);

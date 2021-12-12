@@ -56,13 +56,13 @@ describe('UX', () => {
 
   it('errorJson() should log to the stderr', () => {
     const ux = new UX(true);
-    const error = new Error('MyError');
+    const logMsg = { key1: 'foo', key2: 9, key3: true, key4: [1, 2, 3] };
 
     const consoleErrorStub = sandbox.stub(console, 'error');
-    ux.errorJson(error);
+    ux.errorJson(logMsg);
 
     expect(consoleErrorStub.called).to.equal(true);
-    expect(consoleErrorStub.firstCall.args[0]).to.equal(JSON.stringify(error, null, 4));
+    expect(consoleErrorStub.firstCall.args[0]).to.equal(JSON.stringify(logMsg, null, 4));
   });
 
   it('error() should only log when output IS NOT enabled', () => {
