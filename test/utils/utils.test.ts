@@ -149,3 +149,53 @@ describe('getValueFromMeta', () => {
     expect(result).to.equal(data.user.name.toUpperCase());
   });
 });
+
+describe('Url id', () => {
+  const ytUrls = [
+    'https://youtu.be/yVpbFMhOAwE',
+    'https://www.youtube.com/embed/yVpbFMhOAwE',
+    'youtu.be/yVpbFMhOAwE',
+    'youtube.com/watch?v=yVpbFMhOAwE',
+    'http://youtu.be/yVpbFMhOAwE',
+    'http://www.youtube.com/embed/yVpbFMhOAwE',
+    'http://www.youtube.com/watch?v=yVpbFMhOAwE',
+    'http://www.youtube.com/watch?v=yVpbFMhOAwE&feature=g-vrec',
+    'http://www.youtube.com/watch?v=yVpbFMhOAwE&feature=player_embedded',
+    'http://www.youtube.com/v/yVpbFMhOAwE?fs=1&hl=en_US',
+    'http://www.youtube.com/ytscreeningroom?v=yVpbFMhOAwE',
+    'http://www.youtube.com/watch?NR=1&feature=endscreen&v=yVpbFMhOAwE',
+    'http://www.youtube.com/user/Scobleizer#p/u/1/1p3vcRhsYGo',
+    'http://www.youtube.com/watch?v=6zUVS4kJtrA&feature=c4-overview-vl&list=PLbzoR-pLrL6qucl8-lOnzvhFc2UM1tcZA',
+    'https://www.youtube.com/watch?v=FZu097wb8wU&list=RDFZu097wb8wU',
+  ];
+  const ytPlaylistUrls = [
+    'http://www.youtube.com/watch?v=6zUVS4kJtrA&feature=c4-overview-vl&list=PLbzoR-pLrL6qucl8-lOnzvhFc2UM1tcZA',
+    'https://www.youtube.com/watch?v=FZu097wb8wU&list=RDFZu097wb8wU',
+  ];
+  const invalidYtPlaylistUrl = 'https://www.youtube.com/watch?v=FZu097wb8wU&list=';
+  const invalidUrl = 'https://duckduckgo.com/';
+  it('getYoutubeVideoId valid url', () => {
+    ytUrls.forEach((ytUrl) => {
+      const id = utils.getYoutubeVideoId(ytUrl);
+      expect(id).to.be.a('string').and.length.greaterThanOrEqual(11);
+    });
+  });
+  it('getYoutubeVideoId invalid url', () => {
+    const id = utils.getYoutubeVideoId(invalidUrl);
+    expect(id).to.be.undefined;
+  });
+  it('getYoutubeVideoId valid url', () => {
+    ytPlaylistUrls.forEach((ytUrl) => {
+      const id = utils.getYoutubePlaylistId(ytUrl);
+      expect(id).to.be.a('string').and.length.greaterThanOrEqual(1);
+    });
+  });
+  it('getYoutubeVideoId invalid playlist', () => {
+    const id = utils.getYoutubePlaylistId(invalidYtPlaylistUrl);
+    expect(id).to.be.undefined;
+  });
+  it('getYoutubeVideoId invalid url', () => {
+    const id = utils.getYoutubePlaylistId(invalidUrl);
+    expect(id).to.be.undefined;
+  });
+});
