@@ -101,7 +101,7 @@ export namespace FfmpegStream {
     flv = 'flv',
   }
   /**
-   * Constructor options for PlaylistDownloader.
+   * Constructor options for FfmpegStream.
    */
   export interface Options extends Ffmpeg.FfmpegCommandOptions {
     /**

@@ -46,7 +46,7 @@ import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
-import { PlaylistDownloader } from '../utils/downloader';
+import { Scheduler } from '../utils/scheduler';
 import { FfmpegStream } from '../utils/FfmpegStream';
 
 declare interface IOutputVideoMeta {
@@ -177,8 +177,8 @@ export default class Download extends YtKitCommand {
 
   private async downloadPlaylist(playlistId: string): Promise<number[] | void> {
     const progressbars = new Map<string, SingleBar>();
-    const retryItems = new Map<string, PlaylistDownloader.RetryItems>();
-    const playlistDownloader = new PlaylistDownloader({
+    const retryItems = new Map<string, Scheduler.RetryItems>();
+    const scheduler = new Scheduler({
       playlistId,
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
@@ -202,23 +202,23 @@ export default class Download extends YtKitCommand {
       }
     });
 
-    playlistDownloader.on('playlistItems', (message: PlaylistDownloader.Message) => {
+    scheduler.on('playlistItems', (message: Scheduler.Message) => {
       this.ux.log(
         `Got playlist items total: ${this.ux.chalk.yellow((message.details?.playlistItems as ytpl.Item[]).length)}`
       );
     });
 
-    playlistDownloader.on('contentLength', (message: PlaylistDownloader.Message) => {
+    scheduler.on('contentLength', (message: Scheduler.Message) => {
       if (!progressbars.has(message.source.id)) {
         progressbars.set(message.source.id, multibar.create(message.details?.contentLength as number, 0));
       }
     });
 
-    playlistDownloader.on('online', (message: PlaylistDownloader.Message) => {
+    scheduler.on('online', (message: Scheduler.Message) => {
       fs.appendFileSync('./online.txt', `thread online id: ${message.source.id} title: ${message.source.title}\n`);
     });
 
-    playlistDownloader.on('end', (message: PlaylistDownloader.Message) => {
+    scheduler.on('end', (message: Scheduler.Message) => {
       const progressbar = progressbars.get(message.source.id);
       if (progressbar) {
         progressbar.stop();
@@ -226,7 +226,7 @@ export default class Download extends YtKitCommand {
       }
     });
 
-    playlistDownloader.on('timeout', (message: PlaylistDownloader.Message) => {
+    scheduler.on('timeout', (message: Scheduler.Message) => {
       const progressbar = progressbars.get(message.source.id);
       if (progressbar) {
         progressbar.stop();
@@ -235,7 +235,7 @@ export default class Download extends YtKitCommand {
       fs.appendFileSync('./timeout.txt', `item: id: ${message.source.id} title: ${message.source.title} timed out \n`);
     });
 
-    playlistDownloader.on('progress', (message: PlaylistDownloader.Message) => {
+    scheduler.on('progress', (message: Scheduler.Message) => {
       interface ExtendedProgress extends Progress {
         elapsed: string;
       }
@@ -252,7 +252,7 @@ export default class Download extends YtKitCommand {
       });
     });
 
-    playlistDownloader.on('elapsed', (message: PlaylistDownloader.Message) => {
+    scheduler.on('elapsed', (message: Scheduler.Message) => {
       interface ExtendedProgress extends Progress {
         elapsed: string;
       }
@@ -269,7 +269,7 @@ export default class Download extends YtKitCommand {
       });
     });
 
-    playlistDownloader.on('retry', (message: PlaylistDownloader.Message) => {
+    scheduler.on('retry', (message: Scheduler.Message) => {
       retryItems.set(message.source.id, {
         item: message.source as ytpl.Item,
         left: message.details?.left as number,
@@ -280,7 +280,7 @@ export default class Download extends YtKitCommand {
       );
     });
 
-    playlistDownloader.on('error', (message: PlaylistDownloader.Message) => {
+    scheduler.on('error', (message: Scheduler.Message) => {
       // this.ux.cli.warn(`item: ${message.source.title} message: ${message.error?.message}`);
       fs.appendFileSync(
         './error.txt',
@@ -288,7 +288,7 @@ export default class Download extends YtKitCommand {
       );
     });
 
-    playlistDownloader.on('exit', (message: PlaylistDownloader.Message) => {
+    scheduler.on('exit', (message: Scheduler.Message) => {
       const progressbar = progressbars.get(message.source.id);
       const code = message.details?.code as number;
       if (progressbar) {
@@ -302,9 +302,9 @@ export default class Download extends YtKitCommand {
       );
     });
 
-    let results: Array<PlaylistDownloader.Result | undefined> = [];
+    let results: Array<Scheduler.Result | undefined> = [];
     try {
-      results = await playlistDownloader.download();
+      results = await scheduler.download();
     } catch (error) {
       this.ux.cli.warn('failed to fetch the playlist');
     } finally {

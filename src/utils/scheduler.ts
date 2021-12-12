@@ -1,9 +1,9 @@
 /*
- * @file         : downloader.ts
- * @summary      : Task scheduler
+ * @file         : scheduler.ts
+ * @summary      : Playlist thread scheduler
  * @version      : 1.0.0
  * @project      : YtKit
- * @description  : Playlist downloader task scheduler
+ * @description  : A hread scheduler
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
  * @date         : 02 Dec 2021
@@ -41,9 +41,9 @@ import * as ytpl from 'ytpl';
 import { DownloadWorker } from './worker';
 import { FfmpegStream } from './FfmpegStream';
 
-export namespace PlaylistDownloader {
+export namespace Scheduler {
   /**
-   * Constructor options for PlaylistDownloader.
+   * Constructor options for Scheduler.
    */
   export interface Options {
     /**
@@ -103,9 +103,9 @@ export namespace PlaylistDownloader {
   blender playlist: https://www.youtube.com/playlist?list=PL6B3937A5D230E335
   live items playlist: https://www.youtube.com/watch?v=5qap5aO4i9A&list=RDLV5qap5aO4i9A&start_radio=1&rv=5qap5aO4i9A&t=15666341
 */
-export class PlaylistDownloader extends EventEmitter {
+export class Scheduler extends EventEmitter {
   private workers = new Map<string, Worker>();
-  private retryItems = new Map<string, PlaylistDownloader.RetryItems>();
+  private retryItems = new Map<string, Scheduler.RetryItems>();
   private playlistId: string;
   private output: string;
   private maxconnections: number;
@@ -115,7 +115,7 @@ export class PlaylistDownloader extends EventEmitter {
   private downloadOptions?: ytdl.downloadOptions;
   private encoderOptions?: FfmpegStream.Options;
 
-  public constructor(options: PlaylistDownloader.Options) {
+  public constructor(options: Scheduler.Options) {
     super();
     this.playlistId = options.playlistId;
     this.output = options.output ?? '{videoDetails.title}';
@@ -135,20 +135,20 @@ export class PlaylistDownloader extends EventEmitter {
   /**
    * Initializes an instance of the Downloader class.
    */
-  public async download(): Promise<Array<PlaylistDownloader.Result | undefined>> {
+  public async download(): Promise<Array<Scheduler.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
     return await this.scheduler(playlist.items);
   }
 
-  public postWorkerMessage(worker: Worker, message: PlaylistDownloader.Message): void {
+  public postWorkerMessage(worker: Worker, message: Scheduler.Message): void {
     return worker.postMessage(Buffer.from(JSON.stringify(message)).toString('base64'));
   }
 
-  private async scheduler(items: ytpl.Item[]): Promise<Array<PlaylistDownloader.Result | undefined>> {
+  private async scheduler(items: ytpl.Item[]): Promise<Array<Scheduler.Result | undefined>> {
     try {
-      const workers: Array<PlaylistDownloader.Result | undefined> = [];
-      for await (const result of this.runTasks<PlaylistDownloader.Result>(this.maxconnections, this.tasks(items))) {
+      const workers: Array<Scheduler.Result | undefined> = [];
+      for await (const result of this.runTasks<Scheduler.Result>(this.maxconnections, this.tasks(items))) {
         workers.push(result);
       }
       return workers;
@@ -160,7 +160,7 @@ export class PlaylistDownloader extends EventEmitter {
   /*
     from: https://stackoverflow.com/questions/40639432/what-is-the-best-way-to-limit-concurrency-when-using-es6s-promise-all
   */
-  private tasks<T extends PlaylistDownloader.Result>(items: ytpl.Item[]): IterableIterator<() => Promise<T>> {
+  private tasks<T extends Scheduler.Result>(items: ytpl.Item[]): IterableIterator<() => Promise<T>> {
     const tasks = [];
     for (const item of items) {
       const task = async (): Promise<T> => {
@@ -231,13 +231,13 @@ export class PlaylistDownloader extends EventEmitter {
    * Retry download if failed
    *
    * @name retryDownloadWorker
-   * @memberOf PlaylistDownloader:retryDownloadWorker
+   * @memberOf Scheduler:retryDownloadWorker
    * @category Control Flow
    * @param {ytpl.Item} item the playlist item
    * @param {Worker} worker the worker currently executing
    * @returns {boolean} returns false if exceeded the maximum allowed retries otherwise returns true
    */
-  private async retryDownloadWorker<T extends PlaylistDownloader.Result>(item: ytpl.Item): Promise<T> {
+  private async retryDownloadWorker<T extends Scheduler.Result>(item: ytpl.Item): Promise<T> {
     if (!this.retryItems.has(item.id)) {
       this.retryItems.set(item.id, {
         item,
@@ -285,7 +285,7 @@ export class PlaylistDownloader extends EventEmitter {
     }
   }
 
-  private async downloadWorkers<T extends PlaylistDownloader.Result>(item: ytpl.Item): Promise<T> {
+  private async downloadWorkers<T extends Scheduler.Result>(item: ytpl.Item): Promise<T> {
     const workerOptions: WorkerOptions = {
       workerData: {
         item,
@@ -306,7 +306,7 @@ export class PlaylistDownloader extends EventEmitter {
     });
   }
 
-  private handleWorkerEvents<T extends PlaylistDownloader.Result>(
+  private handleWorkerEvents<T extends Scheduler.Result>(
     worker: Worker,
     item: ytpl.Item,
     resolve: (value: T) => void,

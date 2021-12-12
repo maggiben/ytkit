@@ -142,16 +142,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
             this.retryItem(message.source);
             break;
           }
-          case 'ack:elapsed': {
-            parentPort?.postMessage({
-              type: 'ack:elapsed',
-              source: this.item,
-              details: {
-                elapsed: this.timeoutStream.elapsed(),
-              },
-            });
-            break;
-          }
         }
       } catch (error) {
         return this.error(error);
@@ -284,6 +274,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     }
   }
 
+  /**
+   * sends a contentLength message to the main thread
+   *
+   * @param {number} contentLength size of the video, in bytes.
+   * @returns {void}
+   */
   private postVideoSize(contentLength: number): void {
     this.progressStream = progressStream({
       length: contentLength,
@@ -300,6 +296,11 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
+  /**
+   * uses progress-stream to download progress to the main thread.
+   *
+   * @returns {void}
+   */
   private postProgress(): void {
     this.readStream.pipe(this.progressStream);
     this.progressStream.on('progress', (progress) => {
@@ -314,6 +315,12 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
+  /**
+   * uses TimeoutStream to monitor the download status and times out after some period
+   * of inactivity
+   *
+   * @returns {void}
+   */
   private postElapsed(): void {
     const timer = setInterval(() => {
       parentPort?.postMessage({
@@ -334,66 +341,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.readStream.pipe(this.timeoutStream);
     this.timeoutStream.once('timeout', () => {
       this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`), 'timeout');
-    });
-  }
-
-  /**
-   * Prints video size with a progress bar as it downloads.
-   *
-   * @param {number} size
-   * @returns {void}
-   */
-  private printVideoSize(contentLength: number): void {
-    this.progressStream = progressStream({
-      length: contentLength,
-      time: 100,
-      drain: true,
-    });
-
-    parentPort?.postMessage({
-      type: 'contentLength',
-      source: this.item,
-      details: {
-        contentLength,
-      },
-    });
-
-    this.readStream.pipe(this.progressStream);
-    // this.readStream.pipe(this.timeoutStream);
-
-    setInterval(() => {
-      parentPort?.postMessage({
-        type: 'elapsed',
-        source: this.item,
-        details: {
-          progress: { ...this.progress, elapsed: this.timeoutStream.elapsed() },
-        },
-      });
-    }, 1000);
-
-    this.timeoutStream.once('timeout', () => {
-      const error = new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`);
-      this.error(error, 'timeout');
-    });
-
-    this.progressStream.on('progress', (progress) => {
-      this.progress = progress;
-      parentPort?.postMessage({
-        type: 'progress',
-        source: this.item,
-        details: {
-          progress: { ...progress, elapsed: this.timeoutStream.elapsed() },
-        },
-      });
-    });
-
-    this.readStream.once('end', () => {
-      this.progressStream.end();
-      parentPort?.postMessage({
-        type: 'end',
-        source: this.item,
-      });
-      this.exit(0);
     });
   }
 
@@ -442,10 +389,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
   private error(error: Error | unknown, type = 'error'): void {
     this.endStreams();
-    if (fs.existsSync(this.outputStream.path.toString())) {
-      this.outputStream.destroy();
-      fs.unlinkSync(this.outputStream.path.toString());
-    }
     parentPort?.postMessage({
       type,
       source: this.item,
@@ -454,9 +397,13 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.exit(1);
   }
 
+  /**
+   * Ends all streams and removed the output file
+   *
+   * @returns {void} output file
+   */
   private endStreams(): void {
     this.readStream.destroy();
-    this.outputStream.destroy();
     this.readStream.unpipe(this.outputStream);
     this.readStream.unpipe(this.progressStream);
     this.readStream.unpipe(this.timeoutStream);
@@ -466,6 +413,11 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.progressStream.end();
     // end the file stream
     this.outputStream.end();
+    // Remove ouput file
+    if (fs.existsSync(this.outputStream.path.toString())) {
+      this.outputStream.destroy();
+      fs.unlinkSync(this.outputStream.path.toString());
+    }
   }
 
   private exit(code: number): never {
