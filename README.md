@@ -8,7 +8,7 @@ A youtube command line utility kit
 [![Downloads/week](https://img.shields.io/npm/dw/ytkit.svg)](https://npmjs.org/package/ytkit)
 [![License](https://img.shields.io/npm/l/ytkit.svg)](https://github.com/maggiben/ytkit/blob/master/package.json)
 [![codecov.io](https://img.shields.io/codecov/c/github/maggiben/ytkit)](https://codecov.io/github/maggiben/ytkit?branch=master)
-[![Join the chat at https://gitter.im/ytkit/community](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ytkit/community?utm_source=badge&utm_medium=badge&utm_content=badge)
+[![Discord](https://img.shields.io/discord/919650621420896306.svg)](https://discord.gg/Z7awkJTq)
 [![Known Vulnerabilities](https://snyk.io/test/github/maggiben/ytkit/badge.svg)](https://snyk.io/test/github/maggiben/ytkit)
 
 <!-- toc -->
@@ -198,6 +198,10 @@ Example
 > ytkit version # then run any ytkit command you like
 > exit # when done, type exit to leave the container
 ```
+
+## Support
+
+You can contact us for support on our [chat server](https://discord.gg/Z7awkJTq)
 
 ## Versioning
 
