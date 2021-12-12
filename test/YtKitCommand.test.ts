@@ -134,7 +134,7 @@ describe('YtKitCommand', () => {
     sandbox
       .stub(UX.prototype, 'errorJson')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .callsFake((args: Error) => UX_OUTPUT.errorJson.push(args) as unknown as UX);
+      .callsFake((args: Record<string, unknown>) => UX_OUTPUT.errorJson.push(args) as unknown as UX);
     sandbox
       .stub(UX.prototype, 'table')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
