@@ -171,29 +171,35 @@ describe('Url id', () => {
   const ytPlaylistUrls = [
     'http://www.youtube.com/watch?v=6zUVS4kJtrA&feature=c4-overview-vl&list=PLbzoR-pLrL6qucl8-lOnzvhFc2UM1tcZA',
     'https://www.youtube.com/watch?v=FZu097wb8wU&list=RDFZu097wb8wU',
+    'https://www.youtube.com/playlist?list=PL6B3937A5D230E335',
   ];
   const invalidYtPlaylistUrl = 'https://www.youtube.com/watch?v=FZu097wb8wU&list=';
   const invalidUrl = 'https://duckduckgo.com/';
+
   it('getYoutubeVideoId valid url', () => {
     ytUrls.forEach((ytUrl) => {
       const id = utils.getYoutubeVideoId(ytUrl);
       expect(id).to.be.a('string').and.length.greaterThanOrEqual(11);
     });
   });
+
   it('getYoutubeVideoId invalid url', () => {
     const id = utils.getYoutubeVideoId(invalidUrl);
     expect(id).to.be.undefined;
   });
+
   it('getYoutubeVideoId valid url', () => {
     ytPlaylistUrls.forEach((ytUrl) => {
       const id = utils.getYoutubePlaylistId(ytUrl);
       expect(id).to.be.a('string').and.length.greaterThanOrEqual(1);
     });
   });
+
   it('getYoutubeVideoId invalid playlist', () => {
     const id = utils.getYoutubePlaylistId(invalidYtPlaylistUrl);
     expect(id).to.be.undefined;
   });
+
   it('getYoutubeVideoId invalid url', () => {
     const id = utils.getYoutubePlaylistId(invalidUrl);
     expect(id).to.be.undefined;

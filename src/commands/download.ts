@@ -139,11 +139,12 @@ export default class Download extends YtKitCommand {
     this.setFilters();
     this.setOutput();
 
-    if (!ytdl.validateURL(this.getFlag<string>('url'))) {
+    const videoId = ytdl.validateURL(this.getFlag('url')) && ytdl.getVideoID(this.getFlag('url'));
+    const playlistId = ytpl.validateID(this.getFlag('url')) && (await ytpl.getPlaylistID(this.getFlag('url')));
+
+    if (!videoId && !playlistId) {
       return;
     }
-    const playlistId = utils.getYoutubePlaylistId(this.getFlag<string>('url'));
-    const videoId = utils.getYoutubeVideoId(this.getFlag<string>('url'));
 
     if (playlistId) {
       const response = videoId ? await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)') : true;
