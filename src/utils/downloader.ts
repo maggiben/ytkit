@@ -34,7 +34,6 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs';
 import { EventEmitter } from 'stream';
 import { Worker, WorkerOptions } from 'worker_threads';
 import ytdl = require('ytdl-core');
