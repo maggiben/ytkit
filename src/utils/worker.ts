@@ -198,7 +198,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
           this.postProgress();
           this.postElapsed();
           this.onTimeout();
-          // this.encode();
         }
         this.setVideoOutput();
         await this.onEnd();
@@ -442,6 +441,18 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 }
 
 export default void (async (options: DownloadWorker.Options): Promise<DownloadWorker> => {
+  process
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .once('unhandledRejection', (reason: Error, promise: PromiseLike<any>) => {
+      // eslint-disable-next-line no-console
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      process.exit(1);
+    })
+    .once('uncaughtException', (error: Error, origin: string) => {
+      // eslint-disable-next-line no-console
+      console.error('Caught exception:', error, 'Exception origin:', origin);
+      process.exit(1);
+    });
   if (!isMainThread) {
     try {
       return await DownloadWorker.create(options);
