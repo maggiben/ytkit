@@ -1,9 +1,8 @@
 import * as path from 'path';
-// import { fail } from 'assert';
 import * as nock from 'nock';
 import { expect, assert } from 'chai';
 import * as sinon from 'sinon';
-import { Scheduler } from '../../src/utils/scheduler';
+import { Scheduler } from '../../src/lib/scheduler';
 
 const YT_HOST = 'https://www.youtube.com';
 const PLAYLIST_PATH = '/playlist';

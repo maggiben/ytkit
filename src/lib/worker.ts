@@ -43,8 +43,8 @@ import ffmpeg = require('fluent-ffmpeg');
 import * as ytpl from 'ytpl';
 import tsNode = require('ts-node');
 import * as progressStream from 'progress-stream';
-import * as utils from './utils';
-import { AsyncCreatable } from './AsyncCreatable';
+import * as utils from '../utils/utils';
+import { AsyncCreatable } from '../utils/AsyncCreatable';
 import TimeoutStream from './TimeoutStream';
 import { FfmpegStream } from './FfmpegStream';
 
@@ -115,12 +115,6 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * Initializes an instance of the Downloader class.
    */
   public async init(): Promise<void> {
-    ['worker_messages', 'worker_error', 'file_error'].forEach((name) => {
-      const file = path.join('.', `${name}.txt`);
-      if (fs.existsSync(file)) {
-        fs.unlinkSync(file);
-      }
-    });
     try {
       this.handleMessages();
       const videoInfo = await this.downloadVideo();

@@ -34,7 +34,7 @@
  */
 
 import { Writable, WritableOptions } from 'stream';
-import * as utils from './utils';
+import * as utils from '../utils/utils';
 
 export interface TimeoutStreamOptions extends WritableOptions {
   timeout?: number;

@@ -47,8 +47,8 @@ import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
 import videoMeta, { IOutputVideoMeta } from '../utils/videoMeta';
-import { Scheduler } from '../utils/scheduler';
-import { FfmpegStream } from '../utils/FfmpegStream';
+import { Scheduler } from '../lib/scheduler';
+import { FfmpegStream } from '../lib/FfmpegStream';
 
 export interface IFilter {
   [name: string]: (format: Record<string, string>) => boolean;

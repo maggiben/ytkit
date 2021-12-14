@@ -49,12 +49,39 @@ export class FfmpegStream {
     good: 256,
     excellent: 320,
   };
+
+  private formatCodec: FfmpegStream.FormatCodec = {
+    format: {
+      aac: {
+        audioCodec: FfmpegStream.AudioCodec.aac,
+      },
+      flac: {
+        audioCodec: FfmpegStream.AudioCodec.flac,
+      },
+      ogg: {
+        audioCodec: FfmpegStream.AudioCodec.libopus,
+      },
+      mp3: {
+        audioCodec: FfmpegStream.AudioCodec.libmp3lame,
+      },
+      mp4: {
+        videoCodec: FfmpegStream.VideoCodec.libx264,
+      },
+      avi: {
+        videoCodec: FfmpegStream.VideoCodec.mpeg2,
+      },
+      wav: {
+        audioCodec: FfmpegStream.AudioCodec.pcm_mulaw,
+      },
+    },
+  };
+
   public constructor(private inputSteam: Readable, private outputStream: Writable, options: FfmpegStream.Options) {
     let encoder = Ffmpeg(this.inputSteam);
     encoder = options.videoCodec ? encoder.videoCodec(options.videoCodec) : encoder;
     encoder = options.audioCodec ? encoder.audioCodec(options.audioCodec) : encoder;
     encoder = options.audioBitrate ? encoder.audioBitrate(this.audioBitrate[options.audioBitrate]) : encoder;
-    encoder = options.format ? encoder.toFormat(options.format) : encoder;
+    encoder = options.container ? encoder.format(options.container) : encoder;
     this.ffmpegCommand = encoder;
     this.stream = encoder.pipe(this.outputStream, { end: true });
   }
@@ -67,6 +94,7 @@ export namespace FfmpegStream {
     libopus = 'libopus',
     libmp3lame = 'libmp3lame',
     libvorbis = 'libvorbis',
+    pcm_mulaw = 'pcm_mulaw',
   }
 
   export enum VideoCodec {
@@ -85,10 +113,32 @@ export namespace FfmpegStream {
     excellent = 'excellent',
   }
 
-  export enum Format {
+  export enum Container {
+    flac = 'flac',
+    ogg = 'ogg',
     mp3 = 'mp3',
     mp4 = 'mp4',
-    flv = 'flv',
+    avi = 'avi',
+  }
+
+  export enum Format {
+    aac = 'aac',
+    flac = 'flac',
+    ogg = 'ogg',
+    mp3 = 'mp3',
+    mp4 = 'mp4',
+    webm = 'webm',
+    avi = 'avi',
+    wav = 'wav',
+  }
+
+  export interface FormatCodec {
+    format: {
+      [key in keyof typeof FfmpegStream.Format]?: {
+        audioCodec?: keyof typeof FfmpegStream.AudioCodec;
+        videoCodec?: keyof typeof FfmpegStream.VideoCodec;
+      };
+    };
   }
   /**
    * Constructor options for FfmpegStream.
@@ -106,6 +156,10 @@ export namespace FfmpegStream {
      * Set audio bitrate
      */
     audioBitrate?: keyof typeof FfmpegStream.AudioBitrate;
+    /**
+     * Set output container
+     */
+    container?: keyof typeof FfmpegStream.Container;
     /**
      * Set output format
      */
