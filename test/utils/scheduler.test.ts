@@ -51,7 +51,7 @@ describe('scheduler', () => {
   });
 
   it('runs all tasks exit with fail', async () => {
-    const limit = 20;
+    const limit = 10;
     const pages = 0;
     const scope = nock(YT_HOST)
       .get(PLAYLIST_PATH)
@@ -60,6 +60,7 @@ describe('scheduler', () => {
 
     const options: Scheduler.Options = {
       playlistId: 'PL0123456789ABCDEFGHIJKLMNOPQRSTUV',
+      retries: 2,
       playlistOptions: {
         gl: 'US',
         hl: 'en',
@@ -123,16 +124,27 @@ describe('scheduler', () => {
 });
 
 describe('scheduler error', () => {
+  let onStub: sinon.SinonStub;
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   before(() => {
     nock.disableNetConnect();
+  });
+
+  beforeEach(() => {
+    onStub = sandbox.stub(Scheduler.prototype, 'emit').returns(true);
   });
 
   after(() => {
     nock.enableNetConnect();
   });
 
+  afterEach(() => {
+    onStub.restore();
+    sandbox.restore();
+  });
+
   it('runs all tasks every throw error', async () => {
-    const limit = 20;
+    const limit = 10;
     const pages = 0;
     const scope = nock(YT_HOST)
       .get(PLAYLIST_PATH)
@@ -144,6 +156,7 @@ describe('scheduler error', () => {
       output: 'myvid.mp4',
       timeout: 150,
       maxconnections: 10,
+      retries: 2,
       playlistOptions: {
         gl: 'US',
         hl: 'en',
@@ -152,7 +165,6 @@ describe('scheduler error', () => {
       },
     };
     process.env.NODE_WORKER = path.join(__dirname, '..', 'mocks', 'worker_error.js');
-    const onStub: sinon.SinonStub = sinon.stub(Scheduler.prototype, 'emit').returns(true);
     const scheduler = new Scheduler(options);
     const results = await scheduler.download();
     expect(results).to.be.a('array').and.to.have.length(limit);
@@ -161,26 +173,34 @@ describe('scheduler error', () => {
     });
     expect(hasErrors).to.be.true;
     expect(onStub.callCount).to.be.greaterThan(1);
-    onStub.restore();
     scope.done();
   });
 });
 
 describe('scheduler retries', () => {
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   let onlineCounter = 0;
+  let emitStub: sinon.SinonStub;
   before(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sinon.stub(Scheduler.prototype, 'emit').callsFake((eventName: string | symbol): boolean => {
+    nock.disableNetConnect();
+  });
+
+  beforeEach(() => {
+    emitStub = sandbox.stub(Scheduler.prototype, 'emit').callsFake((eventName: string | symbol): boolean => {
       if (eventName === 'online') {
         onlineCounter += 1;
       }
       return true;
     });
-    nock.disableNetConnect();
   });
 
   after(() => {
     nock.enableNetConnect();
+  });
+
+  afterEach(() => {
+    emitStub.restore();
+    sandbox.restore();
   });
 
   it('runs all tasks every exit with fail and retries 2 times', async () => {
