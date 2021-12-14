@@ -94,8 +94,8 @@ export namespace Scheduler {
 
   export interface Result {
     item: ytpl.Item;
+    code: number | boolean;
     error?: Error | string;
-    code?: number;
   }
 }
 
@@ -123,12 +123,7 @@ export class Scheduler extends EventEmitter {
     this.retries = options.retries ?? 5;
     this.timeout = options.timeout ?? 120 * 1000; // 120 seconds
     this.downloadOptions = options.downloadOptions;
-    this.playlistOptions = options.playlistOptions ?? {
-      gl: 'US',
-      hl: 'en',
-      limit: 30,
-      pages: 0,
-    };
+    this.playlistOptions = options.playlistOptions;
     this.encoderOptions = options.encoderOptions;
   }
 
@@ -141,20 +136,18 @@ export class Scheduler extends EventEmitter {
     return await this.scheduler(playlist.items);
   }
 
+  /*
   public postWorkerMessage(worker: Worker, message: Scheduler.Message): void {
     return worker.postMessage(Buffer.from(JSON.stringify(message)).toString('base64'));
   }
+  */
 
   private async scheduler(items: ytpl.Item[]): Promise<Array<Scheduler.Result | undefined>> {
-    try {
-      const workers: Array<Scheduler.Result | undefined> = [];
-      for await (const result of this.runTasks<Scheduler.Result>(this.maxconnections, this.tasks(items))) {
-        workers.push(result);
-      }
-      return workers;
-    } catch (error) {
-      throw new Error((error as Error).message);
+    const workers: Array<Scheduler.Result | undefined> = [];
+    for await (const result of this.runTasks<Scheduler.Result>(this.maxconnections, this.tasks(items))) {
+      workers.push(result);
     }
+    return workers;
   }
 
   /*
@@ -169,6 +162,7 @@ export class Scheduler extends EventEmitter {
         } catch (error) {
           return {
             item,
+            code: Number(!!error),
             error: (error as Error).message,
           } as T;
         }
@@ -195,10 +189,10 @@ export class Scheduler extends EventEmitter {
         result?: IteratorResult<T>;
         iterator: AsyncIterator<T>;
       } = await Promise.race(iteratorResults.values());
-      if (winner.result?.done) {
+      if (winner.result && winner.result.done) {
         iteratorResults.delete(winner.iterator);
       } else {
-        const value = winner.result?.value;
+        const value = winner.result && winner.result.value;
         iteratorResults.set(winner.iterator, queueNext(winner));
         yield value;
       }
@@ -212,19 +206,15 @@ export class Scheduler extends EventEmitter {
     // Each worker is an async generator that polls for tasks
     // from the shared iterator.
     // Sharing the iterator ensures that each worker gets unique tasks.
-    try {
-      const workers = new Array(maxConcurrency) as Array<AsyncIterator<T>>;
-      for (let i = 0; i < maxConcurrency; i++) {
-        workers[i] = (async function* (): AsyncIterator<T, void, unknown> {
-          for (const task of iterator) {
-            yield await task();
-          }
-        })();
-      }
-      yield* this.raceAsyncIterators<T>(workers);
-    } catch (error) {
-      throw new Error((error as Error).message);
+    const workers = new Array(maxConcurrency) as Array<AsyncIterator<T>>;
+    for (let i = 0; i < maxConcurrency; i++) {
+      workers[i] = (async function* (): AsyncIterator<T, void, unknown> {
+        for (const task of iterator) {
+          yield await task();
+        }
+      })();
     }
+    yield* this.raceAsyncIterators<T>(workers);
   }
 
   /**
@@ -260,29 +250,19 @@ export class Scheduler extends EventEmitter {
         throw new Error((error as Error).message);
       }
     }
-    throw new Error(`Could not retry id: ${item.id} retries: ${retryItem?.left}`);
+    throw new Error(`Could not retry id: ${item.id} retries left: ${retryItem && retryItem.left}`);
   }
 
   private async terminateDownloadWorker(item: ytpl.Item): Promise<void> {
-    if (this.workers.has(item.id)) {
-      const worker = this.workers.get(item.id);
-      try {
-        const code = await worker?.terminate();
-        this.workers.delete(item.id);
-        this.emit('worker:terminated:success', {
-          source: item,
-          details: {
-            code,
-          },
-        });
-      } catch (error) {
-        this.emit('worker:terminated:error', {
-          source: item,
-          error,
-        });
-        throw error;
-      }
-    }
+    const worker = this.workers.get(item.id);
+    const code = worker && (await worker.terminate());
+    this.workers.delete(item.id);
+    this.emit('workerTerminated', {
+      source: item,
+      details: {
+        code,
+      },
+    });
   }
 
   private async downloadWorkers<T extends Scheduler.Result>(item: ytpl.Item): Promise<T> {
@@ -315,16 +295,10 @@ export class Scheduler extends EventEmitter {
     worker.on('message', (message: DownloadWorker.Message) => {
       this.emit(message.type, message);
     });
-    worker.on('online', () => {
+    worker.once('online', () => {
       return this.emit('online', { source: item });
     });
-    worker.on('error', (error) => {
-      this.emit('error', { source: item, error });
-      this.retryDownloadWorker<T>(item)
-        .then(resolve)
-        .catch(() => reject(error));
-    });
-    worker.on('exit', (code) => {
+    const exit = (code: number): void => {
       this.emit('exit', { source: item, details: { code } });
       if (code !== 0) {
         this.retryDownloadWorker<T>(item)
@@ -337,6 +311,14 @@ export class Scheduler extends EventEmitter {
         } as T;
         resolve(result);
       }
+    };
+    worker.once('exit', exit);
+    worker.once('error', (error) => {
+      this.emit('error', { source: item, error });
+      worker.off('exit', exit);
+      this.retryDownloadWorker<T>(item)
+        .then(resolve)
+        .catch(() => reject(error));
     });
   }
 }

@@ -182,6 +182,11 @@ export default class Download extends YtKitCommand {
     const retryItems = new Map<string, Scheduler.RetryItems>();
     const scheduler = new Scheduler({
       playlistId,
+      playlistOptions: {
+        gl: 'US',
+        hl: 'en',
+        limit: Infinity,
+      },
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
