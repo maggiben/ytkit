@@ -23,7 +23,7 @@
     "tslib": "^2.3.1",
     "ytdl-core": "^4.9.1",
     "ytpl": "^2.2.3",
-    "ytsr": "^3.5.0"
+    "ytsr": "^3.5.3"
   },
   "devDependencies": {
     "@commitlint/cli": "^15.0.0",

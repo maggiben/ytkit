@@ -210,7 +210,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void}
    */
   private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream | Writable {
-    /* stream to file */
+    /* transcode stream */
     if (this.encoderOptions) {
       const file = this.getOutputFile({
         format: this.encoderOptions.format,
@@ -222,6 +222,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       ffmpegStream.ffmpegCommand.on('error', this.error.bind(this));
       return ffmpegStream.stream;
     }
+    /* stream to file in native format */
     this.outputStream = fs.createWriteStream(this.getOutputFile());
     return this.readStream.pipe(this.outputStream);
   }
