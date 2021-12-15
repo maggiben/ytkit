@@ -34,6 +34,7 @@
  */
 
 import { Readable, Writable } from 'stream';
+import ytdl = require('ytdl-core');
 import ffmpegStatic = require('ffmpeg-static');
 import Ffmpeg = require('fluent-ffmpeg');
 Ffmpeg.setFfmpegPath(ffmpegStatic);
@@ -84,6 +85,21 @@ export class FfmpegStream {
     encoder = options.container ? encoder.format(options.container) : encoder;
     this.ffmpegCommand = encoder;
     this.stream = encoder.pipe(this.outputStream, { end: true });
+  }
+
+  public setMetadata(
+    encoder: Ffmpeg.FfmpegCommand = this.ffmpegCommand,
+    videoInfo: ytdl.videoInfo
+  ): Ffmpeg.FfmpegCommand {
+    const { videoId, title, author, shortDescription } = videoInfo.player_response.videoDetails;
+    return encoder
+      .outputOptions('-metadata', `title=${title}`)
+      .outputOptions('-metadata', `author=${author}`)
+      .outputOptions('-metadata', `artist=${author}`)
+      .outputOptions('-metadata', `description=${shortDescription}`)
+      .outputOptions('-metadata', `comment=${shortDescription}`)
+      .outputOptions('-metadata', `episode_id=${videoId}`)
+      .outputOptions('-metadata', 'network=YouTube');
   }
 }
 
