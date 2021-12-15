@@ -219,7 +219,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       const ffmpegStream = new FfmpegStream(this.readStream, this.outputStream, this.encoderOptions);
       // const ffmpegCommand = this.encode(this.readStream, this.encoderOptions);
       // return ffmpegCommand.pipe(this.outputStream, { end: true });
-      ffmpegStream.ffmpegCommand.on('error', this.error.bind(this));
+      ffmpegStream.ffmpegCommand.once('error', this.error.bind(this));
       return ffmpegStream.stream;
     }
     /* stream to file in native format */
@@ -437,8 +437,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
 export default void (async (options: DownloadWorker.Options): Promise<DownloadWorker> => {
   process
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .once('unhandledRejection', (reason: Error, promise: PromiseLike<any>) => {
+    .once('unhandledRejection', (reason: Error, promise: PromiseLike<unknown>) => {
       // eslint-disable-next-line no-console
       console.error('Unhandled Rejection at:', promise, 'reason:', reason);
       process.exit(1);
