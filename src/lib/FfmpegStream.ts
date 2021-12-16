@@ -78,7 +78,7 @@ export class FfmpegStream {
   };
 
   public constructor(private inputSteam: Readable, private outputStream: Writable, options: FfmpegStream.Options) {
-    const { encodeOptions, metadata } = options
+    const { encodeOptions, metadata } = options;
     let encoder = ffmpeg(this.inputSteam);
     encoder = encodeOptions.videoCodec ? encoder.videoCodec(encodeOptions.videoCodec) : encoder;
     encoder = encodeOptions.audioCodec ? encoder.audioCodec(encodeOptions.audioCodec) : encoder;

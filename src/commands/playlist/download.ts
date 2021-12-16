@@ -469,13 +469,14 @@ export default class Download extends YtKitCommand {
     return output;
   }
 
-  private getEncoderOptions(): FfmpegStream.Options | undefined {
+  private getEncoderOptions(): FfmpegStream.EncodeOptions | undefined {
     const format = this.getFlag<FfmpegStream.Format>('format');
     if (format) {
       return {
         audioCodec: FfmpegStream.AudioCodec.libmp3lame,
         audioBitrate: FfmpegStream.AudioBitrate.normal,
         format,
+        container: FfmpegStream.Container.mp3,
       };
     }
     return undefined;
