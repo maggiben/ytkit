@@ -138,7 +138,11 @@ export default class Search extends YtKitCommand {
     searchString: string,
     options?: ytsr.ShortOptions
   ): Promise<Map<string, Map<string, ytsr.Filter>>> {
-    return await ytsr.getFilters(searchString, options);
+    try {
+      return await ytsr.getFilters(searchString, options);
+    } catch (error) {
+      throw new Error((error as Error).message);
+    }
   }
 
   /**
@@ -149,6 +153,10 @@ export default class Search extends YtKitCommand {
    * @returns {Promise<ytsr.Result>} the result promise
    */
   private async search(searchString: string, options?: ytsr.Options): Promise<ytsr.Result> {
-    return await ytsr(searchString, options);
+    try {
+      return await ytsr(searchString, options);
+    } catch (error) {
+      throw new Error((error as Error).message);
+    }
   }
 }

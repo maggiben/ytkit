@@ -513,22 +513,22 @@ export default class Download extends YtKitCommand {
   private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream {
     if (!this.output) {
       /* if we made it here we're 100% sure we're not on a TTY device */
-      process.stdout
-        .once('close', () => {
-          this.ux.log('output stream closed');
-          this.readStream.unpipe(process.stdout);
-          process.exit(0);
-        })
-        .once('end', () => {
-          this.ux.log('output stream ended');
-          this.readStream.unpipe(process.stdout);
-          process.exit(0);
-        })
-        .once('error', (error) => {
-          this.ux.log(`output stream error ${error as string}`);
-          this.readStream.unpipe(process.stdout);
-          process.exit(1);
-        });
+      // process.stdout
+      //   .once('close', () => {
+      //     this.ux.log('output stream closed');
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(0);
+      //   })
+      //   .once('end', () => {
+      //     this.ux.log('output stream ended');
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(0);
+      //   })
+      //   .once('error', (error) => {
+      //     this.ux.log(`output stream error ${error as string}`);
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(1);
+      //   });
       return this.readStream.pipe(process.stdout);
     }
     /* build a proper filename */

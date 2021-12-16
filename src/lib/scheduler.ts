@@ -133,7 +133,11 @@ export class Scheduler extends EventEmitter {
   public async download(): Promise<Array<Scheduler.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
-    return await this.scheduler(playlist.items);
+    try {
+      return await this.scheduler(playlist.items);
+    } catch (error) {
+      throw new Error((error as Error).message);
+    }
   }
 
   /*
