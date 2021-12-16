@@ -36,7 +36,7 @@
 import * as path from 'path';
 import { EventEmitter } from 'stream';
 import { Worker, WorkerOptions } from 'worker_threads';
-import ytdl = require('ytdl-core');
+import * as ytdl from 'ytdl-core';
 import * as ytpl from 'ytpl';
 import { DownloadWorker } from './worker';
 import { FfmpegStream } from './FfmpegStream';
@@ -77,7 +77,7 @@ export namespace Scheduler {
     /**
      * Media encoder options
      */
-    encoderOptions?: FfmpegStream.Options;
+    encoderOptions?: FfmpegStream.EncodeOptions;
   }
 
   export interface Message {
@@ -113,7 +113,7 @@ export class Scheduler extends EventEmitter {
   private timeout: number;
   private playlistOptions?: ytpl.Options;
   private downloadOptions?: ytdl.downloadOptions;
-  private encoderOptions?: FfmpegStream.Options;
+  private encoderOptions?: FfmpegStream.EncodeOptions;
 
   public constructor(options: Scheduler.Options) {
     super();

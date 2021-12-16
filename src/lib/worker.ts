@@ -37,11 +37,10 @@ import { workerData, parentPort, isMainThread } from 'worker_threads';
 import { Readable, Writable } from 'stream';
 import * as path from 'path';
 import * as fs from 'fs';
-import ytdl = require('ytdl-core');
-import ffmpegStatic = require('ffmpeg-static');
-import ffmpeg = require('fluent-ffmpeg');
+import * as ytdl from 'ytdl-core';
+import * as ffmpegStatic from 'ffmpeg-static';
+import * as ffmpeg from 'fluent-ffmpeg';
 import * as ytpl from 'ytpl';
-import tsNode = require('ts-node');
 import * as progressStream from 'progress-stream';
 import * as utils from '../utils/utils';
 import { AsyncCreatable } from '../utils/AsyncCreatable';
@@ -49,7 +48,6 @@ import TimeoutStream from './TimeoutStream';
 import { FfmpegStream } from './FfmpegStream';
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
-tsNode.register();
 
 export namespace DownloadWorker {
   /**
@@ -75,7 +73,7 @@ export namespace DownloadWorker {
     /**
      * Media encoder options
      */
-    encoderOptions?: FfmpegStream.Options;
+    encoderOptions?: FfmpegStream.EncodeOptions;
   }
 
   export interface Message {
@@ -93,7 +91,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private timeout: number;
   private outputFile!: string;
   private downloadOptions?: ytdl.downloadOptions;
-  private encoderOptions?: FfmpegStream.Options;
+  private encoderOptions?: FfmpegStream.EncodeOptions;
   private videoInfo!: ytdl.videoInfo;
   private videoFormat!: ytdl.videoFormat;
   private timeoutStream!: TimeoutStream;
@@ -204,7 +202,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   /**
-   * Pipes the download stream to either a file to stdout
+   * Pipes the download stream to either a file or ffmpeg
    * also sets the error handler function
    *
    * @returns {void}
@@ -215,12 +213,18 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       const file = this.getOutputFile({
         format: this.encoderOptions.format,
       });
+      const ffmpegStreamOptions: FfmpegStream.Options = {
+        encodeOptions: this.encoderOptions,
+        metadata: {
+          videoInfo: this.videoInfo,
+          videoFormat: this.videoFormat,
+        },
+      };
       this.outputStream = fs.createWriteStream(file);
-      const ffmpegStream = new FfmpegStream(this.readStream, this.outputStream, this.encoderOptions);
-      // const ffmpegCommand = this.encode(this.readStream, this.encoderOptions);
-      // return ffmpegCommand.pipe(this.outputStream, { end: true });
-      ffmpegStream.ffmpegCommand.once('error', this.error.bind(this));
-      return ffmpegStream.stream;
+      const { stream, ffmpegCommand } = new FfmpegStream(this.readStream, this.outputStream, ffmpegStreamOptions);
+      this.outputStream.once('error', this.error.bind(this));
+      ffmpegCommand.once('error', this.error.bind(this));
+      return stream;
     }
     /* stream to file in native format */
     this.outputStream = fs.createWriteStream(this.getOutputFile());
@@ -426,7 +430,11 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       const timer = setTimeout(() => {
         this.error(new Error(`Could not retrieve videoInfo for videoId: ${this.item.id}`), 'timeout');
       }, this.timeout);
-      const videoInfo = await ytdl.getInfo(this.item.url);
+      const videoInfo = await ytdl.getInfo(this.item.url, {
+        requestOptions: {
+          timeout: 10,
+        },
+      });
       clearTimeout(timer);
       return videoInfo;
     } catch (error) {

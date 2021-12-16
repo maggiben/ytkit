@@ -34,14 +34,14 @@
  */
 
 import { Readable, Writable } from 'stream';
-import ytdl = require('ytdl-core');
-import ffmpegStatic = require('ffmpeg-static');
-import Ffmpeg = require('fluent-ffmpeg');
-Ffmpeg.setFfmpegPath(ffmpegStatic);
+import * as ytdl from 'ytdl-core';
+import * as ffmpegStatic from 'ffmpeg-static';
+import * as ffmpeg from 'fluent-ffmpeg';
+ffmpeg.setFfmpegPath(ffmpegStatic);
 
 export class FfmpegStream {
   public stream: Writable;
-  public ffmpegCommand: Ffmpeg.FfmpegCommand;
+  public ffmpegCommand: ffmpeg.FfmpegCommand;
   private audioBitrate = {
     lowest: 32,
     low: 64,
@@ -78,20 +78,24 @@ export class FfmpegStream {
   };
 
   public constructor(private inputSteam: Readable, private outputStream: Writable, options: FfmpegStream.Options) {
-    let encoder = Ffmpeg(this.inputSteam);
-    encoder = options.videoCodec ? encoder.videoCodec(options.videoCodec) : encoder;
-    encoder = options.audioCodec ? encoder.audioCodec(options.audioCodec) : encoder;
-    encoder = options.audioBitrate ? encoder.audioBitrate(this.audioBitrate[options.audioBitrate]) : encoder;
-    encoder = options.container ? encoder.format(options.container) : encoder;
+    const { encodeOptions, metadata } = options
+    let encoder = ffmpeg(this.inputSteam);
+    encoder = encodeOptions.videoCodec ? encoder.videoCodec(encodeOptions.videoCodec) : encoder;
+    encoder = encodeOptions.audioCodec ? encoder.audioCodec(encodeOptions.audioCodec) : encoder;
+    encoder = encodeOptions.audioBitrate
+      ? encoder.audioBitrate(this.audioBitrate[encodeOptions.audioBitrate])
+      : encoder;
+    encoder = encodeOptions.format ? encoder.format(encodeOptions.format) : encoder;
     this.ffmpegCommand = encoder;
+    encoder = metadata ? this.setMetadata(metadata) : encoder;
     this.stream = encoder.pipe(this.outputStream, { end: true });
   }
 
-  public setMetadata(
-    encoder: Ffmpeg.FfmpegCommand = this.ffmpegCommand,
-    videoInfo: ytdl.videoInfo
-  ): Ffmpeg.FfmpegCommand {
-    const { videoId, title, author, shortDescription } = videoInfo.player_response.videoDetails;
+  private setMetadata(
+    metadata: FfmpegStream.Metadata,
+    encoder: ffmpeg.FfmpegCommand = this.ffmpegCommand
+  ): ffmpeg.FfmpegCommand {
+    const { videoId, title, author, shortDescription } = metadata.videoInfo.player_response.videoDetails;
     return encoder
       .outputOptions('-metadata', `title=${title}`)
       .outputOptions('-metadata', `author=${author}`)
@@ -156,10 +160,19 @@ export namespace FfmpegStream {
       };
     };
   }
-  /**
-   * Constructor options for FfmpegStream.
-   */
-  export interface Options extends Ffmpeg.FfmpegCommandOptions {
+
+  export interface Metadata {
+    /**
+     * video info.
+     */
+    videoInfo: ytdl.videoInfo;
+    /**
+     * video format.
+     */
+    videoFormat: ytdl.videoFormat;
+  }
+
+  export interface EncodeOptions {
     /**
      * Set audio codec
      */
@@ -180,5 +193,19 @@ export namespace FfmpegStream {
      * Set output format
      */
     format?: keyof typeof FfmpegStream.Format;
+  }
+
+  /**
+   * Constructor options for FfmpegStream.
+   */
+  export interface Options extends ffmpeg.FfmpegCommandOptions {
+    /**
+     * Media encoder options
+     */
+    encodeOptions: FfmpegStream.EncodeOptions;
+    /**
+     * Vide metadata
+     */
+    metadata: FfmpegStream.Metadata;
   }
 }
