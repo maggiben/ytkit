@@ -290,7 +290,7 @@ export class Scheduler extends EventEmitter {
       await this.terminateDownloadWorker(item);
     }
     return new Promise<T>((resolve, reject) => {
-      const worker = new Worker(path.join(__dirname, 'worker.js'), workerOptions);
+      const worker = new Worker(path.join(__dirname, 'runner.js'), workerOptions);
       this.workers.set(item.id, worker);
       return this.handleWorkerEvents<T>(worker, item, resolve, reject);
     });

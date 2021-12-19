@@ -185,13 +185,15 @@ export default class Download extends YtKitCommand {
       playlistOptions: {
         gl: 'US',
         hl: 'en',
-        limit: 30,
+        limit: Infinity,
       },
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
       encoderOptions: this.getEncoderOptions(),
     });
+
+    this.ux.cli.action.start('Retrieving playlist contents', this.ux.chalk.yellow('loading'), { stdout: true });
 
     const multibar = new this.ux.multibar({
       clearOnComplete: true,
@@ -210,9 +212,8 @@ export default class Download extends YtKitCommand {
     });
 
     scheduler.on('playlistItems', (message: Scheduler.Message) => {
-      this.ux.log(
-        `Got playlist items total: ${this.ux.chalk.yellow((message.details?.playlistItems as ytpl.Item[]).length)}`
-      );
+      const length = (message.details?.playlistItems as ytpl.Item[]).length;
+      this.ux.cli.action.stop(`total items: ${this.ux.chalk.yellow(length)}`);
     });
 
     scheduler.on('contentLength', (message: Scheduler.Message) => {

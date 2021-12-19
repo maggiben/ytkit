@@ -184,7 +184,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       this.videoInfo = infoAndVideoFormat.videoInfo;
       this.videoFormat = infoAndVideoFormat.videoFormat;
       if (this.videoInfo && this.videoFormat) {
-        const videoSize = this.getVideoSize();
+        const videoSize = await this.getVideoSize();
         if (videoSize) {
           this.postVideoSize(videoSize);
           this.postProgress();
@@ -237,7 +237,7 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    *
    * @returns {void}
    */
-  private getVideoSize(): number | undefined {
+  private async getVideoSize(): Promise<number | undefined> {
     const sizeUnknown =
       !utils.getValueFrom(this.videoFormat, 'clen') &&
       (utils.getValueFrom(this.videoFormat, 'isLive') ||
@@ -249,12 +249,16 @@ class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     } else if (utils.getValueFrom(this.videoFormat, 'contentLength')) {
       return parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10);
     } else {
-      this.readStream.once('response', (response) => {
-        if (utils.getValueFrom(response, 'headers.content-length')) {
-          return parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
-        } else {
-          return undefined;
-        }
+      return new Promise((resolve, reject) => {
+        this.readStream.once('response', (response) => {
+          if (utils.getValueFrom(response, 'headers.content-length')) {
+            const size = parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
+            return resolve(size);
+          } else {
+            return resolve(undefined);
+          }
+        });
+        this.readStream.once('error', reject);
       });
     }
   }
