@@ -6,7 +6,7 @@
  * @description  : downloads a video in a new worker
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
- * @date         : 06 Dev 2021
+ * @date         : 06 Dec 2021
  * @license:     : MIT
  *
  * Copyright 2021 Benjamin Maggi <benjaminmaggi@gmail.com>

@@ -39,7 +39,7 @@ import { Worker, WorkerOptions } from 'worker_threads';
 import * as ytdl from 'ytdl-core';
 import * as ytpl from 'ytpl';
 // import scheduler from '../utils/promise-pool';
-import { DownloadWorker } from './worker';
+import { DownloadWorker } from './DownloadWorker';
 import { FfmpegStream } from './FfmpegStream';
 
 export namespace Scheduler {
