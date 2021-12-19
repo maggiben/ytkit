@@ -39,15 +39,12 @@ import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
 import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
-import * as ytpl from 'ytpl';
-import { Progress } from 'progress-stream';
 import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../../YtKitCommand';
 import { flags, FlagsConfig } from '../../YtKitFlags';
 import * as utils from '../../utils/utils';
 import videoMeta, { IOutputVideoMeta } from '../../utils/videoMeta';
-import { Scheduler } from '../../lib/scheduler';
 import { FfmpegStream } from '../../lib/FfmpegStream';
 
 export interface IFilter {
@@ -140,29 +137,12 @@ export default class Download extends YtKitCommand {
     this.setOutput();
 
     const videoId = ytdl.validateURL(this.getFlag('url')) && ytdl.getVideoID(this.getFlag('url'));
-    const playlistId = ytpl.validateID(this.getFlag('url')) && (await ytpl.getPlaylistID(this.getFlag('url')));
 
-    if (!videoId && !playlistId) {
+    if (!videoId) {
       return;
     }
 
-    if (playlistId) {
-      const response = videoId ? await this.ux.cli.confirm('do you want to download the entire playlist (Y/n)') : true;
-      if (response) {
-        try {
-          return await this.downloadPlaylist(playlistId);
-        } catch (error) {
-          return;
-        }
-      }
-      try {
-        return await this.downloadVideo();
-      } catch (error) {
-        return;
-      }
-    }
-
-    if (this.flags.urlonly && !playlistId) {
+    if (this.flags.urlonly) {
       const url = await this.getDownloadUrl();
       if (url) {
         this.ux.cli.url(url, url);
@@ -175,165 +155,6 @@ export default class Download extends YtKitCommand {
     } catch (error) {
       return;
     }
-  }
-
-  private async downloadPlaylist(playlistId: string): Promise<number[] | void> {
-    const progressbars = new Map<string, SingleBar>();
-    const retryItems = new Map<string, Scheduler.RetryItems>();
-    const scheduler = new Scheduler({
-      playlistId,
-      playlistOptions: {
-        gl: 'US',
-        hl: 'en',
-        limit: 10,
-      },
-      output: this.output,
-      maxconnections: this.getFlag<number>('maxconnections'),
-      retries: this.getFlag<number>('retries'),
-      // encoderOptions: this.getEncoderOptions(),
-    });
-
-    const multibar = new this.ux.multibar({
-      clearOnComplete: true,
-      hideCursor: true,
-      format:
-        '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed} | Elapsed: {elapsed} | Retries: {retries} | Title: {title} ',
-      barCompleteChar: '\u2588',
-      barIncompleteChar: '\u2591',
-    });
-
-    ['timeout', 'retry', 'error', 'fatal', 'promise', 'online', 'exit', 'progressBar'].forEach((name) => {
-      const file = path.join('.', `${name}.txt`);
-      if (fs.existsSync(file)) {
-        fs.unlinkSync(file);
-      }
-    });
-
-    scheduler.on('playlistItems', (message: Scheduler.Message) => {
-      this.ux.log(
-        `Got playlist items total: ${this.ux.chalk.yellow((message.details?.playlistItems as ytpl.Item[]).length)}`
-      );
-    });
-
-    scheduler.on('contentLength', (message: Scheduler.Message) => {
-      if (!progressbars.has(message.source.id)) {
-        progressbars.set(message.source.id, multibar.create(message.details?.contentLength as number, 0));
-      }
-    });
-
-    scheduler.on('online', (message: Scheduler.Message) => {
-      fs.appendFileSync('./online.txt', `thread online id: ${message.source.id} title: ${message.source.title}\n`);
-    });
-
-    scheduler.on('end', (message: Scheduler.Message) => {
-      const progressbar = progressbars.get(message.source.id);
-      if (progressbar) {
-        progressbar.stop();
-        multibar.remove(progressbar);
-      }
-    });
-
-    scheduler.on('timeout', (message: Scheduler.Message) => {
-      const progressbar = progressbars.get(message.source.id);
-      if (progressbar) {
-        progressbar.stop();
-        multibar.remove(progressbar);
-      }
-      fs.appendFileSync('./timeout.txt', `item: id: ${message.source.id} title: ${message.source.title} timed out \n`);
-    });
-
-    scheduler.on('progress', (message: Scheduler.Message) => {
-      interface ExtendedProgress extends Progress {
-        elapsed: string;
-      }
-      const progress = message.details?.progress as ExtendedProgress;
-      const progressbar = progressbars.get(message.source.id);
-      const retryItem = retryItems.get(message.source.id);
-      progressbar?.update(progress.transferred, {
-        timeleft: utils.toHumanTime(progress.eta),
-        percentage: progress.percentage,
-        title: message.source.title,
-        speed: utils.toHumanSize(progress.speed),
-        elapsed: progress.elapsed,
-        retries: retryItem?.left ?? this.getFlag<number>('retries'),
-      });
-    });
-
-    scheduler.on('elapsed', (message: Scheduler.Message) => {
-      interface ExtendedProgress extends Progress {
-        elapsed: string;
-      }
-      const progress = message.details?.progress as ExtendedProgress;
-      const progressbar = progressbars.get(message.source.id);
-      const retryItem = retryItems.get(message.source.id);
-      progressbar?.update(progress.transferred, {
-        timeleft: utils.toHumanTime(progress.eta),
-        percentage: progress.percentage,
-        title: message.source.title,
-        speed: utils.toHumanSize(progress.speed),
-        elapsed: progress.elapsed,
-        retries: retryItem?.left ?? this.getFlag<number>('retries'),
-      });
-    });
-
-    scheduler.on('retry', (message: Scheduler.Message) => {
-      retryItems.set(message.source.id, {
-        item: message.source as ytpl.Item,
-        left: message.details?.left as number,
-      });
-      fs.appendFileSync(
-        './retry.txt',
-        `item: id: ${message.source.id} title: ${message.source.title} retry ${message.details?.left as number} \n`
-      );
-    });
-
-    scheduler.on('error', (message: Scheduler.Message) => {
-      // this.ux.cli.warn(`item: ${message.source.title} message: ${message.error?.message}`);
-      fs.appendFileSync(
-        './error.txt',
-        `item: id: ${message.source.id} title: ${message.source.title} message: ${message.error?.message} \n`
-      );
-    });
-
-    scheduler.on('exit', (message: Scheduler.Message) => {
-      const progressbar = progressbars.get(message.source.id);
-      const code = message.details?.code as number;
-      if (progressbar) {
-        progressbar.stop();
-        multibar.remove(progressbar);
-      }
-      // this.ux.cli.warn(`exit on thread item: ${message.source.title} message: ${message.error?.message}`);
-      fs.appendFileSync(
-        './exit.txt',
-        `exit on thread item: ${message.source.id} title: ${message.source.title} code: ${code} \n`
-      );
-    });
-
-    let results: Array<Scheduler.Result | undefined> = [];
-    try {
-      results = await scheduler.download();
-    } catch (error) {
-      this.ux.cli.warn('failed to fetch the playlist');
-    } finally {
-      progressbars.forEach((progressbar) => {
-        progressbar.stop();
-        multibar.remove(progressbar);
-      });
-      multibar.stop();
-      const failed = results.filter((result) => Boolean(result?.code || result?.error)).length;
-      const completed = results.length - failed;
-      this.ux.cli.log(`finally completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
-      this.ux.logJson(
-        results.map((result) => {
-          return {
-            id: result?.item.id,
-            error: result?.error,
-            code: result?.code,
-          };
-        }) as unknown as Record<string, unknown>
-      );
-    }
-    return;
   }
 
   /**
@@ -467,19 +288,6 @@ export default class Download extends YtKitCommand {
       base: parsedOutput.base,
     });
     return output;
-  }
-
-  private getEncoderOptions(): FfmpegStream.EncodeOptions | undefined {
-    const format = this.getFlag<FfmpegStream.Format>('format');
-    if (format) {
-      return {
-        audioCodec: FfmpegStream.AudioCodec.libmp3lame,
-        audioBitrate: FfmpegStream.AudioBitrate.normal,
-        format,
-        container: FfmpegStream.Container.mp3,
-      };
-    }
-    return undefined;
   }
 
   /**

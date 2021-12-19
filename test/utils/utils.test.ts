@@ -39,6 +39,18 @@ describe('test utils', () => {
     const toHumanSize = utils.toHumanSize(0);
     expect(toHumanSize).to.equal('0');
   });
+  it('converts size in human readable format to number of bytes', () => {
+    const number = utils.fromHumanSize('128KB');
+    expect(number).to.equal(131072);
+  });
+  it('converts size in human readable format to number of bytes, simple number is returned', () => {
+    const number = utils.fromHumanSize('128');
+    expect(number).to.equal(128);
+  });
+  it('converts size in human readable format to number of bytes, empty string return zero', () => {
+    const number = utils.fromHumanSize('');
+    expect(number).to.equal(0);
+  });
   it('template a string with variables denoted by {prop}.', () => {
     const string = '{title}.{author}';
     const tmpl = utils.tmpl(string, [{ title: 'Hey Jude', author: 'The Beatles' }]);

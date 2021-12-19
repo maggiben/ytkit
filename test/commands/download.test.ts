@@ -3,7 +3,7 @@ import { PassThrough, Writable } from 'stream';
 import { expect, test } from '@oclif/test';
 import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
-import ytdl = require('ytdl-core');
+import * as ytdl from 'ytdl-core';
 import { SingleBar } from 'cli-progress';
 import { UX } from '../../src/Ux';
 import * as utils from '../../src/utils/utils';

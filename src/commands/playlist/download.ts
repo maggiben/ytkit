@@ -190,7 +190,7 @@ export default class Download extends YtKitCommand {
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
-      // encoderOptions: this.getEncoderOptions(),
+      encoderOptions: this.getEncoderOptions(),
     });
 
     const multibar = new this.ux.multibar({

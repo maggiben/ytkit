@@ -65,7 +65,7 @@ export default class Download extends YtKitCommand {
       required: true,
     }),
     quality: flags.string({
-      description: 'Video quality to download, default: highest',
+      description: 'Video quality to download, default: highest can use ITAG',
     }),
     filter: flags.enum({
       description: 'Can be video, videoonly, audio, audioonly',
@@ -185,7 +185,7 @@ export default class Download extends YtKitCommand {
       playlistOptions: {
         gl: 'US',
         hl: 'en',
-        limit: Infinity,
+        limit: 30,
       },
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),

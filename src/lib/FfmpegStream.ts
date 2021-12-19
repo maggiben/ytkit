@@ -68,11 +68,11 @@ export class FfmpegStream {
       mp4: {
         videoCodec: FfmpegStream.VideoCodec.libx264,
       },
-      avi: {
-        videoCodec: FfmpegStream.VideoCodec.mpeg2,
-      },
       wav: {
         audioCodec: FfmpegStream.AudioCodec.pcm_mulaw,
+      },
+      webm: {
+        videoCodec: FfmpegStream.VideoCodec.libvpx,
       },
     },
   };
@@ -85,7 +85,7 @@ export class FfmpegStream {
     encoder = encodeOptions.audioBitrate
       ? encoder.audioBitrate(this.audioBitrate[encodeOptions.audioBitrate])
       : encoder;
-    encoder = encodeOptions.format ? encoder.format(encodeOptions.format) : encoder;
+    encoder = encoder.format(encodeOptions.format);
     this.ffmpegCommand = encoder;
     encoder = metadata ? this.setMetadata(metadata) : encoder;
     this.stream = encoder.pipe(this.outputStream, { end: true });
@@ -107,6 +107,7 @@ export class FfmpegStream {
   }
 }
 
+/* istanbul ignore next */
 export namespace FfmpegStream {
   export enum AudioCodec {
     aac = 'aac',
@@ -121,7 +122,8 @@ export namespace FfmpegStream {
     gif = 'gif',
     png = 'png',
     libx264 = 'libx264',
-    mpeg2 = 'mpeg2',
+    libvpx = 'libvpx',
+    copy = 'copy',
   }
 
   export enum AudioBitrate {
@@ -192,7 +194,7 @@ export namespace FfmpegStream {
     /**
      * Set output format
      */
-    format?: keyof typeof FfmpegStream.Format;
+    format: keyof typeof FfmpegStream.Format;
   }
 
   /**
@@ -206,6 +208,6 @@ export namespace FfmpegStream {
     /**
      * Vide metadata
      */
-    metadata: FfmpegStream.Metadata;
+    metadata?: FfmpegStream.Metadata;
   }
 }

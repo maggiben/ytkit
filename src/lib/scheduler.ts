@@ -38,6 +38,7 @@ import { EventEmitter } from 'stream';
 import { Worker, WorkerOptions } from 'worker_threads';
 import * as ytdl from 'ytdl-core';
 import * as ytpl from 'ytpl';
+// import scheduler from '../utils/promise-pool';
 import { DownloadWorker } from './worker';
 import { FfmpegStream } from './FfmpegStream';
 
@@ -135,8 +136,13 @@ export class Scheduler extends EventEmitter {
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
     try {
       return await this.scheduler(playlist.items);
+      // return await scheduler<Scheduler.Result, ytpl.Item>(
+      //   this.maxconnections,
+      //   playlist.items,
+      //   this.downloadWorkers.bind(this)
+      // );
     } catch (error) {
-      throw new Error((error as Error).message);
+      throw new Error(`Scheduler error: ${(error as Error).message}`);
     }
   }
 

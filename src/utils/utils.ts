@@ -67,14 +67,36 @@ export const toHumanTime = (seconds: number): string => {
  * @param {number} bytes
  * @return {string}
  */
-const units = ' KMGTPEZYXWVU';
+const UNITS = ' KMGTPEZYXWVU';
 export const toHumanSize = (bytes: number): string => {
   if (bytes <= 0) {
     return '0';
   }
   const t2 = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 12);
-  return `${Math.round((bytes * 100) / Math.pow(1024, t2)) / 100}${units.charAt(t2).replace(' ', '')}B`;
+  return `${Math.round((bytes * 100) / Math.pow(1024, t2)) / 100}${UNITS.charAt(t2).replace(' ', '')}B`;
 };
+
+/**
+ * Converts human size input to number of bytes.
+ *
+ * @param {string} size ie. 128KB 96KB
+ * @return {number} number in bytes
+ */
+export function fromHumanSize(size: string): number {
+  if (!size) {
+    return 0;
+  }
+
+  const num = parseFloat(size);
+  const unit = size[num.toString().length];
+  const unitIndex = UNITS.indexOf(unit);
+
+  if (unitIndex < 0) {
+    return num;
+  }
+
+  return Math.pow(1024, unitIndex) * num;
+}
 
 /**
  * Template a string with variables denoted by {prop}.

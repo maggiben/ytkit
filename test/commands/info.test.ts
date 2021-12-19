@@ -2,7 +2,7 @@ import { expect, test } from '@oclif/test';
 import { get } from '@salesforce/ts-types';
 import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
-import ytdl = require('ytdl-core');
+import * as ytdl from 'ytdl-core';
 import { UX } from '../../src/Ux';
 import * as util from '../../src/utils/utils';
 import Info from '../../src/commands/info';
