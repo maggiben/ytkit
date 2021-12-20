@@ -33,6 +33,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+import { performance } from 'perf_hooks';
 import { Writable, WritableOptions, Readable } from 'stream';
 import * as utils from '../utils/utils';
 

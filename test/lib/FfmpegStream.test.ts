@@ -48,7 +48,7 @@ describe('FfmpegStream', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(outputDir, { recursive: true, force: true });
+    fs.rmdirSync(outputDir, { recursive: true });
   });
 
   it('streams to ffmpeg and converts to mp3', (done) => {
