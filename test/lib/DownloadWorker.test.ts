@@ -113,7 +113,6 @@ describe('DownloadWorker', () => {
     expect(getInfoStub.callCount).to.be.equal(1);
     expect(downloadFromInfoStub.callCount).to.be.equal(1);
     expect(exitStub.callCount).to.be.equal(1);
-    expect(downloadFromInfoStub.callCount).to.be.equal(0);
     expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
     expect(downloadWorker).to.have.keys([
       'downloadOptions',
