@@ -10,6 +10,8 @@ process.env.YTDL_NO_UPDATE = 'true';
 process.env.NODE_ENV = 'test';
 
 describe('scheduler', () => {
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  let onStub: sinon.SinonStub;
   before(() => {
     nock.disableNetConnect();
   });
@@ -18,7 +20,12 @@ describe('scheduler', () => {
     nock.enableNetConnect();
   });
 
+  beforeEach(() => {
+    onStub = sandbox.stub(Scheduler.prototype, 'emit').returns(true);
+  });
+
   afterEach(() => {
+    sandbox.restore();
     nock.cleanAll();
   });
 
@@ -101,7 +108,6 @@ describe('scheduler', () => {
       },
     };
     process.env.NODE_WORKER = path.join(__dirname, '..', 'mocks', 'worker_some_fail.js');
-    const onStub: sinon.SinonStub = sinon.stub(Scheduler.prototype, 'emit').returns(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     // .callsFake((eventName: string | symbol, listener: (...args: any[]) => void) => {
     //   console.log('eventName', eventName);
@@ -117,7 +123,6 @@ describe('scheduler', () => {
     });
     expect(hasErrors).to.be.false;
     expect(onStub.callCount).to.be.greaterThan(1);
-    onStub.restore();
     scope.done();
   });
 });
@@ -138,8 +143,8 @@ describe('scheduler error', () => {
   });
 
   afterEach(() => {
-    onStub.restore();
     sandbox.restore();
+    nock.cleanAll();
   });
 
   it('runs all tasks every throw error', async () => {
@@ -179,13 +184,12 @@ describe('scheduler error', () => {
 describe('scheduler retries', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   let onlineCounter = 0;
-  let emitStub: sinon.SinonStub;
   before(() => {
     nock.disableNetConnect();
   });
 
   beforeEach(() => {
-    emitStub = sandbox.stub(Scheduler.prototype, 'emit').callsFake((eventName: string | symbol): boolean => {
+    sandbox.stub(Scheduler.prototype, 'emit').callsFake((eventName: string | symbol): boolean => {
       if (eventName === 'online') {
         onlineCounter += 1;
       }
@@ -198,7 +202,6 @@ describe('scheduler retries', () => {
   });
 
   afterEach(() => {
-    emitStub.restore();
     sandbox.restore();
   });
 
