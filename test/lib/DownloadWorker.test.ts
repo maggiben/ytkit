@@ -1,6 +1,6 @@
 import * as workerThreads from 'worker_threads';
 import * as fs from 'fs';
-import { PassThrough, Writable } from 'stream';
+import { PassThrough } from 'stream';
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as ytpl from 'ytpl';
@@ -210,7 +210,7 @@ describe('DownloadWorker', () => {
     sandbox.restore();
   });
 
-  it.only('DownloadWorker downloads sends kill messages', async () => {
+  it('DownloadWorker downloads sends kill messages', async () => {
     const downloadWorkerOptions: DownloadWorker.Options = {
       item: {
         title: 'MyVideo',
