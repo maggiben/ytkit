@@ -33,7 +33,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import { Writable, WritableOptions } from 'stream';
+import { Writable, WritableOptions, Readable } from 'stream';
 import * as utils from '../utils/utils';
 
 export interface TimeoutStreamOptions extends WritableOptions {
@@ -43,6 +43,7 @@ export default class TimeoutStream extends Writable {
   private timeout: number;
   private timer!: NodeJS.Timeout;
   private prev!: number;
+  private inputStream!: Readable;
   public constructor(options?: TimeoutStreamOptions) {
     super(options);
     this.timeout = options?.timeout ?? 5000;
@@ -65,14 +66,26 @@ export default class TimeoutStream extends Writable {
   }
 
   private handleEvents(): void {
-    this.once('pipe', () => {
+    this.once('pipe', (stream: Readable) => {
+      this.inputStream = stream;
+      this.handleInputStreamEvents(stream);
       this.setTimeout();
     });
     this.once('close', () => {
       this.clearTimeout();
     });
+    this.once('end', () => {
+      this.clearTimeout();
+    });
     this.once('finish', () => {
       this.clearTimeout();
+    });
+  }
+
+  private handleInputStreamEvents(inputStream = this.inputStream): void {
+    inputStream.once('end', () => {
+      this.clearTimeout();
+      this.emit('end');
     });
   }
 

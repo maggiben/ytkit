@@ -85,11 +85,10 @@ export namespace DownloadWorker {
 }
 
 export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
-  protected readStream!: Readable;
+  protected downloadStream!: Readable;
   private item: ytpl.Item;
-  private output?: string;
+  private output!: string;
   private timeout: number;
-  private outputFile!: string;
   private downloadOptions?: ytdl.downloadOptions;
   private encoderOptions?: FfmpegStream.EncodeOptions;
   private videoInfo!: ytdl.videoInfo;
@@ -117,11 +116,11 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       this.handleMessages();
       const videoInfo = await this.downloadVideo();
       if (videoInfo) {
-        this.exit(0);
+        return this.exit(0);
       }
-      this.exit(1);
+      return this.exit(1);
     } catch (error) {
-      this.error(error);
+      return this.error(error);
     }
   }
 
@@ -166,10 +165,14 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
   private async onEnd(): Promise<void> {
     return new Promise((resolve) => {
-      this.readStream.once('end', () => {
+      this.downloadStream.once('end', () => {
         parentPort?.postMessage({
           type: 'end',
           source: this.item,
+          details: {
+            videoInfo: this.videoInfo,
+            videoFormat: this.videoFormat,
+          },
         });
         resolve();
       });
@@ -178,8 +181,8 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
 
   private async downloadFromInfo(videoInfo: ytdl.videoInfo): Promise<ytdl.videoInfo | undefined> {
     try {
-      this.readStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
-      this.readStream.once('error', this.error.bind(this));
+      this.downloadStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
+      this.downloadStream.once('error', this.error.bind(this));
       const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
       this.videoInfo = infoAndVideoFormat.videoInfo;
       this.videoFormat = infoAndVideoFormat.videoFormat;
@@ -188,8 +191,8 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
         if (videoSize) {
           this.postVideoSize(videoSize);
           this.postProgress();
-          this.postElapsed();
           this.onTimeout();
+          this.postElapsed();
         }
         this.setVideoOutput();
         await this.onEnd();
@@ -221,14 +224,14 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
         },
       };
       this.outputStream = fs.createWriteStream(file);
-      const { stream, ffmpegCommand } = new FfmpegStream(this.readStream, this.outputStream, ffmpegStreamOptions);
+      const { stream, ffmpegCommand } = new FfmpegStream(this.downloadStream, this.outputStream, ffmpegStreamOptions);
       this.outputStream.once('error', this.error.bind(this));
       ffmpegCommand.once('error', this.error.bind(this));
       return stream;
     }
     /* stream to file in native format */
     this.outputStream = fs.createWriteStream(this.getOutputFile());
-    return this.readStream.pipe(this.outputStream);
+    return this.downloadStream.pipe(this.outputStream);
   }
 
   /**
@@ -250,7 +253,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       return parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10);
     } else {
       return new Promise((resolve, reject) => {
-        this.readStream.once('response', (response) => {
+        this.downloadStream.once('response', (response) => {
           if (utils.getValueFrom(response, 'headers.content-length')) {
             const size = parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
             return resolve(size);
@@ -258,7 +261,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
             return resolve(undefined);
           }
         });
-        this.readStream.once('error', reject);
+        this.downloadStream.once('error', reject);
       });
     }
   }
@@ -291,7 +294,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void}
    */
   private postProgress(): void {
-    this.readStream.pipe(this.progressStream);
+    this.downloadStream.pipe(this.progressStream);
     this.progressStream.on('progress', (progress) => {
       this.progress = progress;
       parentPort?.postMessage({
@@ -327,7 +330,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private onTimeout(): void {
-    this.readStream.pipe(this.timeoutStream);
+    this.downloadStream.pipe(this.timeoutStream);
     this.timeoutStream.once('timeout', () => {
       this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`), 'timeout');
     });
@@ -343,21 +346,23 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    *
    * @returns {string} output file
    */
-  private getOutputFile(options?: {
-    output?: string;
-    videoInfo?: ytdl.videoInfo;
-    videoFormat?: ytdl.videoFormat;
-    format?: FfmpegStream.Format | string;
-  }): string {
-    const {
-      output = this.output ?? '{videoDetails.title}',
-      videoInfo = this.videoInfo,
-      videoFormat = this.videoFormat,
-      format = utils.getValueFrom<string>(this.videoFormat, 'container', ''),
-    } = options ?? {};
+  private getOutputFile(
+    options: {
+      output?: string;
+      videoInfo?: ytdl.videoInfo;
+      videoFormat?: ytdl.videoFormat;
+      format?: FfmpegStream.Format | string;
+    } = {
+      output: this.output,
+      videoInfo: this.videoInfo,
+      videoFormat: this.videoFormat,
+      format: utils.getValueFrom<string>(this.videoFormat, 'container', ''),
+    }
+  ): string {
+    const { output = this.output } = options;
     return path.format({
-      name: utils.tmpl(output, [videoInfo, videoFormat]),
-      ext: `.${format}`,
+      name: utils.tmpl(output, [options.videoInfo, options.videoFormat]),
+      ext: `.${options.format}`,
     });
   }
 
@@ -369,10 +374,10 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    */
   private setVideInfoAndVideoFormat(): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat }> {
     return new Promise((resolve, reject) => {
-      this.readStream.once('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
+      this.downloadStream.once('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
         return resolve({ videoInfo, videoFormat });
       });
-      this.readStream.once('error', reject);
+      this.downloadStream.once('error', reject);
     });
   }
 
@@ -392,36 +397,27 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void} output file
    */
   private endStreams(): void {
-    this.readStream.destroy();
-    this.readStream.unpipe(this.outputStream);
-    this.readStream.unpipe(this.progressStream);
-    this.readStream.unpipe(this.timeoutStream);
-    // end the timoeut stream
-    this.timeoutStream.end();
-    // end the progress stream
-    this.progressStream.end();
-    // end the file stream
-    this.outputStream.end();
-    // Remove ouput file
-    if (fs.existsSync(this.outputStream.path.toString())) {
-      this.outputStream.destroy();
-      fs.unlinkSync(this.outputStream.path.toString());
+    if (this.downloadStream && this.timeoutStream && this.outputStream) {
+      this.downloadStream.destroy();
+      this.downloadStream.unpipe(this.outputStream);
+      this.downloadStream.unpipe(this.progressStream);
+      this.downloadStream.unpipe(this.timeoutStream);
+      // end the timoeut stream
+      this.timeoutStream.end();
+      // end the progress stream
+      this.progressStream.end();
+      // end the file stream
+      this.outputStream.end();
+      // Remove ouput file
+      if (fs.existsSync(this.outputStream.path.toString())) {
+        this.outputStream.destroy();
+        fs.unlinkSync(this.outputStream.path.toString());
+      }
     }
   }
 
   private exit(code: number): never {
-    process.exit(code);
-  }
-
-  private elapsed(): (lap?: string) => void {
-    let prev = performance.now();
-    return (lap?: string): void => {
-      if (lap) {
-        // eslint-disable-next-line no-console
-        return console.log(`${lap} in: ${utils.toHumanTime(Math.floor((performance.now() - prev) / 1000))}`);
-      }
-      prev = performance.now();
-    };
+    return process.exit(code);
   }
 
   /**

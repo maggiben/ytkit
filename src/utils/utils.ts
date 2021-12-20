@@ -120,7 +120,7 @@ export const tmpl = (str: string, objs: any[]): string => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ThrottledFunction<T extends (...args: any) => any> = (...args: Parameters<T>) => ReturnType<T>;
+export type ThrottledFunction<T extends (...args: any[]) => any> = (...args: Parameters<T>) => ReturnType<T>;
 
 /**
  * Creates a throttled function that only invokes the provided function (`func`) at most once per within a given number of milliseconds
