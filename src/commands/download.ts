@@ -48,7 +48,7 @@ import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
 import videoMeta, { IOutputVideoMeta } from '../utils/videoMeta';
 import { Scheduler } from '../lib/scheduler';
-import { FfmpegStream } from '../lib/FfmpegStream';
+import { EncoderStream } from '../lib/EncoderStream';
 
 export interface IFilter {
   [name: string]: (format: Record<string, string>) => boolean;
@@ -115,7 +115,7 @@ export default class Download extends YtKitCommand {
     format: flags.enum({
       char: 'f',
       description: 'Output format container',
-      options: Object.keys(FfmpegStream.Format),
+      options: Object.keys(EncoderStream.Format),
     }),
   };
 
@@ -185,7 +185,7 @@ export default class Download extends YtKitCommand {
       playlistOptions: {
         gl: 'US',
         hl: 'en',
-        limit: Infinity,
+        limit: 30,
       },
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
@@ -470,14 +470,14 @@ export default class Download extends YtKitCommand {
     return output;
   }
 
-  private getEncoderOptions(): FfmpegStream.EncodeOptions | undefined {
-    const format = this.getFlag<FfmpegStream.Format>('format');
+  private getEncoderOptions(): EncoderStream.EncodeOptions | undefined {
+    const format = this.getFlag<EncoderStream.Format>('format');
     if (format) {
       return {
-        audioCodec: FfmpegStream.AudioCodec.libmp3lame,
-        audioBitrate: FfmpegStream.AudioBitrate.normal,
+        audioCodec: EncoderStream.AudioCodec.libmp3lame,
+        audioBitrate: EncoderStream.AudioBitrate.normal,
         format,
-        container: FfmpegStream.Container.mp3,
+        container: EncoderStream.Container.mp3,
       };
     }
     return undefined;

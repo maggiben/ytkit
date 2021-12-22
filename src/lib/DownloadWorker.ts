@@ -45,7 +45,7 @@ import * as progressStream from 'progress-stream';
 import * as utils from '../utils/utils';
 import { AsyncCreatable } from '../utils/AsyncCreatable';
 import TimeoutStream from './TimeoutStream';
-import { FfmpegStream } from './FfmpegStream';
+import { EncoderStream } from './EncoderStream';
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
@@ -73,7 +73,7 @@ export namespace DownloadWorker {
     /**
      * Media encoder options
      */
-    encoderOptions?: FfmpegStream.EncodeOptions;
+    encoderOptions?: EncoderStream.EncodeOptions;
   }
 
   export interface Message {
@@ -90,7 +90,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private output!: string;
   private timeout: number;
   private downloadOptions?: ytdl.downloadOptions;
-  private encoderOptions?: FfmpegStream.EncodeOptions;
+  private encoderOptions?: EncoderStream.EncodeOptions;
   private videoInfo!: ytdl.videoInfo;
   private videoFormat!: ytdl.videoFormat;
   private timeoutStream!: TimeoutStream;
@@ -194,7 +194,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
           this.onTimeout();
           this.postElapsed();
         }
-        this.setVideoOutput();
+        await this.setVideoOutput();
         await this.onEnd();
         return infoAndVideoFormat.videoInfo;
       }
@@ -210,24 +210,30 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    *
    * @returns {void}
    */
-  private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream | Writable {
+  private async setVideoOutput(): Promise<fs.WriteStream | NodeJS.WriteStream | Writable | undefined> {
     /* transcode stream */
     if (this.encoderOptions) {
       const file = this.getOutputFile({
         format: this.encoderOptions.format,
       });
-      const ffmpegStreamOptions: FfmpegStream.Options = {
+      this.outputStream = fs.createWriteStream(file);
+      const encoderStreamOptions: EncoderStream.Options = {
         encodeOptions: this.encoderOptions,
         metadata: {
           videoInfo: this.videoInfo,
           videoFormat: this.videoFormat,
         },
+        inputSteam: this.downloadStream,
+        outputStream: this.outputStream,
       };
-      this.outputStream = fs.createWriteStream(file);
-      const { stream, ffmpegCommand } = new FfmpegStream(this.downloadStream, this.outputStream, ffmpegStreamOptions);
-      this.outputStream.once('error', this.error.bind(this));
-      ffmpegCommand.once('error', this.error.bind(this));
-      return stream;
+      try {
+        const { stream, ffmpegCommand } = await EncoderStream.create(encoderStreamOptions);
+        this.outputStream.once('error', this.error.bind(this));
+        ffmpegCommand.once('error', this.error.bind(this));
+        return stream;
+      } catch (error) {
+        this.error(error);
+      }
     }
     /* stream to file in native format */
     this.outputStream = fs.createWriteStream(this.getOutputFile());
@@ -351,7 +357,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       output?: string;
       videoInfo?: ytdl.videoInfo;
       videoFormat?: ytdl.videoFormat;
-      format?: FfmpegStream.Format | string;
+      format?: EncoderStream.Format | string;
     } = {
       output: this.output,
       videoInfo: this.videoInfo,
@@ -359,10 +365,16 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       format: utils.getValueFrom<string>(this.videoFormat, 'container', ''),
     }
   ): string {
-    const { output = this.output } = options;
+    const {
+      output = this.output,
+      videoInfo = this.videoInfo,
+      videoFormat = this.videoFormat,
+      format = utils.getValueFrom<string>(this.videoFormat, 'container', ''),
+    } = options;
+    // fs.appendFileSync('output.txt', `output: ${output}\nformat: ${options.format}`);
     return path.format({
-      name: utils.tmpl(output, [options.videoInfo, options.videoFormat]),
-      ext: `.${options.format}`,
+      name: utils.tmpl(output, [videoInfo, videoFormat]),
+      ext: `.${format}`,
     });
   }
 

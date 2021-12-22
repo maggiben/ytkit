@@ -37,11 +37,12 @@ import { Readable, Writable } from 'stream';
 import * as ytdl from 'ytdl-core';
 import * as ffmpegStatic from 'ffmpeg-static';
 import * as ffmpeg from 'fluent-ffmpeg';
+import { AsyncCreatable } from '../utils/AsyncCreatable';
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
-export class FfmpegStream {
-  public stream: Writable;
-  public ffmpegCommand: ffmpeg.FfmpegCommand;
+export class EncoderStream extends AsyncCreatable<EncoderStream.Options> {
+  public stream!: Writable;
+  public ffmpegCommand!: ffmpeg.FfmpegCommand;
   private audioBitrate = {
     lowest: 32,
     low: 64,
@@ -50,51 +51,78 @@ export class FfmpegStream {
     good: 256,
     excellent: 320,
   };
-
-  private formatCodec: FfmpegStream.FormatCodec = {
+  private formats!: ffmpeg.Formats;
+  private codecs!: ffmpeg.Codecs;
+  private formatCodec: EncoderStream.FormatCodec = {
     format: {
       aac: {
-        audioCodec: FfmpegStream.AudioCodec.aac,
+        audioCodec: EncoderStream.AudioCodec.aac,
       },
       flac: {
-        audioCodec: FfmpegStream.AudioCodec.flac,
+        audioCodec: EncoderStream.AudioCodec.flac,
       },
       ogg: {
-        audioCodec: FfmpegStream.AudioCodec.libopus,
+        audioCodec: EncoderStream.AudioCodec.libopus,
       },
       mp3: {
-        audioCodec: FfmpegStream.AudioCodec.libmp3lame,
+        audioCodec: EncoderStream.AudioCodec.libmp3lame,
       },
       mp4: {
-        videoCodec: FfmpegStream.VideoCodec.libx264,
+        videoCodec: EncoderStream.VideoCodec.libx264,
       },
       wav: {
-        audioCodec: FfmpegStream.AudioCodec.pcm_mulaw,
+        audioCodec: EncoderStream.AudioCodec.pcm_mulaw,
       },
       webm: {
-        videoCodec: FfmpegStream.VideoCodec.libvpx,
+        videoCodec: EncoderStream.VideoCodec.libvpx,
       },
     },
   };
 
-  public constructor(private inputSteam: Readable, private outputStream: Writable, options: FfmpegStream.Options) {
-    const { encodeOptions, metadata } = options;
-    let encoder = ffmpeg(this.inputSteam);
+  public constructor(private options: EncoderStream.Options) {
+    super(options);
+  }
+
+  public static async getAvailableFormats(): Promise<ffmpeg.Formats> {
+    return new Promise((resolve, reject) => {
+      return ffmpeg.getAvailableFormats((error, formats) => {
+        return error || !formats ? reject(error) : resolve(formats);
+      });
+    });
+  }
+
+  public static async getAvailableCodecs(): Promise<ffmpeg.Codecs> {
+    return new Promise((resolve, reject) => {
+      return ffmpeg.getAvailableCodecs((error, codecs) => {
+        return error || !codecs ? reject(error) : resolve(codecs);
+      });
+    });
+  }
+
+  /**
+   * Initializes an instance of the EncoderStream class.
+   */
+  public async init(): Promise<void> {
+    this.formats = await EncoderStream.getAvailableFormats();
+    this.codecs = await EncoderStream.getAvailableCodecs();
+    this.encodeStream();
+  }
+
+  private encodeStream(): void {
+    const { inputSteam, outputStream, encodeOptions, metadata } = this.options;
+    let encoder = ffmpeg(inputSteam);
     encoder = encodeOptions.videoCodec ? encoder.videoCodec(encodeOptions.videoCodec) : encoder;
     encoder = encodeOptions.audioCodec ? encoder.audioCodec(encodeOptions.audioCodec) : encoder;
     encoder = encodeOptions.audioBitrate
       ? encoder.audioBitrate(this.audioBitrate[encodeOptions.audioBitrate])
       : encoder;
     encoder = encoder.format(encodeOptions.format);
+    encoder = metadata ? this.setMetadata(metadata, encoder) : encoder;
     this.ffmpegCommand = encoder;
-    encoder = metadata ? this.setMetadata(metadata) : encoder;
-    this.stream = encoder.pipe(this.outputStream, { end: true });
+    this.stream = this.ffmpegCommand.pipe(outputStream, { end: true });
   }
 
-  private setMetadata(
-    metadata: FfmpegStream.Metadata,
-    encoder: ffmpeg.FfmpegCommand = this.ffmpegCommand
-  ): ffmpeg.FfmpegCommand {
+  private setMetadata(metadata: EncoderStream.Metadata, encoder: ffmpeg.FfmpegCommand): ffmpeg.FfmpegCommand {
     const { videoId, title, author, shortDescription } = metadata.videoInfo.player_response.videoDetails;
     return encoder
       .outputOptions('-metadata', `title=${title}`)
@@ -108,7 +136,7 @@ export class FfmpegStream {
 }
 
 /* istanbul ignore next */
-export namespace FfmpegStream {
+export namespace EncoderStream {
   export enum AudioCodec {
     aac = 'aac',
     flac = 'flac',
@@ -154,11 +182,31 @@ export namespace FfmpegStream {
     wav = 'wav',
   }
 
+  export interface IFormats {
+    [format: string]: {
+      description: string;
+      canDemux: boolean;
+      canMux: boolean;
+    };
+  }
+
+  export interface ICodecs {
+    [codec: string]: {
+      type: string;
+      description: string;
+      canDecode: boolean;
+      canEncode: boolean;
+      intraFrameOnly: boolean;
+      isLossy: boolean;
+      isLossless: boolean;
+    };
+  }
+
   export interface FormatCodec {
     format: {
-      [key in keyof typeof FfmpegStream.Format]?: {
-        audioCodec?: keyof typeof FfmpegStream.AudioCodec;
-        videoCodec?: keyof typeof FfmpegStream.VideoCodec;
+      [key in keyof typeof EncoderStream.Format]?: {
+        audioCodec?: keyof typeof EncoderStream.AudioCodec;
+        videoCodec?: keyof typeof EncoderStream.VideoCodec;
       };
     };
   }
@@ -178,36 +226,44 @@ export namespace FfmpegStream {
     /**
      * Set audio codec
      */
-    audioCodec?: keyof typeof FfmpegStream.AudioCodec;
+    audioCodec?: keyof typeof EncoderStream.AudioCodec;
     /**
      * Set video codec
      */
-    videoCodec?: keyof typeof FfmpegStream.VideoCodec;
+    videoCodec?: keyof typeof EncoderStream.VideoCodec;
     /**
      * Set audio bitrate
      */
-    audioBitrate?: keyof typeof FfmpegStream.AudioBitrate;
+    audioBitrate?: keyof typeof EncoderStream.AudioBitrate;
     /**
      * Set output container
      */
-    container?: keyof typeof FfmpegStream.Container;
+    container?: keyof typeof EncoderStream.Container;
     /**
      * Set output format
      */
-    format: keyof typeof FfmpegStream.Format;
+    format: keyof typeof EncoderStream.Format;
   }
 
   /**
-   * Constructor options for FfmpegStream.
+   * Constructor options for EncoderStream.
    */
   export interface Options extends ffmpeg.FfmpegCommandOptions {
     /**
+     * Input stream
+     */
+    inputSteam: Readable;
+    /**
+     * Output stream
+     */
+    outputStream: Writable;
+    /**
      * Media encoder options
      */
-    encodeOptions: FfmpegStream.EncodeOptions;
+    encodeOptions: EncoderStream.EncodeOptions;
     /**
      * Vide metadata
      */
-    metadata?: FfmpegStream.Metadata;
+    metadata?: EncoderStream.Metadata;
   }
 }

@@ -45,7 +45,6 @@ import { YtKitCommand } from '../../YtKitCommand';
 import { flags, FlagsConfig } from '../../YtKitFlags';
 import * as utils from '../../utils/utils';
 import videoMeta, { IOutputVideoMeta } from '../../utils/videoMeta';
-import { FfmpegStream } from '../../lib/FfmpegStream';
 
 export interface IFilter {
   [name: string]: (format: Record<string, string>) => boolean;
@@ -108,11 +107,6 @@ export default class Download extends YtKitCommand {
       char: 't',
       description: 'Timeout value prevents network operations from blocking indefinitely',
       default: 5,
-    }),
-    format: flags.enum({
-      char: 'f',
-      description: 'Output format container',
-      options: Object.keys(FfmpegStream.Format),
     }),
   };
 

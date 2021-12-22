@@ -40,7 +40,7 @@ import * as ytdl from 'ytdl-core';
 import * as ytpl from 'ytpl';
 // import scheduler from '../utils/promise-pool';
 import { DownloadWorker } from './DownloadWorker';
-import { FfmpegStream } from './FfmpegStream';
+import { EncoderStream } from './EncoderStream';
 
 export namespace Scheduler {
   /**
@@ -78,7 +78,7 @@ export namespace Scheduler {
     /**
      * Media encoder options
      */
-    encoderOptions?: FfmpegStream.EncodeOptions;
+    encoderOptions?: EncoderStream.EncodeOptions;
   }
 
   export interface Message {
@@ -114,7 +114,7 @@ export class Scheduler extends EventEmitter {
   private timeout: number;
   private playlistOptions?: ytpl.Options;
   private downloadOptions?: ytdl.downloadOptions;
-  private encoderOptions?: FfmpegStream.EncodeOptions;
+  private encoderOptions?: EncoderStream.EncodeOptions;
 
   public constructor(options: Scheduler.Options) {
     super();

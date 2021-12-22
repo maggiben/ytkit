@@ -34,6 +34,7 @@
  */
 
 import sanitizeName = require('sanitize-filename');
+import { ensureArray } from '@salesforce/ts-types';
 import { get } from '@salesforce/ts-types';
 
 /**
@@ -219,4 +220,16 @@ export function getYoutubePlaylistId(url: string): string | undefined {
     }
   }
   return;
+}
+
+export function getNodeVersion(): { major: number; minor: number; patch: number } {
+  const version = process.version.match(/(\d+)\.(\d+)\.(\d+)/);
+  const [major, minor, patch] = ensureArray(version)
+    .slice(1)
+    .map((match) => parseInt(match as string, 10));
+  return {
+    major,
+    minor,
+    patch,
+  };
 }
