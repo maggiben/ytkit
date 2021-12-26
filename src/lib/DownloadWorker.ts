@@ -223,7 +223,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
           videoInfo: this.videoInfo,
           videoFormat: this.videoFormat,
         },
-        inputSteam: this.downloadStream,
+        inputStream: this.downloadStream,
         outputStream: this.outputStream,
       };
       try {

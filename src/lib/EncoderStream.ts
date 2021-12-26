@@ -109,8 +109,8 @@ export class EncoderStream extends AsyncCreatable<EncoderStream.Options> {
   }
 
   private encodeStream(): void {
-    const { inputSteam, outputStream, encodeOptions, metadata } = this.options;
-    let encoder = ffmpeg(inputSteam);
+    const { inputStream, outputStream, encodeOptions, metadata } = this.options;
+    let encoder = ffmpeg().input(inputStream);
     encoder = encodeOptions.videoCodec ? encoder.videoCodec(encodeOptions.videoCodec) : encoder;
     encoder = encodeOptions.audioCodec ? encoder.audioCodec(encodeOptions.audioCodec) : encoder;
     encoder = encodeOptions.audioBitrate
@@ -252,7 +252,7 @@ export namespace EncoderStream {
     /**
      * Input stream
      */
-    inputSteam: Readable;
+    inputStream: Readable;
     /**
      * Output stream
      */

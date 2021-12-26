@@ -326,7 +326,7 @@ describe.skip('DownloadWorker receives undecodable message', () => {
     sandbox.restore();
   });
 
-  it('DownloadWorker downloads sends kill messages', async () => {
+  it('DownloadWorker downloads sends undecodable messages', async () => {
     const downloadWorkerOptions: DownloadWorker.Options = {
       item: {
         title: 'MyVideo',

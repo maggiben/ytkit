@@ -34,7 +34,7 @@ describe('EncoderStream', () => {
   } as unknown as ytdl.videoFormat;
   const formats = [videoFormat] as unknown as ytdl.videoFormat[];
   const videoDetails = {
-    title: 'Big Buck Bunny',
+    title: 'Caminandes 3- Llamigos',
     author: {
       name: 'Author Name',
     },
@@ -48,9 +48,9 @@ describe('EncoderStream', () => {
     // eslint-disable-next-line camelcase
     player_response: {
       videoDetails: {
-        videoId: 'YE7VzlLtp',
+        videoId: 'SkVqJ1SGeL0',
         shortDescription: 'My Description',
-        title: 'Big Buck Bunny',
+        title: 'Caminandes 3- Llamigos',
         author: 'Blender',
       },
     },
@@ -78,50 +78,21 @@ describe('EncoderStream', () => {
         container: EncoderStream.Container.mp3,
       };
     };
-    const inputSteam = fs.createReadStream(path.join(inputDir, 'Big Buck Bunny.webm'));
-    const outputStream = fs.createWriteStream(path.join(outputDir, 'Big Buck Bunny.mp3'));
+    const inputStream = fs.createReadStream(path.join(inputDir, 'Caminandes 3- Llamigos.webm'));
+    const outputStream = fs.createWriteStream(path.join(outputDir, 'Caminandes 3- Llamigos.mp3'));
     const encoderStreamOptions: EncoderStream.Options = {
       encodeOptions: getEncoderOptions(EncoderStream.Format.mp3),
       metadata: {
         videoInfo,
         videoFormat,
       },
-      inputSteam,
+      inputStream,
       outputStream,
     };
     const encoderStream = await EncoderStream.create(encoderStreamOptions);
     expect(encoderStream).to.be.instanceOf(EncoderStream);
     try {
-      const filename = path.join(outputDir, 'Big Buck Bunny.mp3');
-      await waitForStreamEnd(encoderStream.ffmpegCommand, filename);
-    } catch (error) {
-      fail(error as Error);
-    }
-  });
-
-  it('streams to ffmpeg and converts mp4 to webm', async () => {
-    const getEncoderOptions = (format: EncoderStream.Format): EncoderStream.EncodeOptions => {
-      return {
-        format,
-        videoCodec: EncoderStream.VideoCodec.libvpx,
-        container: EncoderStream.Container.mp4,
-      };
-    };
-    const inputSteam = fs.createReadStream(path.join(inputDir, 'Big Buck Bunny.mp4'));
-    const outputStream = fs.createWriteStream(path.join(outputDir, 'Big Buck Bunny.webm'));
-    const encoderStreamOptions: EncoderStream.Options = {
-      encodeOptions: getEncoderOptions(EncoderStream.Format.webm),
-      metadata: {
-        videoInfo,
-        videoFormat,
-      },
-      inputSteam,
-      outputStream,
-    };
-    const encoderStream = await EncoderStream.create(encoderStreamOptions);
-    expect(encoderStream).to.be.instanceOf(EncoderStream);
-    try {
-      const filename = path.join(outputDir, 'Big Buck Bunny.webm');
+      const filename = path.join(outputDir, 'Caminandes 3- Llamigos.mp3');
       await waitForStreamEnd(encoderStream.ffmpegCommand, filename);
     } catch (error) {
       fail(error as Error);
