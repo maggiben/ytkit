@@ -706,12 +706,14 @@ describe('download a live video with known size with contentLenght and progress 
   } as unknown as ytdl.videoInfo;
   const stream = passThorughStream();
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  // const progressStub = sinon.createStubInstance(UX);
   let logStub: sinon.SinonStub;
   let progressStub: sinon.SinonStub;
   const singleBar = {
     increment: sinon.spy(),
     start: sinon.spy(),
     stop: sinon.spy(),
+    update: sinon.spy(),
   };
   let createWriteStreamStub: sinon.SinonStub;
   let downloadFromInfoStub: sinon.SinonStub;
@@ -727,6 +729,9 @@ describe('download a live video with known size with contentLenght and progress 
       expect(url).to.equal(videoUrl);
       return Promise.resolve(videoInfo);
     });
+    // progressStub.progress.callsFake(() => {
+    //   return singleBar as unknown as SingleBar;
+    // });
     progressStub = sandbox.stub(UX.prototype, 'progress').callsFake((params: Record<string, unknown>): SingleBar => {
       expect(params).to.have.property('total');
       return singleBar as unknown as SingleBar;
@@ -750,6 +755,9 @@ describe('download a live video with known size with contentLenght and progress 
         setImmediate(() => {
           stream.emit('data', ...[buffer]);
         });
+        setImmediate(() => {
+          stream.emit('end');
+        });
       });
       return stream;
     });
@@ -764,7 +772,7 @@ describe('download a live video with known size with contentLenght and progress 
   test
     .stdout()
     .command(['download', '--url', videoUrl, '--output', output])
-    .it('download a live video', () => {
+    .it('download a live video with contentLenght and progress', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
       const filter = ytdlOptions.filter as (format: ytdl.videoFormat) => boolean;
@@ -786,13 +794,13 @@ describe('download a live video with known size with contentLenght and progress 
       ].forEach((value: string | number, index: number) => {
         expect(logStub.getCall(index).args[0]).to.include(value);
       });
-      clock.tick(700);
+      clock.tick(750);
       expect(progressStub.callCount).to.be.equal(1);
-      expect(progressStub.firstCall.firstArg).to.have.property('total').to.be.a('number').an.not.to.be.equal('0');
-      expect(singleBar.increment.calledOnce).to.be.true;
+      expect(progressStub.firstCall.firstArg).to.have.property('total').to.be.a('number').an.to.be.greaterThan(0);
+      expect(singleBar.update.calledOnce).to.be.true;
+      expect(singleBar.start.firstCall.firstArg).to.be.a('number').and.to.be.greaterThan(0);
       expect(singleBar.start.calledOnce).to.be.true;
-      clock.tick(50);
-      expect(singleBar.increment.callCount).to.be.equal(2);
+      expect(singleBar.update.callCount).to.be.equal(1);
     });
 });
 
@@ -838,6 +846,7 @@ describe('download a live video with known size with contentLenght and progress 
     increment: sinon.spy(),
     start: sinon.spy(),
     stop: sinon.spy(),
+    update: sinon.spy(),
   };
   let createWriteStreamStub: sinon.SinonStub;
   let downloadFromInfoStub: sinon.SinonStub;
@@ -918,11 +927,11 @@ describe('download a live video with known size with contentLenght and progress 
       clock.tick(750);
       expect(progressStub.callCount).to.be.equal(1);
       expect(progressStub.firstCall.firstArg).to.have.property('total').to.be.a('number').an.not.to.be.equal('0');
-      expect(singleBar.increment.callCount).to.be.equal(1);
+      expect(singleBar.update.callCount).to.be.equal(1);
       expect(singleBar.start.calledOnce).to.be.true;
       clock.tick(750);
       /* will not trigger */
-      expect(singleBar.increment.callCount).to.be.equal(1);
+      expect(singleBar.update.callCount).to.be.equal(1);
     });
 });
 

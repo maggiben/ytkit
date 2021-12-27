@@ -695,7 +695,7 @@ export default class Download extends YtKitCommand {
     });
     this.readStream.pipe(this.progressStream);
     this.progressStream.on('progress', (progress) => {
-      progressbar?.update(progress.transferred, {
+      progressbar.update(progress.transferred, {
         percentage: progress.percentage,
         timeleft: utils.toHumanTime(progress.eta),
         speed: utils.toHumanSize(progress.speed),
