@@ -114,8 +114,8 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   public async init(): Promise<void> {
     try {
       this.handleMessages();
-      const videoInfo = await this.downloadVideo();
-      if (videoInfo) {
+      const info = await this.downloadVideo();
+      if (info) {
         return this.exit(0);
       }
       return this.exit(1);
@@ -144,20 +144,17 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   /**
    * Downloads a video
    */
-  private async downloadVideo(): Promise<ytdl.videoInfo | void> {
+  private async downloadVideo(): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat } | undefined> {
     try {
       const videoInfo = await this.getVideoInfo();
-      if (videoInfo) {
-        parentPort?.postMessage({
-          type: 'videoInfo',
-          source: this.item,
-          details: {
-            videoInfo,
-          },
-        });
-        return await this.downloadFromInfo(videoInfo);
-      }
-      this.error(new Error('Invalid videoInfo'));
+      parentPort?.postMessage({
+        type: 'videoInfo',
+        source: this.item,
+        details: {
+          videoInfo,
+        },
+      });
+      return await this.downloadFromInfo(videoInfo);
     } catch (error) {
       this.error(error);
     }
@@ -179,26 +176,26 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     });
   }
 
-  private async downloadFromInfo(videoInfo: ytdl.videoInfo): Promise<ytdl.videoInfo | undefined> {
+  private async downloadFromInfo(
+    videoInfo: ytdl.videoInfo
+  ): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat } | undefined> {
     try {
       this.downloadStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
       this.downloadStream.once('error', this.error.bind(this));
-      const infoAndVideoFormat = await this.setVideInfoAndVideoFormat();
-      this.videoInfo = infoAndVideoFormat.videoInfo;
-      this.videoFormat = infoAndVideoFormat.videoFormat;
-      if (this.videoInfo && this.videoFormat) {
-        const videoSize = await this.getVideoSize();
-        /* live streams are unsupported */
-        if (videoSize) {
-          this.postVideoSize(videoSize);
-          this.postProgress();
-        }
-        this.onTimeout();
-        await this.setVideoOutput();
-        await this.onEnd();
-        return infoAndVideoFormat.videoInfo;
+      ({ videoInfo: this.videoInfo, videoFormat: this.videoFormat } = await this.setVideInfoAndVideoFormat());
+      const videoSize = await this.getVideoSize();
+      /* live streams are unsupported */
+      if (videoSize) {
+        this.postVideoSize(videoSize);
+        this.postProgress();
       }
-      return videoInfo;
+      this.onTimeout();
+      await this.setVideoOutput();
+      await this.onEnd();
+      return {
+        videoInfo: this.videoInfo,
+        videoFormat: this.videoFormat,
+      };
     } catch (error) {
       this.error(error);
     }
@@ -389,7 +386,17 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private setVideInfoAndVideoFormat(): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat }> {
     return new Promise((resolve, reject) => {
       this.downloadStream.once('info', (videoInfo: ytdl.videoInfo, videoFormat: ytdl.videoFormat): void => {
-        return resolve({ videoInfo, videoFormat });
+        parentPort?.postMessage({
+          type: 'info',
+          source: this.item,
+          details: {
+            videoInfo,
+            videoFormat,
+          },
+        });
+        return videoInfo && videoFormat
+          ? resolve({ videoInfo, videoFormat })
+          : reject(new Error('failed to get video info and format'));
       });
       this.downloadStream.once('error', reject);
     });
@@ -439,14 +446,14 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    *
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
-  private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
+  private async getVideoInfo(): Promise<ytdl.videoInfo> {
     try {
       const timer = setTimeout(() => {
-        this.error(new Error(`Could not retrieve videoInfo for videoId: ${this.item.id}`), 'timeout');
+        throw new Error(`Could not retrieve videoInfo for videoId: ${this.item.id}`);
       }, this.timeout);
       const videoInfo = await ytdl.getInfo(this.item.url, {
         requestOptions: {
-          timeout: 10,
+          timeout: this.timeout,
         },
       });
       clearTimeout(timer);

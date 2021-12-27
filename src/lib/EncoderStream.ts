@@ -99,6 +99,17 @@ export class EncoderStream extends AsyncCreatable<EncoderStream.Options> {
     });
   }
 
+  public static async validateEncoderOptions(encodeOptions: EncoderStream.EncodeOptions): Promise<boolean> {
+    const formats = await EncoderStream.getAvailableFormats();
+    const codecs = await EncoderStream.getAvailableCodecs();
+    const format = Object.entries(formats).find(([name]) => name === encodeOptions.format);
+    const codec = Object.entries(codecs).find(([name]) => name === encodeOptions.audioCodec);
+    if (format && codec) {
+      return format[1].canMux && codecs[1].canEncode;
+    }
+    return false;
+  }
+
   /**
    * Initializes an instance of the EncoderStream class.
    */
