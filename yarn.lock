@@ -4537,11 +4537,6 @@ stream-events@^1.0.5:
   dependencies:
     stubs "^3.0.0"
 
-streamspeed@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/streamspeed/-/streamspeed-2.0.1.tgz#7721c438d19cd9f9eb7e1ba3efa14f0222215bff"
-  integrity sha512-j6pFynhO0nZ+1zhyTDqLLlIxM0IyCdLKMj1EUJznDA87xLE/JWSwEg3FlJWERDB72KYt5OD29ZUWxxVkMTnqWg==
-
 string-width@^2.1.1:
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/string-width/-/string-width-2.1.1.tgz#ab93f27a8dc13d28cac815c462143a6d9012ae9e"

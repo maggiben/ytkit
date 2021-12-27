@@ -37,10 +37,9 @@ import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
-import StreamSpeed = require('streamspeed');
 import ytdl = require('ytdl-core');
 import * as ytpl from 'ytpl';
-import { Progress } from 'progress-stream';
+import * as progressStream from 'progress-stream';
 import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../../YtKitCommand';
@@ -65,7 +64,7 @@ export default class Download extends YtKitCommand {
       required: true,
     }),
     quality: flags.string({
-      description: 'Video quality to download, default: highest',
+      description: 'Video quality to download, default: highest can use ITAG',
     }),
     filter: flags.enum({
       description: 'Can be video, videoonly, audio, audioonly',
@@ -134,6 +133,8 @@ export default class Download extends YtKitCommand {
   // video format
   protected videoFormat?: ytdl.videoFormat;
 
+  private progressStream?: progressStream.ProgressStream;
+
   public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void> {
     this.ytdlOptions = this.buildDownloadOptions();
     this.setFilters();
@@ -185,13 +186,15 @@ export default class Download extends YtKitCommand {
       playlistOptions: {
         gl: 'US',
         hl: 'en',
-        limit: 10,
+        limit: 30,
       },
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
       encoderOptions: this.getEncoderOptions(),
     });
+
+    this.ux.cli.action.start('Retrieving playlist contents', this.ux.chalk.yellow('loading'), { stdout: true });
 
     const multibar = new this.ux.multibar({
       clearOnComplete: true,
@@ -210,14 +213,21 @@ export default class Download extends YtKitCommand {
     });
 
     scheduler.on('playlistItems', (message: Scheduler.Message) => {
-      this.ux.log(
-        `Got playlist items total: ${this.ux.chalk.yellow((message.details?.playlistItems as ytpl.Item[]).length)}`
-      );
+      const length = (message.details?.playlistItems as ytpl.Item[]).length;
+      this.ux.cli.action.stop(`total items: ${this.ux.chalk.yellow(length)}`);
     });
 
     scheduler.on('contentLength', (message: Scheduler.Message) => {
       if (!progressbars.has(message.source.id)) {
-        progressbars.set(message.source.id, multibar.create(message.details?.contentLength as number, 0));
+        const progressBar = multibar.create(message.details?.contentLength as number, 0, {
+          timeleft: 'N/A',
+          percentage: '0',
+          title: message.source.title,
+          speed: utils.toHumanSize(0),
+          elapsed: utils.toHumanTime(0),
+          retries: this.getFlag<number>('retries'),
+        });
+        progressbars.set(message.source.id, progressBar);
       }
     });
 
@@ -243,7 +253,7 @@ export default class Download extends YtKitCommand {
     });
 
     scheduler.on('progress', (message: Scheduler.Message) => {
-      interface ExtendedProgress extends Progress {
+      interface ExtendedProgress extends progressStream.Progress {
         elapsed: string;
       }
       const progress = message.details?.progress as ExtendedProgress;
@@ -260,7 +270,7 @@ export default class Download extends YtKitCommand {
     });
 
     scheduler.on('elapsed', (message: Scheduler.Message) => {
-      interface ExtendedProgress extends Progress {
+      interface ExtendedProgress extends progressStream.Progress {
         elapsed: string;
       }
       const progress = message.details?.progress as ExtendedProgress;
@@ -513,22 +523,22 @@ export default class Download extends YtKitCommand {
   private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream {
     if (!this.output) {
       /* if we made it here we're 100% sure we're not on a TTY device */
-      process.stdout
-        .once('close', () => {
-          this.ux.log('output stream closed');
-          this.readStream.unpipe(process.stdout);
-          process.exit(0);
-        })
-        .once('end', () => {
-          this.ux.log('output stream ended');
-          this.readStream.unpipe(process.stdout);
-          process.exit(0);
-        })
-        .once('error', (error) => {
-          this.ux.log(`output stream error ${error as string}`);
-          this.readStream.unpipe(process.stdout);
-          process.exit(1);
-        });
+      // process.stdout
+      //   .once('close', () => {
+      //     this.ux.log('output stream closed');
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(0);
+      //   })
+      //   .once('end', () => {
+      //     this.ux.log('output stream ended');
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(0);
+      //   })
+      //   .once('error', (error) => {
+      //     this.ux.log(`output stream error ${error as string}`);
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(1);
+      //   });
       return this.readStream.pipe(process.stdout);
     }
     /* build a proper filename */
@@ -556,12 +566,12 @@ export default class Download extends YtKitCommand {
     if (sizeUnknown) {
       this.printLiveVideoSize(this.readStream);
     } else if (utils.getValueFrom(this.videoFormat, 'contentLength')) {
-      return this.printVideoSize(parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
+      return this.printProgress(parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
     } else {
       this.readStream.once('response', (response) => {
         if (utils.getValueFrom(response, 'headers.content-length')) {
           const size = parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
-          return this.printVideoSize(size);
+          return this.printProgress(size);
         } else {
           return this.printLiveVideoSize(this.readStream);
         }
@@ -663,41 +673,37 @@ export default class Download extends YtKitCommand {
   }
 
   /**
-   * Prints video size with a progress bar as it downloads.
+   * Prints progress bar as it downloads.
    *
    * @param {number} size
    * @returns {void}
    */
-  private printVideoSize(size: number): void {
-    const progress = this.ux.progress({
-      format: '[{bar}] {percentage}% | Speed: {speed}',
+  private printProgress(length: number): void {
+    this.progressStream = progressStream({
+      length,
+      time: 100,
+      drain: true,
+    });
+    const progressbar = this.ux.progress({
+      format: '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed}',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
-      total: size,
+      total: length,
     }) as SingleBar;
-    progress.start(size, 0, {
+    progressbar.start(length, 0, {
       speed: 'N/A',
     });
-    const streamSpeed = new StreamSpeed();
-    streamSpeed.add(this.readStream);
-    // Keep track of progress.
-    const getSpeed = (): { speed: string } => ({
-      speed: StreamSpeed.toHuman(streamSpeed.getSpeed(), { timeUnit: 's', precision: 3 }),
+    this.readStream.pipe(this.progressStream);
+    this.progressStream.on('progress', (progress) => {
+      progressbar?.update(progress.transferred, {
+        percentage: progress.percentage,
+        timeleft: utils.toHumanTime(progress.eta),
+        speed: utils.toHumanSize(progress.speed),
+      });
     });
-
-    this.readStream.on('data', (data: Buffer) => {
-      progress.increment(data.length, getSpeed());
-    });
-
-    // Update speed every second, in case download is rate limited,
-    // which is the case with `audioonly` formats.
-    const interval = setInterval(() => {
-      progress.increment(0, getSpeed());
-    }, 750);
-
-    this.readStream.on('end', () => {
-      progress.stop();
-      clearInterval(interval);
+    this.readStream.once('end', () => {
+      this.readStream.unpipe(this.progressStream);
+      progressbar.stop();
     });
   }
 

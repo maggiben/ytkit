@@ -97,6 +97,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private outputStream!: fs.WriteStream;
   private progressStream!: progressStream.ProgressStream;
   private progress?: progressStream.Progress;
+  private contentLength?: number;
 
   public constructor(options: DownloadWorker.Options) {
     super(options);
@@ -105,7 +106,6 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
     this.output = options.output ?? '{videoDetails.title}';
     this.downloadOptions = options.downloadOptions;
     this.encoderOptions = options.encoderOptions;
-    this.timeoutStream = new TimeoutStream({ timeout: this.timeout });
   }
 
   /**
@@ -188,12 +188,12 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       this.videoFormat = infoAndVideoFormat.videoFormat;
       if (this.videoInfo && this.videoFormat) {
         const videoSize = await this.getVideoSize();
+        /* live streams are unsupported */
         if (videoSize) {
           this.postVideoSize(videoSize);
           this.postProgress();
-          this.onTimeout();
-          this.postElapsed();
         }
+        this.onTimeout();
         await this.setVideoOutput();
         await this.onEnd();
         return infoAndVideoFormat.videoInfo;
@@ -279,12 +279,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void}
    */
   private postVideoSize(contentLength: number): void {
-    this.progressStream = progressStream({
-      length: contentLength,
-      time: 100,
-      drain: true,
-    });
-
+    this.contentLength = contentLength;
     parentPort?.postMessage({
       type: 'contentLength',
       source: this.item,
@@ -299,7 +294,12 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    *
    * @returns {void}
    */
-  private postProgress(): void {
+  private postProgress(contentLength = this.contentLength): void {
+    this.progressStream = progressStream({
+      length: contentLength,
+      time: 100,
+      drain: true,
+    });
     this.downloadStream.pipe(this.progressStream);
     this.progressStream.on('progress', (progress) => {
       this.progress = progress;
@@ -336,7 +336,9 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private onTimeout(): void {
+    this.timeoutStream = new TimeoutStream({ timeout: this.timeout });
     this.downloadStream.pipe(this.timeoutStream);
+    this.postElapsed();
     this.timeoutStream.once('timeout', () => {
       this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`), 'timeout');
     });
@@ -409,7 +411,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void} output file
    */
   private endStreams(): void {
-    if (this.downloadStream && this.timeoutStream && this.outputStream) {
+    if (this.downloadStream && this.timeoutStream && this.progressStream && this.outputStream) {
       this.downloadStream.destroy();
       this.downloadStream.unpipe(this.outputStream);
       this.downloadStream.unpipe(this.progressStream);

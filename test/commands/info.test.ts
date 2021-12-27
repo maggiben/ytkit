@@ -330,7 +330,6 @@ describe('video info table formats with no audioBitrate', () => {
     tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
   });
   afterEach(() => {
-    getInfoStub.restore();
     sandbox.restore();
   });
   test
@@ -402,7 +401,6 @@ describe('video info table formats with codec', () => {
     tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
   });
   afterEach(() => {
-    getInfoStub.restore();
     sandbox.restore();
   });
   test
@@ -475,7 +473,6 @@ describe('video info table formats with no codec', () => {
     tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
   });
   afterEach(() => {
-    getInfoStub.restore();
     sandbox.restore();
   });
   test
