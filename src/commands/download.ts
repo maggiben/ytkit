@@ -199,8 +199,7 @@ export default class Download extends YtKitCommand {
     const multibar = new this.ux.multibar({
       clearOnComplete: true,
       hideCursor: true,
-      format:
-        '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed} | Elapsed: {elapsed} | Retries: {retries} | Title: {title} ',
+      format: '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed} | Retries: {retries} | Title: {title} ',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
     });
@@ -264,24 +263,6 @@ export default class Download extends YtKitCommand {
         percentage: progress.percentage,
         title: message.source.title,
         speed: utils.toHumanSize(progress.speed),
-        elapsed: progress.elapsed,
-        retries: retryItem?.left ?? this.getFlag<number>('retries'),
-      });
-    });
-
-    scheduler.on('elapsed', (message: Scheduler.Message) => {
-      interface ExtendedProgress extends progressStream.Progress {
-        elapsed: string;
-      }
-      const progress = message.details?.progress as ExtendedProgress;
-      const progressbar = progressbars.get(message.source.id);
-      const retryItem = retryItems.get(message.source.id);
-      progressbar?.update(progress.transferred, {
-        timeleft: utils.toHumanTime(progress.eta),
-        percentage: progress.percentage,
-        title: message.source.title,
-        speed: utils.toHumanSize(progress.speed),
-        elapsed: progress.elapsed,
         retries: retryItem?.left ?? this.getFlag<number>('retries'),
       });
     });

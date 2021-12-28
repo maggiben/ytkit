@@ -134,16 +134,17 @@ export class Scheduler extends EventEmitter {
   public async download(): Promise<Array<Scheduler.Result | undefined>> {
     const playlist = await ytpl(this.playlistId, this.playlistOptions);
     this.emit('playlistItems', { source: playlist, details: { playlistItems: playlist.items } });
-    try {
-      return await this.scheduler(playlist.items);
-      // return await scheduler<Scheduler.Result, ytpl.Item>(
-      //   this.maxconnections,
-      //   playlist.items,
-      //   this.downloadWorkers.bind(this)
-      // );
-    } catch (error) {
-      throw new Error(`Scheduler error: ${(error as Error).message}`);
-    }
+    return this.scheduler(playlist.items);
+    // try {
+    //   return await this.scheduler(playlist.items);
+    // return await scheduler<Scheduler.Result, ytpl.Item>(
+    //   this.maxconnections,
+    //   playlist.items,
+    //   this.downloadWorkers.bind(this)
+    // );
+    // } catch (error) {
+    //   throw new Error(`Scheduler error: ${(error as Error).message}`);
+    // }
   }
 
   /*

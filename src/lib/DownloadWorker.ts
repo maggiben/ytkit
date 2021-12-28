@@ -414,22 +414,13 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   /**
    * Gets info from a video additional formats and deciphered URLs.
    *
-   * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
+   * @returns {Promise<ytdl.videoInfo>} the video info object or undefined if it fails
    */
   private async getVideoInfo(): Promise<ytdl.videoInfo> {
-    try {
-      const timer = setTimeout(() => {
-        throw new Error(`Could not retrieve videoInfo for videoId: ${this.item.id}`);
-      }, this.timeout);
-      const videoInfo = await ytdl.getInfo(this.item.url, {
-        requestOptions: {
-          timeout: this.timeout,
-        },
-      });
-      clearTimeout(timer);
-      return videoInfo;
-    } catch (error) {
-      throw new Error((error as Error).message);
-    }
+    return ytdl.getInfo(this.item.url, {
+      requestOptions: {
+        timeout: this.timeout,
+      },
+    });
   }
 }

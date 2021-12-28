@@ -81,7 +81,7 @@ export default class Search extends YtKitCommand {
     'id',
   ];
 
-  public async run(): Promise<JsonArray | undefined> {
+  public async run(): Promise<JsonArray> {
     this.searchOptions = this.getSearchOptions();
     this.filters = await this.getFilters(this.getFlag<string>('query'));
     const url = ensureString(this.filters.get('Type')?.get('Video')?.url);
@@ -138,11 +138,7 @@ export default class Search extends YtKitCommand {
     searchString: string,
     options?: ytsr.ShortOptions
   ): Promise<Map<string, Map<string, ytsr.Filter>>> {
-    try {
-      return await ytsr.getFilters(searchString, options);
-    } catch (error) {
-      throw new Error((error as Error).message);
-    }
+    return ytsr.getFilters(searchString, options);
   }
 
   /**
@@ -153,10 +149,6 @@ export default class Search extends YtKitCommand {
    * @returns {Promise<ytsr.Result>} the result promise
    */
   private async search(searchString: string, options?: ytsr.Options): Promise<ytsr.Result> {
-    try {
-      return await ytsr(searchString, options);
-    } catch (error) {
-      throw new Error((error as Error).message);
-    }
+    return ytsr(searchString, options);
   }
 }
