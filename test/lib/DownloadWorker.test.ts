@@ -6,9 +6,9 @@ import * as sinon from 'sinon';
 import * as ytpl from 'ytpl';
 import * as ytdl from 'ytdl-core';
 import { DownloadWorker } from '../../src/lib/DownloadWorker';
+import TimeoutStream from '../../src/lib/TimeoutStream';
 
 class WritableFileStream extends fs.WriteStream {}
-
 class ReadableFileStream extends PassThrough {}
 const bufferString = 'DEADBEEF';
 const buffer = Buffer.from(bufferString, 'utf8');
@@ -121,8 +121,6 @@ describe('DownloadWorker', () => {
       'item',
       'output',
       'outputStream',
-      'progress',
-      'progressStream',
       'downloadStream',
       'timeout',
       'timeoutStream',
@@ -165,9 +163,7 @@ describe('DownloadWorker receives kill message', () => {
   const stream = passThorughStream();
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   const writeStreamStub = sinon.createStubInstance(WritableFileStream);
-  let createWriteStreamStub: sinon.SinonStub;
   let getInfoStub: sinon.SinonStub;
-  let downloadFromInfoStub: sinon.SinonStub;
   let exitStub: sinon.SinonStub;
   const parentPortStub = {
     on: sandbox.stub().callsFake((event: string, listener: (message: string) => void) => {
@@ -183,9 +179,9 @@ describe('DownloadWorker receives kill message', () => {
   };
 
   beforeEach(() => {
-    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').withArgs(output).returns(writeStreamStub);
+    sandbox.stub(fs, 'createWriteStream').withArgs(output).returns(writeStreamStub);
     getInfoStub = sandbox.stub(ytdl, 'getInfo').withArgs(videoUrl).resolves(videoInfo);
-    downloadFromInfoStub = sandbox
+    sandbox
       .stub(ytdl, 'downloadFromInfo')
       .withArgs(videoInfo)
       .callsFake((info: ytdl.videoInfo) => {
@@ -437,8 +433,6 @@ describe('DownloadWorker determine video size', () => {
       'item',
       'output',
       'outputStream',
-      'progress',
-      'progressStream',
       'downloadStream',
       'timeout',
       'timeoutStream',
@@ -667,6 +661,168 @@ describe('DownloadWorker fails to get setVideInfoAndVideoFormat', () => {
       'output',
       'downloadStream',
       'timeout',
+    ]);
+  });
+});
+
+describe('DownloadWorker timeout stream', () => {
+  const title = 'My Title';
+  const container = 'mp4';
+  const output = `${title}.${container}`;
+  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+  const format = {
+    itag: '123',
+    container,
+    qualityLabel: '1080p',
+    codecs: 'mp4a.40.2',
+    bitrate: 1024,
+    quality: 'high',
+    contentLength: 4096,
+    audioBitrate: 100,
+  } as unknown as ytdl.videoFormat;
+  const formats = [format] as unknown as ytdl.videoFormat[];
+  const videoDetails = {
+    title,
+    author: {
+      name: 'Author Name',
+    },
+    averageRating: 5,
+    viewCount: 100,
+    publishDate: '2021-03-05',
+    lengthSeconds: 3600,
+  } as unknown as ytdl.VideoDetails;
+  const videoInfo = {
+    videoDetails,
+    formats,
+  } as unknown as ytdl.videoInfo;
+  const stream = passThorughStream();
+  const sandbox: sinon.SinonSandbox = sinon.createSandbox();
+  const timeoutStreamStub = sinon.createStubInstance(TimeoutStream);
+  const writeStreamStub = sinon.createStubInstance(WritableFileStream);
+  let createWriteStreamStub: sinon.SinonStub;
+  let getInfoStub: sinon.SinonStub;
+  let downloadFromInfoStub: sinon.SinonStub;
+  let exitStub: sinon.SinonStub;
+  let existsSyncStub: sinon.SinonStub;
+  beforeEach(() => {
+    writeStreamStub.path = output;
+    existsSyncStub = sandbox.stub(fs, 'existsSync');
+    existsSyncStub.withArgs(output).returns(true);
+    sandbox.stub(fs, 'unlinkSync').withArgs(output).returns();
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').withArgs(output).returns(writeStreamStub);
+    getInfoStub = sandbox.stub(ytdl, 'getInfo').withArgs(videoUrl).resolves(videoInfo);
+    downloadFromInfoStub = sandbox
+      .stub(ytdl, 'downloadFromInfo')
+      .withArgs(videoInfo)
+      .callsFake((info: ytdl.videoInfo) => {
+        expect(info).to.deep.equal(videoInfo);
+        // simulate ytdl info signal then end the stream
+        process.nextTick(() => {
+          stream.emit('info', ...[info, format]);
+        });
+        return stream;
+      });
+    sandbox.stub(workerThreads, 'parentPort').get(() => {
+      return {
+        on: sinon.spy(),
+        postMessage: sinon.spy(),
+      };
+    });
+
+    exitStub = sandbox
+      .stub(process, 'exit')
+      .withArgs(1)
+      .returns(undefined as never);
+    sandbox
+      .stub(TimeoutStream.prototype, 'once')
+      .withArgs('timeout', sinon.match.any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .callsFake((event: string | symbol, listener: (...args: any[]) => void): TimeoutStream => {
+        if (event === 'timeout') {
+          listener();
+        }
+        return timeoutStreamStub;
+      });
+  });
+
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  it('DownloadWorker download timeouts', async () => {
+    const downloadWorkerOptions: DownloadWorker.Options = {
+      item: {
+        title: 'MyVideo',
+        index: 1,
+        id: 'aqz-KE-bpKQ',
+        shortUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+        url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+        author: {
+          name: 'Blender',
+          url: 'https://www.youtube.com/c/blander',
+          channelID: '1234',
+        },
+      } as ytpl.Item,
+    };
+    const downloadWorker = await DownloadWorker.create(downloadWorkerOptions);
+    expect(downloadWorker).to.be.instanceOf(DownloadWorker);
+    expect(getInfoStub.callCount).to.be.equal(1);
+    expect(downloadFromInfoStub.callCount).to.be.equal(1);
+    expect(exitStub.callCount).to.be.greaterThanOrEqual(1);
+    expect(createWriteStreamStub.callCount).to.be.equal(1);
+    expect(existsSyncStub.callCount).to.be.equal(1);
+    expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    expect(downloadWorker).to.have.keys([
+      'contentLength',
+      'downloadOptions',
+      'encoderOptions',
+      'item',
+      'output',
+      'outputStream',
+      'downloadStream',
+      'timeout',
+      'timeoutStream',
+      'videoFormat',
+      'videoInfo',
+    ]);
+  });
+
+  it('DownloadWorker download timeouts fails to remove output file', async () => {
+    existsSyncStub.restore();
+    existsSyncStub.withArgs(output).returns(true);
+    const downloadWorkerOptions: DownloadWorker.Options = {
+      item: {
+        title: 'MyVideo',
+        index: 1,
+        id: 'aqz-KE-bpKQ',
+        shortUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+        url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+        author: {
+          name: 'Blender',
+          url: 'https://www.youtube.com/c/blander',
+          channelID: '1234',
+        },
+      } as ytpl.Item,
+    };
+    const downloadWorker = await DownloadWorker.create(downloadWorkerOptions);
+    expect(downloadWorker).to.be.instanceOf(DownloadWorker);
+    expect(getInfoStub.callCount).to.be.equal(1);
+    expect(downloadFromInfoStub.callCount).to.be.equal(1);
+    expect(exitStub.callCount).to.be.greaterThanOrEqual(1);
+    expect(createWriteStreamStub.callCount).to.be.equal(1);
+    expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    expect(downloadWorker).to.have.keys([
+      'contentLength',
+      'downloadOptions',
+      'encoderOptions',
+      'item',
+      'output',
+      'outputStream',
+      'downloadStream',
+      'timeout',
+      'timeoutStream',
+      'videoFormat',
+      'videoInfo',
     ]);
   });
 });

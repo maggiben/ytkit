@@ -58,8 +58,9 @@ export default class TimeoutStream extends Writable {
     return callback();
   }
 
-  public elapsed(): string {
-    return utils.toHumanTime(Math.floor((performance.now() - this.prev) / 1000));
+  public elapsed(toHumanTime = true): string | number {
+    const elapsedSeconds = Math.floor((performance.now() - this.prev) / 1000);
+    return toHumanTime ? utils.toHumanTime(elapsedSeconds) : elapsedSeconds;
   }
 
   public end(): void {

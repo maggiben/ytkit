@@ -41,7 +41,7 @@ import * as ytdl from 'ytdl-core';
 import * as ffmpegStatic from 'ffmpeg-static';
 import * as ffmpeg from 'fluent-ffmpeg';
 import * as ytpl from 'ytpl';
-import * as progressStream from 'progress-stream';
+import * as ProgressStream from 'progress-stream';
 import * as utils from '../utils/utils';
 import { AsyncCreatable } from '../utils/AsyncCreatable';
 import TimeoutStream from './TimeoutStream';
@@ -95,8 +95,6 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   private videoFormat!: ytdl.videoFormat;
   private timeoutStream!: TimeoutStream;
   private outputStream!: fs.WriteStream;
-  private progressStream!: progressStream.ProgressStream;
-  private progress?: progressStream.Progress;
   private contentLength?: number;
 
   public constructor(options: DownloadWorker.Options) {
@@ -161,7 +159,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   }
 
   private async onEnd(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.downloadStream.once('end', () => {
         parentPort?.postMessage({
           type: 'end',
@@ -173,6 +171,8 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
         });
         resolve();
       });
+      this.downloadStream.once('error', reject);
+      this.timeoutStream.once('timeout', reject);
     });
   }
 
@@ -181,7 +181,6 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
   ): Promise<{ videoInfo: ytdl.videoInfo; videoFormat: ytdl.videoFormat } | undefined> {
     try {
       this.downloadStream = ytdl.downloadFromInfo(videoInfo, this.downloadOptions);
-      this.downloadStream.once('error', this.error.bind(this));
       ({ videoInfo: this.videoInfo, videoFormat: this.videoFormat } = await this.setVideInfoAndVideoFormat());
       const videoSize = await this.getVideoSize();
       /* live streams are unsupported */
@@ -292,51 +291,28 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void}
    */
   private postProgress(contentLength = this.contentLength): void {
-    this.progressStream = progressStream({
+    const progressStream = ProgressStream({
       length: contentLength,
       time: 100,
       drain: true,
     });
-    this.downloadStream.pipe(this.progressStream);
-    this.progressStream.on('progress', (progress) => {
-      this.progress = progress;
+    this.downloadStream.pipe(progressStream);
+    progressStream.on('progress', (progress) => {
       parentPort?.postMessage({
         type: 'progress',
         source: this.item,
         details: {
-          progress: { ...this.progress, elapsed: this.timeoutStream.elapsed() },
+          progress,
         },
       });
-    });
-  }
-
-  /**
-   * uses TimeoutStream to monitor the download status and times out after some period
-   * of inactivity
-   *
-   * @returns {void}
-   */
-  private postElapsed(): void {
-    const timer = setInterval(() => {
-      parentPort?.postMessage({
-        type: 'elapsed',
-        source: this.item,
-        details: {
-          progress: { ...this.progress, elapsed: this.timeoutStream.elapsed() },
-        },
-      });
-    }, 1000);
-
-    this.timeoutStream.once('end', () => {
-      clearInterval(timer);
     });
   }
 
   private onTimeout(): void {
     this.timeoutStream = new TimeoutStream({ timeout: this.timeout });
     this.downloadStream.pipe(this.timeoutStream);
-    this.postElapsed();
     this.timeoutStream.once('timeout', () => {
+      this.downloadStream.unpipe(this.timeoutStream);
       this.error(new Error(`stream timeout for workerId: ${this.item.id} title: ${this.item.title}`), 'timeout');
     });
   }
@@ -418,15 +394,9 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
    * @returns {void} output file
    */
   private endStreams(): void {
-    if (this.downloadStream && this.timeoutStream && this.progressStream && this.outputStream) {
+    if (this.downloadStream && this.outputStream) {
       this.downloadStream.destroy();
       this.downloadStream.unpipe(this.outputStream);
-      this.downloadStream.unpipe(this.progressStream);
-      this.downloadStream.unpipe(this.timeoutStream);
-      // end the timoeut stream
-      this.timeoutStream.end();
-      // end the progress stream
-      this.progressStream.end();
       // end the file stream
       this.outputStream.end();
       // Remove ouput file
