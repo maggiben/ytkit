@@ -68,7 +68,7 @@ export default class Download extends YtKitCommand {
     }),
     filter: flags.enum({
       description: 'Can be video, videoonly, audio, audioonly',
-      options: ['video', 'videoonly', 'audio', 'audioonly'],
+      options: ['audioandvideo', 'videoandaudio', 'video', 'videoonly', 'audio', 'audioonly'],
     }),
     range: flags.string({
       description: 'Byte range to download, ie 10355705-12452856',
@@ -79,11 +79,17 @@ export default class Download extends YtKitCommand {
     'filter-resolution': flags.string({
       description: 'Filter in format resolution',
     }),
+    'filter-codecs': flags.string({
+      description: 'Filter in format codecs',
+    }),
     'unfilter-container': flags.string({
       description: 'Filter out format container',
     }),
     'unfilter-resolution': flags.string({
       description: 'Filter out format container',
+    }),
+    'unfilter-codecs': flags.string({
+      description: 'Filter out format codecs',
     }),
     begin: flags.string({
       description: 'Time to begin video, format by 1:30.123 and 1m30s',
@@ -191,6 +197,7 @@ export default class Download extends YtKitCommand {
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
+      flags: this.flags,
       encoderOptions: this.getEncoderOptions(),
     });
 
@@ -464,10 +471,7 @@ export default class Download extends YtKitCommand {
     const format = this.getFlag<EncoderStream.Format>('format');
     if (format) {
       return {
-        audioCodec: EncoderStream.AudioCodec.libmp3lame,
-        audioBitrate: EncoderStream.AudioBitrate.normal,
         format,
-        container: EncoderStream.Container.mp3,
       };
     }
     return undefined;
@@ -584,7 +588,14 @@ export default class Download extends YtKitCommand {
       ]);
     };
 
-    ['container', 'resolution:qualityLabel'].forEach((field) => {
+    // options:
+    // --filter-container REGEXP      Filter in format container
+    // --unfilter-container REGEXP    Filter out format container
+    // --filter-resolution REGEXP     Filter in format resolution
+    // --unfilter-resolution REGEXP   Filter out format resolution
+    // --filter-codecs REGEXP       Filter in format encoding
+    // --unfilter-codecs REGEXP     Filter out format encoding
+    ['container', 'resolution:qualityLabel', 'codecs'].forEach((field) => {
       // eslint-disable-next-line prefer-const
       let [fieldName, fieldKey] = field.split(':');
       fieldKey = fieldKey || fieldName;
@@ -607,6 +618,12 @@ export default class Download extends YtKitCommand {
     const hasAudio = (format: ytdl.videoFormat): boolean => !!format.audioBitrate;
 
     switch (this.flags.filter) {
+      case 'audioandvideo':
+        filters.push(['audioandvideo', (format: ytdl.videoFormat): boolean => hasVideo(format) && hasAudio(format)]);
+        break;
+      case 'videoandaudio':
+        filters.push(['videoandaudio', (format: ytdl.videoFormat): boolean => hasVideo(format) && hasAudio(format)]);
+        break;
       case 'video':
         filters.push(['video', hasVideo]);
         break;

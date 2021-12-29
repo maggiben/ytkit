@@ -41,7 +41,7 @@ export declare interface IOutputVideoMeta {
   from?: ytdl.videoInfo | ytdl.videoFormat | Record<string, unknown>;
   path: string;
   requires?: string | boolean | ((value: unknown) => boolean);
-  transformValue?: (value: string) => string;
+  transformValue?: (value: number | string) => string;
 }
 
 /**
@@ -85,7 +85,7 @@ export default function videoMeta(
       from: videoInfo,
       path: 'videoDetails.lengthSeconds',
       requires: utils.getValueFrom<ytdl.videoFormat[]>(videoInfo, 'formats').some((format) => format.isLive),
-      transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
+      transformValue: (value: number | string): string => utils.toHumanTime(parseInt(value as string, 10)),
     },
     {
       label: 'quality',
@@ -98,14 +98,14 @@ export default function videoMeta(
       from: videoFormat,
       path: 'bitrate',
       requires: !utils.getValueFrom<string>(videoFormat, 'qualityLabel'),
-      transformValue: (value: string): string => utils.toHumanSize(parseInt(value, 10)),
+      transformValue: (value: number | string): string => utils.toHumanSize(value as number),
     },
     {
       label: 'audio bitrate',
       from: videoFormat,
       path: 'audioBitrate',
       requires: !utils.getValueFrom<string>(videoFormat, 'audioBitrate'),
-      transformValue: (value: string): string => `${value}KB`,
+      transformValue: (value: number | string): string => `${value}KB`,
     },
     {
       label: 'codecs',

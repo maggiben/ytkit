@@ -36,7 +36,7 @@
 import * as path from 'path';
 import { EventEmitter } from 'stream';
 import { Worker, WorkerOptions } from 'worker_threads';
-import * as ytdl from 'ytdl-core';
+import { OutputFlags } from '@oclif/parser';
 import * as ytpl from 'ytpl';
 // import scheduler from '../utils/promise-pool';
 import { DownloadWorker } from './DownloadWorker';
@@ -72,9 +72,10 @@ export namespace Scheduler {
      */
     playlistOptions?: ytpl.Options;
     /**
-     * Video download options.
+     * Flags
      */
-    downloadOptions?: ytdl.downloadOptions;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    flags?: OutputFlags<any>;
     /**
      * Media encoder options
      */
@@ -113,7 +114,8 @@ export class Scheduler extends EventEmitter {
   private retries: number;
   private timeout: number;
   private playlistOptions?: ytpl.Options;
-  private downloadOptions?: ytdl.downloadOptions;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private flags?: OutputFlags<any>;
   private encoderOptions?: EncoderStream.EncodeOptions;
 
   public constructor(options: Scheduler.Options) {
@@ -123,7 +125,7 @@ export class Scheduler extends EventEmitter {
     this.maxconnections = options.maxconnections ?? 5;
     this.retries = options.retries ?? 5;
     this.timeout = options.timeout ?? 120 * 1000; // 120 seconds
-    this.downloadOptions = options.downloadOptions;
+    this.flags = options.flags;
     this.playlistOptions = options.playlistOptions;
     this.encoderOptions = options.encoderOptions;
   }
@@ -283,7 +285,7 @@ export class Scheduler extends EventEmitter {
         path: './worker.ts',
         output: this.output,
         timeout: this.timeout,
-        downloadOptions: this.downloadOptions,
+        flags: this.flags,
         encoderOptions: this.encoderOptions,
       },
     };

@@ -43,41 +43,8 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 export class EncoderStream extends AsyncCreatable<EncoderStream.Options> {
   public stream!: Writable;
   public ffmpegCommand!: ffmpeg.FfmpegCommand;
-  private audioBitrate = {
-    lowest: 32,
-    low: 64,
-    normal: 128,
-    decent: 196,
-    good: 256,
-    excellent: 320,
-  };
   private formats!: ffmpeg.Formats;
   private codecs!: ffmpeg.Codecs;
-  private formatCodec: EncoderStream.FormatCodec = {
-    format: {
-      aac: {
-        audioCodec: EncoderStream.AudioCodec.aac,
-      },
-      flac: {
-        audioCodec: EncoderStream.AudioCodec.flac,
-      },
-      ogg: {
-        audioCodec: EncoderStream.AudioCodec.libopus,
-      },
-      mp3: {
-        audioCodec: EncoderStream.AudioCodec.libmp3lame,
-      },
-      mp4: {
-        videoCodec: EncoderStream.VideoCodec.libx264,
-      },
-      wav: {
-        audioCodec: EncoderStream.AudioCodec.pcm_mulaw,
-      },
-      webm: {
-        videoCodec: EncoderStream.VideoCodec.libvpx,
-      },
-    },
-  };
 
   public constructor(private options: EncoderStream.Options) {
     super(options);
@@ -125,7 +92,14 @@ export class EncoderStream extends AsyncCreatable<EncoderStream.Options> {
     encoder = encodeOptions.videoCodec ? encoder.videoCodec(encodeOptions.videoCodec) : encoder;
     encoder = encodeOptions.audioCodec ? encoder.audioCodec(encodeOptions.audioCodec) : encoder;
     encoder = encodeOptions.audioBitrate
-      ? encoder.audioBitrate(this.audioBitrate[encodeOptions.audioBitrate])
+      ? encoder.audioBitrate(encodeOptions.audioBitrate)
+      : metadata.videoFormat.audioBitrate
+      ? encoder.audioBitrate(metadata.videoFormat.audioBitrate)
+      : encoder;
+    encoder = encodeOptions.videoBitrate
+      ? encoder.videoBitrate(encodeOptions.videoBitrate)
+      : metadata.videoFormat.bitrate
+      ? encoder.videoBitrate(metadata.videoFormat.bitrate)
       : encoder;
     encoder = encoder.format(encodeOptions.format);
     encoder = metadata ? this.setMetadata(metadata, encoder) : encoder;
@@ -163,15 +137,6 @@ export namespace EncoderStream {
     libx264 = 'libx264',
     libvpx = 'libvpx',
     copy = 'copy',
-  }
-
-  export enum AudioBitrate {
-    lowest = 'lowest',
-    low = 'low',
-    normal = 'normal',
-    decent = 'decent',
-    good = 'gppd',
-    excellent = 'excellent',
   }
 
   export enum Container {
@@ -245,7 +210,11 @@ export namespace EncoderStream {
     /**
      * Set audio bitrate
      */
-    audioBitrate?: keyof typeof EncoderStream.AudioBitrate;
+    videoBitrate?: number;
+    /**
+     * Set audio bitrate
+     */
+    audioBitrate?: number;
     /**
      * Set output container
      */
@@ -275,6 +244,6 @@ export namespace EncoderStream {
     /**
      * Vide metadata
      */
-    metadata?: EncoderStream.Metadata;
+    metadata: EncoderStream.Metadata;
   }
 }

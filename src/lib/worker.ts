@@ -33,7 +33,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import { workerData, isMainThread } from 'worker_threads';
+import { workerData, isMainThread, parentPort } from 'worker_threads';
 import { DownloadWorker } from './DownloadWorker';
 
 export default void (async (options: DownloadWorker.Options): Promise<DownloadWorker> => {
@@ -48,9 +48,9 @@ export default void (async (options: DownloadWorker.Options): Promise<DownloadWo
       console.error('Caught exception:', error, 'Exception origin:', origin);
       process.exit(1);
     });
-  if (!isMainThread) {
+  if (!isMainThread && parentPort) {
     try {
-      return await DownloadWorker.create(options);
+      return await DownloadWorker.create({ ...options, parentPort });
     } catch (error) {
       process.exit(1);
     }

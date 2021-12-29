@@ -73,9 +73,6 @@ describe('EncoderStream', () => {
     const getEncoderOptions = (format: EncoderStream.Format): EncoderStream.EncodeOptions => {
       return {
         format,
-        audioCodec: EncoderStream.AudioCodec.libmp3lame,
-        audioBitrate: EncoderStream.AudioBitrate.normal,
-        container: EncoderStream.Container.mp3,
       };
     };
     const inputStream = fs.createReadStream(path.join(inputDir, 'Caminandes 3- Llamigos.webm'));
