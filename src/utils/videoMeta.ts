@@ -33,7 +33,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import ytdl = require('ytdl-core');
+import * as ytdl from 'ytdl-core';
 import * as utils from './utils';
 
 export declare interface IOutputVideoMeta {

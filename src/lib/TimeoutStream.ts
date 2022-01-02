@@ -38,16 +38,16 @@ import { Writable, WritableOptions, Readable } from 'stream';
 import * as utils from '../utils/utils';
 
 export interface TimeoutStreamOptions extends WritableOptions {
-  timeout?: number;
+  timeout: number;
 }
 export default class TimeoutStream extends Writable {
   private timeout: number;
   private timer!: NodeJS.Timeout;
   private prev!: number;
   private inputStream!: Readable;
-  public constructor(options?: TimeoutStreamOptions) {
+  public constructor(options: TimeoutStreamOptions) {
     super(options);
-    this.timeout = options?.timeout ?? 5000;
+    this.timeout = options.timeout;
     this.handleEvents();
   }
 
@@ -70,7 +70,7 @@ export default class TimeoutStream extends Writable {
   private handleEvents(): void {
     this.once('pipe', (stream: Readable) => {
       this.inputStream = stream;
-      this.handleInputStreamEvents(stream);
+      this.handleInputStreamEvents();
       this.setTimeout();
     });
     this.once('close', () => {
@@ -84,8 +84,8 @@ export default class TimeoutStream extends Writable {
     });
   }
 
-  private handleInputStreamEvents(inputStream = this.inputStream): void {
-    inputStream.once('end', () => {
+  private handleInputStreamEvents(): void {
+    this.inputStream.once('end', () => {
       this.clearTimeout();
       this.emit('end');
     });
@@ -100,6 +100,7 @@ export default class TimeoutStream extends Writable {
   }
 
   private clearTimeout(): void {
+    this.emit('clearTimeout');
     return clearTimeout(this.timer);
   }
 }

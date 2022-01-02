@@ -103,22 +103,18 @@ export default class Download extends YtKitCommand {
       // default: '{videoDetails.title}',
     }),
     maxconnections: flags.integer({
-      char: 'm',
       description: 'specifies the maximum number of simultaneous connections to a server',
       default: 5,
     }),
     retries: flags.integer({
-      char: 'r',
       description: 'Total number of connection attempts, including the initial connection attempt',
       default: 5,
     }),
     timeout: flags.integer({
-      char: 't',
       description: 'Timeout value prevents network operations from blocking indefinitely',
       default: 5,
     }),
     format: flags.enum({
-      char: 'f',
       description: 'Output format container',
       options: Object.keys(EncoderStream.Format),
     }),
@@ -192,7 +188,7 @@ export default class Download extends YtKitCommand {
       playlistOptions: {
         gl: 'US',
         hl: 'en',
-        limit: 30,
+        limit: Infinity,
       },
       output: this.output,
       maxconnections: this.getFlag<number>('maxconnections'),
