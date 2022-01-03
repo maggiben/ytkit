@@ -37,7 +37,7 @@ import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
 import { OutputArgs } from '@oclif/parser';
-import ytdl = require('ytdl-core');
+import * as ytdl from 'ytdl-core';
 import * as ytpl from 'ytpl';
 import * as progressStream from 'progress-stream';
 import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';

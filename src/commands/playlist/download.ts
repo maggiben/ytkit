@@ -33,14 +33,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import { Readable } from 'stream';
-import { OutputArgs } from '@oclif/parser';
-import ytdl = require('ytdl-core');
 import * as ytpl from 'ytpl';
+import { JsonArray } from '@salesforce/ts-types';
 import * as progressStream from 'progress-stream';
-import { JsonMap } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
-import { YtKitCommand } from '../../YtKitCommand';
+import { YtKitCommand, YtKitResult } from '../../YtKitCommand';
 import { flags, FlagsConfig } from '../../YtKitFlags';
 import * as utils from '../../utils/utils';
 import { Scheduler } from '../../lib/scheduler';
@@ -51,9 +48,12 @@ export interface IFilter {
 }
 
 export default class Download extends YtKitCommand {
-  public static id = 'download';
+  public static id = 'playlist:download';
   public static readonly description = 'download video to a file or to stdout';
   public static readonly examples = ['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
+  public static readonly result: YtKitResult = {
+    tableColumnData: ['title', 'author', 'length', 'id'],
+  };
   public static readonly flagsConfig: FlagsConfig = {
     url: flags.string({
       char: 'u',
@@ -113,45 +113,27 @@ export default class Download extends YtKitCommand {
     }),
   };
 
-  // The parsed args for easy reference by this command; assigned in init
-  protected args!: OutputArgs;
-  // The parsed varargs for easy reference by this command
-  protected varargs?: JsonMap;
-  protected readStream!: Readable;
-  protected ytdlOptions!: ytdl.downloadOptions;
-  // The parsed flags for easy reference by this command; assigned in init
-  protected output!: string;
-  protected extension?: string | unknown;
+  protected tableColumnData = ['title', 'author:{author.name}', 'length:{duration}', 'id'];
 
-  // video info
-  protected videoInfo?: ytdl.videoInfo;
-  // video format
-  protected videoFormat?: ytdl.videoFormat;
-
-  private progressStream?: progressStream.ProgressStream;
-
-  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void | unknown> {
+  public async run(): Promise<JsonArray> {
     const playlistId = ytpl.validateID(this.getFlag('url')) && (await ytpl.getPlaylistID(this.getFlag('url')));
     if (playlistId) {
-      try {
-        return await this.downloadPlaylist(playlistId);
-      } catch (error) {
-        return error;
-      }
+      const results = await this.downloadPlaylist(playlistId);
+      return this.getRows(results);
     }
     throw new Error('Invalid playlist url');
   }
 
-  private async downloadPlaylist(playlistId: string): Promise<number[] | void> {
+  private async downloadPlaylist(playlistId: string): Promise<Array<Scheduler.Result | undefined>> {
     const progressbars = new Map<string, SingleBar>();
     const scheduler = new Scheduler({
       playlistId,
       playlistOptions: {
         gl: 'US',
         hl: 'en',
-        limit: Infinity,
+        limit: 10,
       },
-      output: this.output,
+      output: this.getFlag<string>('output'),
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
       flags: this.flags,
@@ -238,18 +220,9 @@ export default class Download extends YtKitCommand {
       multibar.stop();
       const failed = results.filter((result) => Boolean(result?.code || result?.error)).length;
       const completed = results.length - failed;
-      this.ux.cli.log(`finally completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
-      this.ux.logJson(
-        results.map((result) => {
-          return {
-            id: result?.item.id,
-            error: result?.error,
-            code: result?.code,
-          };
-        }) as unknown as Record<string, unknown>
-      );
+      this.ux.cli.log(`completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
     }
-    return;
+    return results;
   }
 
   private getEncoderOptions(): EncoderStream.EncodeOptions | undefined {
@@ -259,5 +232,31 @@ export default class Download extends YtKitCommand {
         format,
       };
     }
+  }
+
+  /**
+   * get table rows
+   *
+   * @returns {Array<Record<string, string>>} an array of rows that contains the records
+   */
+  private getRows(results: Array<Scheduler.Result | undefined>): Array<Record<string, string>> {
+    return results.map((result) => {
+      return this.tableColumnData.reduce((column, current) => {
+        const [label, template] = current.split(':');
+        if (template) {
+          const value = template.replace(/\{([\w.-]+)\}/g, (match: string, prop: string) => {
+            return utils.getValueFrom<string>(result?.item, prop);
+          });
+          return {
+            ...column,
+            [label]: value,
+          };
+        }
+        return {
+          ...column,
+          [label]: utils.getValueFrom<string>(result?.item, label),
+        };
+      }, {});
+    });
   }
 }
