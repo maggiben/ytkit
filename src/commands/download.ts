@@ -605,11 +605,7 @@ export default class Download extends YtKitCommand {
    *
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
-  private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    try {
-      return await ytdl.getInfo(this.getFlag<string>('url'));
-    } catch (error) {
-      throw new Error((error as Error).message);
-    }
+  private async getVideoInfo(): Promise<ytdl.videoInfo> {
+    return ytdl.getInfo(this.getFlag<string>('url'));
   }
 }
