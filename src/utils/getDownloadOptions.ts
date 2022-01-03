@@ -6,7 +6,7 @@
  * @description  : Builds downloadOptions (filter) giver a set of flags
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
- * @date         : 19 Dec 2021
+ * @date         : 01 Jan 2022
  * @license:     : MIT
  *
  * Copyright 2021 Benjamin Maggi <benjaminmaggi@gmail.com>
@@ -38,12 +38,27 @@ import { OutputFlags } from '@oclif/parser';
 import { get } from '@salesforce/ts-types';
 
 /**
- * Sets the filter options
+ * Builds download options based on the following input flags
  *
- * @returns {void}
+ * @returns {ytdl.downloadOptions}
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function getDownloadOptions(flags: OutputFlags<any>): ytdl.downloadOptions {
+  const options: ytdl.downloadOptions = {};
+  const qualityFlag = get(flags, 'quality') as string;
+  const quality = /,/.test(qualityFlag) ? qualityFlag.split(',') : qualityFlag;
+  const range = get(flags, 'range') as string;
+
+  // range: A byte range in the form INT-INT that specifies part of the file to download
+  if (range) {
+    const ranges = range.split('-').map((r: string) => parseInt(r, 10));
+    options.range = { start: ranges[0], end: ranges[1] };
+  }
+  // quality: Video quality to download.
+  if (quality) {
+    options.quality = quality;
+  }
+
   // Create filters.
   const filters: Array<[string, (format: ytdl.videoFormat) => boolean]> = [];
 
@@ -112,7 +127,7 @@ export default function getDownloadOptions(flags: OutputFlags<any>): ytdl.downlo
       break;
   }
 
-  return {
-    filter: (format: ytdl.videoFormat): boolean => filters.every((filter) => filter[1](format)),
-  };
+  options.filter = (format: ytdl.videoFormat): boolean => filters.every((filter) => filter[1](format));
+
+  return options;
 }

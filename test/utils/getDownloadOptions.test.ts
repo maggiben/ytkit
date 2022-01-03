@@ -257,6 +257,40 @@ const formats = [
   },
 ] as unknown as ytdl.videoFormat[];
 
+describe('getDownloadOptions quality', () => {
+  it('getDownloadOptions quality highest', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const flags: OutputFlags<any> = {
+      quality: 'highest',
+    };
+    const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('quality').and.to.be.equal('highest');
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
+  });
+  it('getDownloadOptions quality itags', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const flags: OutputFlags<any> = {
+      quality: '18,19',
+    };
+    const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('quality').and.to.deep.equal(['18', '19']);
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
+  });
+});
+
+describe('getDownloadOptions range', () => {
+  it('getDownloadOptions quality highest', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const flags: OutputFlags<any> = {
+      range: '0-10',
+    };
+    const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('range').and.to.deep.equal({ start: 0, end: 10 });
+  });
+});
+
 describe('getDownloadOptions filter', () => {
   it('getDownloadOptions audio', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,14 +298,16 @@ describe('getDownloadOptions filter', () => {
       filter: 'audio',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(9);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
   });
   it('getDownloadOptions audioonly', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -279,14 +315,16 @@ describe('getDownloadOptions filter', () => {
       filter: 'audioonly',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(3);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[4]);
   });
   it('getDownloadOptions video', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -294,14 +332,16 @@ describe('getDownloadOptions filter', () => {
       filter: 'video',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(9);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
   });
   it('getDownloadOptions videoonly', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -309,14 +349,16 @@ describe('getDownloadOptions filter', () => {
       filter: 'videoonly',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(3);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[6]);
   });
   it('getDownloadOptions videoandaudio', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -324,14 +366,16 @@ describe('getDownloadOptions filter', () => {
       filter: 'videoandaudio',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(6);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
   });
   it('getDownloadOptions audioandvideo', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -339,32 +383,36 @@ describe('getDownloadOptions filter', () => {
       filter: 'audioandvideo',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(6);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
   });
 });
 
-describe('getDownloadOptions --filter & --unfilter', () => {
+describe('getDownloadOptions filter- & unfilter-', () => {
   it('getDownloadOptions --filter-container', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const flags: OutputFlags<any> = {
       'filter-container': 'mp4',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(8);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
   });
   it('getDownloadOptions --unfilter-container', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -372,13 +420,15 @@ describe('getDownloadOptions --filter & --unfilter', () => {
       'unfilter-container': 'webm',
     };
     const downloadOptions = getDownloadOptions(flags);
+    expect(downloadOptions).to.have.property('filter').to.exist.and.to.be.a('function');
     const { filter }: { filter?: ytdl.Filter } = downloadOptions;
-    expect(filter).to.exist.and.to.be.a('function');
     if (typeof filter === 'function') {
       const result = formats.filter(filter);
       expect(result).to.be.a('array').and.to.have.length(11);
     } else {
       assert.fail('filter not a function');
     }
+    const format = ytdl.chooseFormat(formats, downloadOptions);
+    expect(format).to.deep.equal(formats[3]);
   });
 });

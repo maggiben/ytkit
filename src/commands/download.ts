@@ -45,6 +45,7 @@ import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../YtKitCommand';
 import { flags, FlagsConfig } from '../YtKitFlags';
 import * as utils from '../utils/utils';
+import getDownloadOptions from '../utils/getDownloadOptions';
 import videoMeta, { IOutputVideoMeta } from '../utils/videoMeta';
 import { Scheduler } from '../lib/scheduler';
 import { EncoderStream } from '../lib/EncoderStream';
@@ -114,9 +115,8 @@ export default class Download extends YtKitCommand {
       description: 'Timeout value prevents network operations from blocking indefinitely',
       default: 5,
     }),
-    format: flags.enum({
+    format: flags.string({
       description: 'Output format container',
-      options: Object.keys(EncoderStream.Format),
     }),
   };
 
@@ -138,8 +138,7 @@ export default class Download extends YtKitCommand {
   private progressStream?: progressStream.ProgressStream;
 
   public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void> {
-    this.ytdlOptions = this.buildDownloadOptions();
-    this.setFilters();
+    this.ytdlOptions = getDownloadOptions(this.flags);
     this.setOutput();
 
     const videoId = ytdl.validateURL(this.getFlag('url')) && ytdl.getVideoID(this.getFlag('url'));
@@ -384,28 +383,6 @@ export default class Download extends YtKitCommand {
       }
     });
   }
-  /**
-   * Builds download options based on the following input flags
-   * quality: Video quality to download.
-   * range: A byte range in the form INT-INT that specifies part of the file to download
-   *
-   * @returns {@link ytdl.downloadOptions} the downalod options
-   */
-  private buildDownloadOptions(): ytdl.downloadOptions {
-    const options: ytdl.downloadOptions = {};
-    const qualityFlag = this.getFlag<string>('quality');
-    const quality = /,/.test(qualityFlag) ? qualityFlag.split(',') : qualityFlag;
-    const range = this.getFlag<string>('range');
-
-    if (range) {
-      const ranges = range.split('-').map((r: string) => parseInt(r, 10));
-      options.range = { start: ranges[0], end: ranges[1] };
-    }
-    if (quality) {
-      options.quality = quality;
-    }
-    return options;
-  }
 
   /**
    * Checks if output flag is set, it extracts the filename extension
@@ -464,13 +441,12 @@ export default class Download extends YtKitCommand {
   }
 
   private getEncoderOptions(): EncoderStream.EncodeOptions | undefined {
-    const format = this.getFlag<EncoderStream.Format>('format');
+    const format = this.getFlag<string>('format');
     if (format) {
       return {
         format,
       };
     }
-    return undefined;
   }
 
   /**
@@ -558,83 +534,6 @@ export default class Download extends YtKitCommand {
         }
       });
     }
-  }
-
-  /**
-   * Sets the filter options
-   *
-   * @returns {void}
-   */
-  private setFilters(): void {
-    // Create filters.
-    const filters: Array<[string, (format: ytdl.videoFormat) => boolean]> = [];
-
-    /**
-     * @param {string} name
-     * @param {string} field
-     * @param {string} regexpStr
-     * @param {boolean|undefined} negated
-     */
-    const createFilter = (name: string, field: string, regexpStr: string, negated?: boolean): void => {
-      const regexp = new RegExp(regexpStr, 'i');
-      filters.push([
-        name,
-        (format: ytdl.videoFormat): boolean =>
-          Boolean(negated !== regexp.test(format[field as keyof ytdl.videoFormat] as string)),
-      ]);
-    };
-
-    // options:
-    // --filter-container REGEXP      Filter in format container
-    // --unfilter-container REGEXP    Filter out format container
-    // --filter-resolution REGEXP     Filter in format resolution
-    // --unfilter-resolution REGEXP   Filter out format resolution
-    // --filter-codecs REGEXP       Filter in format encoding
-    // --unfilter-codecs REGEXP     Filter out format encoding
-    ['container', 'resolution:qualityLabel', 'codecs'].forEach((field) => {
-      // eslint-disable-next-line prefer-const
-      let [fieldName, fieldKey] = field.split(':');
-      fieldKey = fieldKey || fieldName;
-      let optsKey = `filter-${fieldName}`;
-      const value = this.getFlag<string>(optsKey);
-      const name = `${fieldName}=${value}`;
-      if (this.getFlag<string>(optsKey)) {
-        createFilter(name, fieldKey, value, false);
-      }
-      optsKey = 'un' + optsKey;
-      if (this.getFlag<string>(optsKey)) {
-        const optsValue = this.getFlag<string>(optsKey);
-        createFilter(name, fieldKey, optsValue, true);
-      }
-    });
-
-    // Support basic ytdl-core filters manually, so that other
-    // cli filters are supported when used together.
-    const hasVideo = (format: ytdl.videoFormat): boolean => !!format.qualityLabel;
-    const hasAudio = (format: ytdl.videoFormat): boolean => !!format.audioBitrate;
-
-    switch (this.flags.filter) {
-      case 'audioandvideo':
-        filters.push(['audioandvideo', (format: ytdl.videoFormat): boolean => hasVideo(format) && hasAudio(format)]);
-        break;
-      case 'videoandaudio':
-        filters.push(['videoandaudio', (format: ytdl.videoFormat): boolean => hasVideo(format) && hasAudio(format)]);
-        break;
-      case 'video':
-        filters.push(['video', hasVideo]);
-        break;
-      case 'videoonly':
-        filters.push(['videoonly', (format: ytdl.videoFormat): boolean => hasVideo(format) && !hasAudio(format)]);
-        break;
-      case 'audio':
-        filters.push(['audio', hasAudio]);
-        break;
-      case 'audioonly':
-        filters.push(['audioonly', (format: ytdl.videoFormat): boolean => !hasVideo(format) && hasAudio(format)]);
-        break;
-    }
-
-    this.ytdlOptions.filter = (format: ytdl.videoFormat): boolean => filters.every((filter) => filter[1](format));
   }
 
   /**

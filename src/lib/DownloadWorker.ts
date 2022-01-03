@@ -329,7 +329,7 @@ export class DownloadWorker extends AsyncCreatable<DownloadWorker.Options> {
       output?: string;
       videoInfo?: ytdl.videoInfo;
       videoFormat?: ytdl.videoFormat;
-      format?: EncoderStream.Format | string;
+      format?: string;
     } = {
       output: this.output,
       videoInfo: this.videoInfo,
