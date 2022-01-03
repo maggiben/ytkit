@@ -130,13 +130,16 @@ export default class Download extends YtKitCommand {
 
   private progressStream?: progressStream.ProgressStream;
 
-  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void> {
+  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void | unknown> {
     const playlistId = ytpl.validateID(this.getFlag('url')) && (await ytpl.getPlaylistID(this.getFlag('url')));
     if (playlistId) {
-      await this.downloadPlaylist(playlistId);
-    } else {
-      throw new Error('Invalid playlist url');
+      try {
+        return await this.downloadPlaylist(playlistId);
+      } catch (error) {
+        return error;
+      }
     }
+    throw new Error('Invalid playlist url');
   }
 
   private async downloadPlaylist(playlistId: string): Promise<number[] | void> {

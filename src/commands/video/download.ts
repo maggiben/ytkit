@@ -119,29 +119,27 @@ export default class Download extends YtKitCommand {
 
   private progressStream?: progressStream.ProgressStream;
 
-  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void> {
+  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void | unknown> {
     this.ytdlOptions = getDownloadOptions(this.flags);
     this.setOutput();
 
     const videoId = ytdl.validateURL(this.getFlag('url')) && ytdl.getVideoID(this.getFlag('url'));
 
-    if (!videoId) {
-      return;
-    }
-
-    if (this.flags.urlonly) {
-      const url = await this.getDownloadUrl();
-      if (url) {
-        this.ux.cli.url(url, url);
-        return url;
+    if (videoId) {
+      if (this.flags.urlonly) {
+        const url = await this.getDownloadUrl();
+        if (url) {
+          this.ux.cli.url(url, url);
+          return url;
+        }
+      }
+      try {
+        return await this.downloadVideo();
+      } catch (error) {
+        return error;
       }
     }
-
-    try {
-      return await this.downloadVideo();
-    } catch (error) {
-      return;
-    }
+    throw new Error('Invalid video url');
   }
 
   /**
