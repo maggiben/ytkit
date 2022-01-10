@@ -45,7 +45,7 @@ import * as ProgressStream from 'progress-stream';
 import { OutputFlags } from '@oclif/parser';
 import * as utils from '../utils/utils';
 import getDownloadOptions from '../utils/getDownloadOptions';
-import { AsyncCreatable } from '../utils/AsyncCreatable';
+import { AsyncCreatable } from '../utils';
 import TimeoutStream from './TimeoutStream';
 import { EncoderStream } from './EncoderStream';
 

@@ -43,21 +43,19 @@ import * as utils from '../../utils/utils';
 import { Scheduler } from '../../lib/scheduler';
 import { EncoderStream } from '../../lib/EncoderStream';
 
-export interface IFilter {
-  [name: string]: (format: Record<string, string>) => boolean;
-}
-
 export default class Download extends YtKitCommand {
   public static id = 'playlist:download';
-  public static readonly description = 'download video to a file or to stdout';
-  public static readonly examples = ['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
+  public static readonly description = 'download a youtube playlist';
+  public static readonly examples = [
+    '$ ytdl playlist:download -u https://www.youtube.com/playlist?list=PL6B3937A5D230E335',
+  ];
   public static readonly result: YtKitResult = {
     tableColumnData: ['title', 'author', 'length', 'id'],
   };
   public static readonly flagsConfig: FlagsConfig = {
     url: flags.string({
       char: 'u',
-      description: 'Youtube video or playlist url',
+      description: 'Youtube playlist url',
       required: true,
     }),
     quality: flags.string({
@@ -66,9 +64,6 @@ export default class Download extends YtKitCommand {
     filter: flags.enum({
       description: 'Can be video, videoonly, audio, audioonly',
       options: ['audioandvideo', 'videoandaudio', 'video', 'videoonly', 'audio', 'audioonly'],
-    }),
-    range: flags.string({
-      description: 'Byte range to download, ie 10355705-12452856',
     }),
     'filter-container': flags.string({
       description: 'Filter in format container',
@@ -87,9 +82,6 @@ export default class Download extends YtKitCommand {
     }),
     'unfilter-codecs': flags.string({
       description: 'Filter out format codecs',
-    }),
-    begin: flags.string({
-      description: 'Time to begin video, format by 1:30.123 and 1m30s',
     }),
     output: flags.string({
       char: 'o',
@@ -115,11 +107,14 @@ export default class Download extends YtKitCommand {
 
   protected tableColumnData = ['title', 'author:{author.name}', 'length:{duration}', 'id'];
 
-  public async run(): Promise<JsonArray> {
+  public async run(): Promise<JsonArray | Array<Scheduler.Result | undefined>> {
     const playlistId = ytpl.validateID(this.getFlag('url')) && (await ytpl.getPlaylistID(this.getFlag('url')));
     if (playlistId) {
       const results = await this.downloadPlaylist(playlistId);
-      return this.getRows(results);
+      if (!this.flags.json) {
+        return this.getRows(results);
+      }
+      return results;
     }
     throw new Error('Invalid playlist url');
   }
@@ -131,7 +126,7 @@ export default class Download extends YtKitCommand {
       playlistOptions: {
         gl: 'US',
         hl: 'en',
-        limit: 10,
+        limit: Infinity,
       },
       output: this.getFlag<string>('output'),
       maxconnections: this.getFlag<number>('maxconnections'),
@@ -140,7 +135,9 @@ export default class Download extends YtKitCommand {
       encoderOptions: this.getEncoderOptions(),
     });
 
-    this.ux.cli.action.start('Retrieving playlist contents', this.ux.chalk.yellow('loading'), { stdout: true });
+    if (!this.flags.json) {
+      this.ux.cli.action.start('Retrieving playlist contents', this.ux.chalk.yellow('loading'), { stdout: true });
+    }
 
     const multibar = new this.ux.multibar({
       clearOnComplete: true,
@@ -152,11 +149,13 @@ export default class Download extends YtKitCommand {
 
     scheduler.on('playlistItems', (message: Scheduler.Message) => {
       const length = (message.details?.playlistItems as ytpl.Item[]).length;
-      this.ux.cli.action.stop(`total items: ${this.ux.chalk.yellow(length)}`);
+      if (!this.flags.json) {
+        this.ux.cli.action.stop(`total items: ${this.ux.chalk.yellow(length)}`);
+      }
     });
 
     scheduler.on('contentLength', (message: Scheduler.Message) => {
-      if (!progressbars.has(message.source.id)) {
+      if (!this.flags.json && !progressbars.has(message.source.id)) {
         const progressBar = multibar.create(message.details?.contentLength as number, 0, {
           timeleft: 'N/A',
           percentage: '0',
@@ -186,10 +185,7 @@ export default class Download extends YtKitCommand {
     });
 
     scheduler.on('progress', (message: Scheduler.Message) => {
-      interface ExtendedProgress extends progressStream.Progress {
-        elapsed: string;
-      }
-      const progress = message.details?.progress as ExtendedProgress;
+      const progress = message.details?.progress as progressStream.Progress;
       const progressbar = progressbars.get(message.source.id);
       progressbar?.update(progress.transferred, {
         timeleft: utils.toHumanTime(progress.eta),
@@ -220,7 +216,9 @@ export default class Download extends YtKitCommand {
       multibar.stop();
       const failed = results.filter((result) => Boolean(result?.code || result?.error)).length;
       const completed = results.length - failed;
-      this.ux.cli.log(`completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
+      if (!this.flags.json) {
+        this.ux.cli.log(`completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
+      }
     }
     return results;
   }

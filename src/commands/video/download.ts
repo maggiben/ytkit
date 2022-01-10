@@ -36,20 +36,13 @@
 import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
-import { OutputArgs } from '@oclif/parser';
 import * as ytdl from 'ytdl-core';
 import * as progressStream from 'progress-stream';
-import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';
+import { ensureString, ensureArray } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand } from '../../YtKitCommand';
 import { flags, FlagsConfig } from '../../YtKitFlags';
-import * as utils from '../../utils/utils';
-import getDownloadOptions from '../../utils/getDownloadOptions';
-import videoMeta, { IOutputVideoMeta } from '../../utils/videoMeta';
-
-export interface IFilter {
-  [name: string]: (format: Record<string, string>) => boolean;
-}
+import { utils, getDownloadOptions, videoMeta, IOutputVideoMeta } from '../../utils';
 
 export default class Download extends YtKitCommand {
   public static id = 'video:download';
@@ -102,16 +95,11 @@ export default class Download extends YtKitCommand {
     }),
   };
 
-  // The parsed args for easy reference by this command; assigned in init
-  protected args!: OutputArgs;
-  // The parsed varargs for easy reference by this command
-  protected varargs?: JsonMap;
   protected readStream!: Readable;
   protected ytdlOptions!: ytdl.downloadOptions;
   // The parsed flags for easy reference by this command; assigned in init
   protected output!: string;
   protected extension?: string | unknown;
-
   // video info
   protected videoInfo?: ytdl.videoInfo;
   // video format
