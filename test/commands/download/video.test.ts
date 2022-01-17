@@ -7,7 +7,7 @@ import * as ytdl from 'ytdl-core';
 import { SingleBar } from 'cli-progress';
 import { UX } from '../../../src/Ux';
 import * as utils from '../../../src/utils/utils';
-import Download from '../../../src/commands/video/download';
+import Video from '../../../src/commands/download/video';
 
 class WritableFileStream extends fs.WriteStream {}
 class WritableSocketStream extends Writable {}
@@ -27,9 +27,11 @@ const passThorughStream = () => {
   });
 };
 
+const VIDEO_URL = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+const INVALID_UTL = 'http:my-bad-url.com';
+
 describe('video download', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -67,7 +69,7 @@ describe('video download', () => {
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -90,7 +92,7 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--json', '--output', output])
+    .command(['download:video', '--url', VIDEO_URL, '--json', '--output', output])
     .it('downloads a video', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(createWriteStreamStub.callCount).to.be.equal(1);
@@ -100,7 +102,16 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output])
+    .command(['download:video', '--url', INVALID_UTL, '--json', '--output', output])
+    .it('downloads fails on invalid url', (ctx) => {
+      const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
+      expect(jsonResponse).to.have.property('status').and.be.equal(1);
+      expect(jsonResponse.name).to.equal('Error');
+    });
+
+  test
+    .stdout()
+    .command(['download:video', '--url', VIDEO_URL, '--output', output])
     .it('downloads a video output to a file', () => {
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
@@ -108,7 +119,7 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--json', '--output', output, '--quality', '278'])
+    .command(['download:video', '--url', VIDEO_URL, '--json', '--output', output, '--quality', '278'])
     .it('downloads a video of a certain quality type', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(createWriteStreamStub.callCount).to.be.equal(1);
@@ -118,7 +129,7 @@ describe('video download', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--quality', '278'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--quality', '278'])
     .it('downloads a video and prints video metadata', () => {
       expect(logStub.callCount).to.be.equal(13);
       [
@@ -142,7 +153,6 @@ describe('video download', () => {
 });
 
 describe('do not download only return source video url', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -172,7 +182,7 @@ describe('do not download only return source video url', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
   });
@@ -182,7 +192,7 @@ describe('do not download only return source video url', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--urlonly'])
+    .command(['download:video', '--url', VIDEO_URL, '--urlonly'])
     .it('do not download only return source video url', (ctx) => {
       expect(ctx.stdout).to.deep.include(format.url);
     });
@@ -190,11 +200,10 @@ describe('do not download only return source video url', () => {
 
 describe('try to retrieve vode source url but getInfo throws', () => {
   const getInfoError = new Error('GetInfoError');
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.reject(getInfoError);
     });
   });
@@ -204,7 +213,7 @@ describe('try to retrieve vode source url but getInfo throws', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--urlonly'])
+    .command(['download:video', '--url', VIDEO_URL, '--urlonly'])
     .catch((error) => {
       expect(error).to.be.instanceof(Error);
       expect(error).to.have.property('message').and.to.include(getInfoError.message);
@@ -215,11 +224,10 @@ describe('try to retrieve vode source url but getInfo throws', () => {
 });
 
 describe('try to retrieve vode source url but getInfo returns undefined', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return Promise.resolve() as unknown as Promise<ytdl.videoInfo>;
     });
@@ -230,7 +238,7 @@ describe('try to retrieve vode source url but getInfo returns undefined', () => 
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--urlonly'])
+    .command(['download:video', '--url', VIDEO_URL, '--urlonly'])
     .it('fails while trying to return the direct video url', (ctx) => {
       expect(ctx.stdout).to.be.equal('');
     });
@@ -238,7 +246,6 @@ describe('try to retrieve vode source url but getInfo returns undefined', () => 
 
 describe('video download quality options', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -276,7 +283,7 @@ describe('video download quality options', () => {
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo, options?: ytdl.downloadOptions) => {
@@ -302,7 +309,7 @@ describe('video download quality options', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--quality', '278,299'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--quality', '278,299'])
     .it('given a list of quality filters return the first available one depending on the order of importance', () => {
       expect(logStub.callCount).to.be.equal(13);
       [
@@ -328,7 +335,6 @@ describe('video download quality options', () => {
 });
 
 describe('download video without an output flag', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -362,7 +368,7 @@ describe('download video without an output flag', () => {
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -381,7 +387,7 @@ describe('download video without an output flag', () => {
   });
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl])
+    .command(['download:video', '--url', VIDEO_URL])
     .it('downloads a video output', () => {
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(`${videoDetails.title}.${format.container}`);
@@ -390,7 +396,6 @@ describe('download video without an output flag', () => {
 
 describe('download a video using custom filters', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const audioOnlyFormat = {
     itag: '123',
     container: 'mp4',
@@ -442,7 +447,7 @@ describe('download a video using custom filters', () => {
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     downloadFromInfoStub = sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -461,7 +466,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--filter-container', 'webm'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--filter-container', 'webm'])
     .it('download a video filtered by container', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -474,7 +479,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--unfilter-container', 'webm'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--unfilter-container', 'webm'])
     .it('download a video un-filtered by container', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -487,7 +492,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--filter-resolution', '1080p'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--filter-resolution', '1080p'])
     .it('download a video filtered by resolution', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -500,7 +505,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--unfilter-resolution', '1080p'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--unfilter-resolution', '1080p'])
     .it('download a video un filtered by resolution', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -513,7 +518,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--quality', 'lowest'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--quality', 'lowest'])
     .it('download a video filtered by quality', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -526,7 +531,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--quality', 'highest'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--quality', 'highest'])
     .it('download a video filtered by quality', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -539,7 +544,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--filter', 'video'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--filter', 'video'])
     .it('download a video filtered by video', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -552,7 +557,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--filter', 'videoonly'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--filter', 'videoonly'])
     .it('download a video filtered by videoonly', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -565,7 +570,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--filter', 'audio'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--filter', 'audio'])
     .it('download a video filtered by audio', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -578,7 +583,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--filter', 'audioonly'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--filter', 'audioonly'])
     .it('download a video filtered by audioonly', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -591,7 +596,7 @@ describe('download a video using custom filters', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output, '--filter', 'video'])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output, '--filter', 'video'])
     .it('download a video filtered by video', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -604,7 +609,6 @@ describe('download a video using custom filters', () => {
 });
 
 describe('video download custom ranges', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -636,7 +640,7 @@ describe('video download custom ranges', () => {
   let downloadFromInfoStub: sinon.SinonStub;
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     downloadFromInfoStub = sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -655,7 +659,7 @@ describe('video download custom ranges', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--range', '10-100'])
+    .command(['download:video', '--url', VIDEO_URL, '--range', '10-100'])
     .it('downloads a video given a certain range', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.range).to.deep.equal({ start: 10, end: 100 });
@@ -665,7 +669,6 @@ describe('video download custom ranges', () => {
 describe('download a live video with known size with contentLenght and progress with a timer', () => {
   let clock: sinon.SinonFakeTimers;
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -718,7 +721,7 @@ describe('download a live video with known size with contentLenght and progress 
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     // progressStub.progress.callsFake(() => {
@@ -763,7 +766,7 @@ describe('download a live video with known size with contentLenght and progress 
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output])
     .it('download a live video with contentLenght and progress', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -799,7 +802,6 @@ describe('download a live video with known size with contentLenght and progress 
 describe('download a live video with known size with contentLenght and progress with a timer with a quick end', () => {
   let clock: sinon.SinonFakeTimers;
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -851,7 +853,7 @@ describe('download a live video with known size with contentLenght and progress 
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     progressStub = sandbox.stub(UX.prototype, 'progress').callsFake((params: Record<string, unknown>): SingleBar => {
@@ -893,7 +895,7 @@ describe('download a live video with known size with contentLenght and progress 
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output])
     .it('download a live video with known size with contentLenght and progress with a timer with a quick end', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -929,7 +931,6 @@ describe('download a live video with known size with contentLenght and progress 
 
 describe('download a live video with known size with no contentLenght', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -973,7 +974,7 @@ describe('download a live video with known size with no contentLenght', () => {
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     downloadFromInfoStub = sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -999,7 +1000,7 @@ describe('download a live video with known size with no contentLenght', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output])
     .it('download a live video', () => {
       const ytdlOptions = downloadFromInfoStub.firstCall.args[1] as ytdl.downloadOptions;
       expect(ytdlOptions.filter).to.a('function');
@@ -1027,7 +1028,6 @@ describe('download a live video with known size with no contentLenght', () => {
 
 describe('download a live video with size unknown', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -1091,7 +1091,7 @@ describe('download a live video with size unknown', () => {
     });
 
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -1112,7 +1112,7 @@ describe('download a live video with size unknown', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output])
     .it('download a live video with size unknown', () => {
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
@@ -1131,7 +1131,6 @@ describe('download a live video with size unknown with chunks bigger than 1024 b
       .map(() => charset.charAt(Math.floor(Math.random() * charset.length)))
       .join('');
   const randomBuffer = Buffer.from(randomStr(1024), 'utf8');
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const mp4Format = {
     itag: '123',
     container: 'mp4',
@@ -1203,7 +1202,7 @@ describe('download a live video with size unknown with chunks bigger than 1024 b
     });
 
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -1224,7 +1223,7 @@ describe('download a live video with size unknown with chunks bigger than 1024 b
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--output', output])
+    .command(['download:video', '--url', VIDEO_URL, '--output', output])
     .it('download a live video with size unknown', () => {
       expect(createWriteStreamStub.callCount).to.be.equal(1);
       expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
@@ -1236,7 +1235,6 @@ describe('download a live video with size unknown with chunks bigger than 1024 b
 
 describe('video download file stream', () => {
   const output = 'MyVideo.mp4';
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1274,7 +1272,7 @@ describe('video download file stream', () => {
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -1296,7 +1294,7 @@ describe('video download file stream', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--json', '--output', output])
+    .command(['download:video', '--url', VIDEO_URL, '--json', '--output', output])
     .it('downloads a video checks it pipes the stream to a file', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(createWriteStreamStub.callCount).to.be.equal(1);
@@ -1308,7 +1306,6 @@ describe('video download file stream', () => {
 });
 
 describe('video download stdout stream', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1346,7 +1343,7 @@ describe('video download stdout stream', () => {
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -1368,7 +1365,7 @@ describe('video download stdout stream', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--json'])
+    .command(['download:video', '--url', VIDEO_URL, '--json'])
     .it('downloads a video checks it pipes the stream to a stdout', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(createWriteStreamStub.callCount).to.be.equal(1);
@@ -1380,7 +1377,6 @@ describe('video download stdout stream', () => {
 });
 
 describe('video download stdout stream', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1413,10 +1409,10 @@ describe('video download stdout stream', () => {
   beforeEach(() => {
     writeSocketStreamStub = sinon.createStubInstance(WritableSocketStream);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sandbox.stub(Download.prototype, 'isTTY' as any).returns(false);
+    sandbox.stub(Video.prototype, 'isTTY' as any).returns(false);
     sandbox.stub(process, 'stdout').get(() => writeSocketStreamStub);
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -1439,7 +1435,7 @@ describe('video download stdout stream', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl])
+    .command(['download:video', '--url', VIDEO_URL])
     .it('downloads a video checks it pipes the stream to a stdout', () => {
       expect(pipeStub.callCount).to.be.equal(1);
     });
@@ -1447,7 +1443,6 @@ describe('video download stdout stream', () => {
 
 /* TODO: test is not clear the handlers of the 'end' event are not being tested */
 describe('video fails to set info', () => {
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1478,7 +1473,7 @@ describe('video fails to set info', () => {
   const sandbox: sinon.SinonSandbox = sinon.createSandbox();
   beforeEach(() => {
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -1497,7 +1492,7 @@ describe('video fails to set info', () => {
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl, '--json'])
+    .command(['download:video', '--url', VIDEO_URL, '--json'])
     .it('video fails to set info', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonMap;
       expect(jsonResponse).to.deep.equal({ status: 0, result: videoInfo });
@@ -1510,7 +1505,6 @@ describe('video download stream error handling when download is active (simulate
    */
   let clock: sinon.SinonFakeTimers;
   const streamError = new Error('StreamError');
-  const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
   const format = {
     itag: '123',
     container: 'mp4',
@@ -1549,7 +1543,7 @@ describe('video download stream error handling when download is active (simulate
       return writeStreamStub as unknown as WritableFileStream;
     });
     sandbox.stub(ytdl, 'getInfo').callsFake((url: string) => {
-      expect(url).to.equal(videoUrl);
+      expect(url).to.equal(VIDEO_URL);
       return Promise.resolve(videoInfo);
     });
     sandbox.stub(ytdl, 'downloadFromInfo').callsFake((info: ytdl.videoInfo) => {
@@ -1576,7 +1570,7 @@ describe('video download stream error handling when download is active (simulate
 
   test
     .stdout()
-    .command(['video:download', '--url', videoUrl])
+    .command(['download:video', '--url', VIDEO_URL])
     .catch((error) => {
       expect(error).to.be.instanceOf(Error);
       expect(error.message).to.be.instanceOf(streamError.message);
@@ -1589,8 +1583,8 @@ describe('video download stream error handling when download is active (simulate
 
 describe('test the class', () => {
   it('test class static properties', () => {
-    expect(Download.id).to.be.equal('video:download');
-    expect(Download.description).to.be.equal('download video to a file or to stdout');
-    expect(Download.examples).to.deep.equal(['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ']);
+    expect(Video.id).to.be.equal('download:video');
+    expect(Video.description).to.be.equal('download video to a file or to stdout');
+    expect(Video.examples).to.deep.equal(['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ']);
   });
 });

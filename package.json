@@ -20,9 +20,9 @@
     "progress-stream": "^2.0.0",
     "sanitize-filename": "^1.6.3",
     "tslib": "^2.3.1",
-    "ytdl-core": "^4.9.2",
+    "ytdl-core": "^4.10.0",
     "ytpl": "^2.2.3",
-    "ytsr": "^3.5.3"
+    "ytsr": "^3.6.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^15.0.0",
@@ -148,7 +148,7 @@
     "postpack": "rm -f oclif.manifest.json",
     "posttest": "eslint . --ext .ts",
     "prepack": "rm -rf lib && tsc -b && oclif-dev manifest && oclif-dev readme",
-    "test": "nyc --extension .ts mocha --timeout 60000 --forbid-only \"test/**/*.test.ts\"",
+    "test": "nyc --extension .ts mocha --timeout 60000 --forbid-only --parallel \"test/**/*.test.ts\"",
     "report-coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov",
     "version": "oclif-dev readme && git add README.md",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",

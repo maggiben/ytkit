@@ -1,5 +1,4 @@
 import { assert, expect } from 'chai';
-// import * as sinon from 'sinon';
 import * as ytdl from 'ytdl-core';
 import { OutputFlags } from '@oclif/parser';
 import getDownloadOptions from '../../src/utils/getDownloadOptions';

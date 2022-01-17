@@ -1,9 +1,9 @@
 /*
- * @file         : download.ts
+ * @file         : video.ts
  * @summary      : video download command
  * @version      : 1.0.0
  * @project      : YtKit
- * @description  : downloads a video or videos given a video or playlist url
+ * @description  : downloads a video given a video url
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
  * @date         : 05 Jul 2021
@@ -44,7 +44,7 @@ import { YtKitCommand } from '../../YtKitCommand';
 import { flags, FlagsConfig } from '../../YtKitFlags';
 import { utils, getDownloadOptions, videoMeta, IOutputVideoMeta } from '../../utils';
 
-export default class Download extends YtKitCommand {
+export default class Video extends YtKitCommand {
   public static id = 'video:download';
   public static readonly description = 'download video to a file or to stdout';
   public static readonly examples = ['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
@@ -121,11 +121,7 @@ export default class Download extends YtKitCommand {
           return url;
         }
       }
-      try {
-        return await this.downloadVideo();
-      } catch (error) {
-        return error;
-      }
+      return this.downloadVideo();
     }
     throw new Error('Invalid video url');
   }

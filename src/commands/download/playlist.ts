@@ -1,9 +1,9 @@
 /*
- * @file         : download.ts
- * @summary      : video download command
+ * @file         : playlist.ts
+ * @summary      : playlist download command
  * @version      : 1.0.0
  * @project      : YtKit
- * @description  : downloads a video or videos given a video or playlist url
+ * @description  : downloads a all playlist videos given a playlist url
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
  * @date         : 05 Jul 2021
@@ -39,18 +39,18 @@ import * as progressStream from 'progress-stream';
 import { SingleBar } from 'cli-progress';
 import { YtKitCommand, YtKitResult } from '../../YtKitCommand';
 import { flags, FlagsConfig } from '../../YtKitFlags';
-import * as utils from '../../utils/utils';
+import { utils, getEncoderOptions } from '../../utils';
 import { Scheduler } from '../../lib/scheduler';
 import { EncoderStream } from '../../lib/EncoderStream';
 
-export default class Download extends YtKitCommand {
-  public static id = 'playlist:download';
+export default class Playlist extends YtKitCommand {
+  public static id = 'download:playlist';
   public static readonly description = 'download a youtube playlist';
   public static readonly examples = [
-    '$ ytdl playlist:download -u https://www.youtube.com/playlist?list=PL6B3937A5D230E335',
+    '$ ytdl download:playlist -u https://www.youtube.com/playlist?list=PL6B3937A5D230E335',
   ];
   public static readonly result: YtKitResult = {
-    tableColumnData: ['title', 'author', 'length', 'id'],
+    tableColumnData: ['title', 'author', 'duration', 'id'],
   };
   public static readonly flagsConfig: FlagsConfig = {
     url: flags.string({
@@ -105,16 +105,13 @@ export default class Download extends YtKitCommand {
     }),
   };
 
-  protected tableColumnData = ['title', 'author:{author.name}', 'length:{duration}', 'id'];
+  protected tableColumnData = ['title', 'author:{author.name}', 'duration', 'id'];
 
   public async run(): Promise<JsonArray | Array<Scheduler.Result | undefined>> {
     const playlistId = ytpl.validateID(this.getFlag('url')) && (await ytpl.getPlaylistID(this.getFlag('url')));
     if (playlistId) {
       const results = await this.downloadPlaylist(playlistId);
-      if (!this.flags.json) {
-        return this.getRows(results);
-      }
-      return results;
+      return this.getRows(results);
     }
     throw new Error('Invalid playlist url');
   }
@@ -132,12 +129,10 @@ export default class Download extends YtKitCommand {
       maxconnections: this.getFlag<number>('maxconnections'),
       retries: this.getFlag<number>('retries'),
       flags: this.flags,
-      encoderOptions: this.getEncoderOptions(),
+      encoderOptions: getEncoderOptions(this.flags) as EncoderStream.EncodeOptions,
     });
 
-    if (!this.flags.json) {
-      this.ux.cli.action.start('Retrieving playlist contents', this.ux.chalk.yellow('loading'), { stdout: true });
-    }
+    this.ux.cli.action.start('Retrieving playlist contents', this.ux.chalk.yellow('loading'), { stdout: true });
 
     const multibar = new this.ux.multibar({
       clearOnComplete: true,
@@ -147,15 +142,12 @@ export default class Download extends YtKitCommand {
       barIncompleteChar: '\u2591',
     });
 
-    scheduler.on('playlistItems', (message: Scheduler.Message) => {
-      const length = (message.details?.playlistItems as ytpl.Item[]).length;
-      if (!this.flags.json) {
+    scheduler
+      .once('playlistItems', (message: Scheduler.Message) => {
+        const length = (message.details?.playlistItems as ytpl.Item[])?.length;
         this.ux.cli.action.stop(`total items: ${this.ux.chalk.yellow(length)}`);
-      }
-    });
-
-    scheduler.on('contentLength', (message: Scheduler.Message) => {
-      if (!this.flags.json && !progressbars.has(message.source.id)) {
+      })
+      .on('contentLength', (message: Scheduler.Message) => {
         const progressBar = multibar.create(message.details?.contentLength as number, 0, {
           timeleft: 'N/A',
           percentage: '0',
@@ -165,50 +157,42 @@ export default class Download extends YtKitCommand {
           retries: this.getFlag<number>('retries'),
         });
         progressbars.set(message.source.id, progressBar);
-      }
-    });
-
-    scheduler.on('end', (message: Scheduler.Message) => {
-      const progressbar = progressbars.get(message.source.id);
-      if (progressbar) {
-        progressbar.stop();
-        multibar.remove(progressbar);
-      }
-    });
-
-    scheduler.on('timeout', (message: Scheduler.Message) => {
-      const progressbar = progressbars.get(message.source.id);
-      if (progressbar) {
-        progressbar.stop();
-        multibar.remove(progressbar);
-      }
-    });
-
-    scheduler.on('progress', (message: Scheduler.Message) => {
-      const progress = message.details?.progress as progressStream.Progress;
-      const progressbar = progressbars.get(message.source.id);
-      progressbar?.update(progress.transferred, {
-        timeleft: utils.toHumanTime(progress.eta),
-        percentage: progress.percentage,
-        title: message.source.title,
-        speed: utils.toHumanSize(progress.speed),
+      })
+      .on('end', (message: Scheduler.Message) => {
+        const progressbar = progressbars.get(message.source.id);
+        if (progressbar) {
+          progressbar.stop();
+          multibar.remove(progressbar);
+        }
+      })
+      .on('timeout', (message: Scheduler.Message) => {
+        const progressbar = progressbars.get(message.source.id);
+        if (progressbar) {
+          progressbar.stop();
+          multibar.remove(progressbar);
+        }
+      })
+      .on('exit', (message: Scheduler.Message) => {
+        const progressbar = progressbars.get(message.source.id);
+        if (progressbar) {
+          progressbar.stop();
+          multibar.remove(progressbar);
+        }
+      })
+      .on('progress', (message: Scheduler.Message) => {
+        const progress = message.details?.progress as progressStream.Progress;
+        const progressbar = progressbars.get(message.source.id);
+        progressbar?.update(progress.transferred, {
+          timeleft: utils.toHumanTime(progress.eta),
+          percentage: progress.percentage,
+          title: message.source.title,
+          speed: utils.toHumanSize(progress.speed),
+        });
       });
-    });
-
-    scheduler.on('exit', (message: Scheduler.Message) => {
-      const progressbar = progressbars.get(message.source.id);
-      if (progressbar) {
-        progressbar.stop();
-        multibar.remove(progressbar);
-      }
-    });
 
     let results: Array<Scheduler.Result | undefined> = [];
     try {
       results = await scheduler.download();
-    } catch (error) {
-      this.ux.cli.warn('failed to fetch the playlist');
-    } finally {
       progressbars.forEach((progressbar) => {
         progressbar.stop();
         multibar.remove(progressbar);
@@ -216,19 +200,11 @@ export default class Download extends YtKitCommand {
       multibar.stop();
       const failed = results.filter((result) => Boolean(result?.code || result?.error)).length;
       const completed = results.length - failed;
-      if (!this.flags.json) {
-        this.ux.cli.log(`completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
-      }
-    }
-    return results;
-  }
-
-  private getEncoderOptions(): EncoderStream.EncodeOptions | undefined {
-    const format = this.getFlag<string>('format');
-    if (format) {
-      return {
-        format,
-      };
+      this.ux.cli.log(`completed: ${this.ux.chalk.green(completed)} failed: ${this.ux.chalk.red(failed)}`);
+      return results;
+    } catch (error) {
+      this.ux.cli.warn('failed to fetch the playlist');
+      throw error;
     }
   }
 
@@ -238,12 +214,15 @@ export default class Download extends YtKitCommand {
    * @returns {Array<Record<string, string>>} an array of rows that contains the records
    */
   private getRows(results: Array<Scheduler.Result | undefined>): Array<Record<string, string>> {
-    return results.map((result) => {
+    const items = results.filter((result) => {
+      return Boolean(result && result.item && !(result.code || result.error));
+    }) as Scheduler.Result[];
+    return items.map((result) => {
       return this.tableColumnData.reduce((column, current) => {
         const [label, template] = current.split(':');
         if (template) {
           const value = template.replace(/\{([\w.-]+)\}/g, (match: string, prop: string) => {
-            return utils.getValueFrom<string>(result?.item, prop);
+            return utils.getValueFrom<string>(result.item, prop);
           });
           return {
             ...column,
@@ -252,7 +231,7 @@ export default class Download extends YtKitCommand {
         }
         return {
           ...column,
-          [label]: utils.getValueFrom<string>(result?.item, label),
+          [label]: utils.getValueFrom<string>(result.item, label),
         };
       }, {});
     });
