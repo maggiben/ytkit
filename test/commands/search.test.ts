@@ -142,7 +142,7 @@ describe('search video infinite (all) results', () => {
   test
     .stdout()
     .command(['search', '--query', searchQuery, '--limit', 'Infinity', '--json'])
-    .it('searches with limit ser to Infiniry', (ctx) => {
+    .it('searches with limit set to Infiniry', (ctx) => {
       const jsonResponse = JSON.parse(ctx.stdout) as JsonArray;
       expect(getFiltersStub.callCount).to.equal(1);
       expect(jsonResponse).to.have.property('result').and.to.have.length(325);

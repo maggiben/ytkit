@@ -6,7 +6,7 @@
  * @description  : Emits a timeout if the stream has been quiet (no writes) for too long
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
- * @date         : 06 Dev 2021
+ * @date         : 06 Dec 2021
  * @license:     : MIT
  *
  * Copyright 2021 Benjamin Maggi <benjaminmaggi@gmail.com>
@@ -33,19 +33,21 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import { Writable, WritableOptions } from 'stream';
-import * as utils from './utils';
+import { performance } from 'perf_hooks';
+import { Writable, WritableOptions, Readable } from 'stream';
+import * as utils from '../utils/utils';
 
 export interface TimeoutStreamOptions extends WritableOptions {
-  timeout?: number;
+  timeout: number;
 }
 export default class TimeoutStream extends Writable {
   private timeout: number;
   private timer!: NodeJS.Timeout;
   private prev!: number;
-  public constructor(options?: TimeoutStreamOptions) {
+  private inputStream!: Readable;
+  public constructor(options: TimeoutStreamOptions) {
     super(options);
-    this.timeout = options?.timeout ?? 5000;
+    this.timeout = options.timeout;
     this.handleEvents();
   }
 
@@ -56,8 +58,9 @@ export default class TimeoutStream extends Writable {
     return callback();
   }
 
-  public elapsed(): string {
-    return utils.toHumanTime(Math.floor((performance.now() - this.prev) / 1000));
+  public elapsed(toHumanTime = true): string | number {
+    const elapsedSeconds = Math.floor((performance.now() - this.prev) / 1000);
+    return toHumanTime ? utils.toHumanTime(elapsedSeconds) : elapsedSeconds;
   }
 
   public end(): void {
@@ -65,14 +68,26 @@ export default class TimeoutStream extends Writable {
   }
 
   private handleEvents(): void {
-    this.once('pipe', () => {
+    this.once('pipe', (stream: Readable) => {
+      this.inputStream = stream;
+      this.handleInputStreamEvents();
       this.setTimeout();
     });
     this.once('close', () => {
       this.clearTimeout();
     });
+    this.once('end', () => {
+      this.clearTimeout();
+    });
     this.once('finish', () => {
       this.clearTimeout();
+    });
+  }
+
+  private handleInputStreamEvents(): void {
+    this.inputStream.once('end', () => {
+      this.clearTimeout();
+      this.emit('end');
     });
   }
 
@@ -85,6 +100,7 @@ export default class TimeoutStream extends Writable {
   }
 
   private clearTimeout(): void {
+    this.emit('clearTimeout');
     return clearTimeout(this.timer);
   }
 }

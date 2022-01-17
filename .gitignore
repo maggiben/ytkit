@@ -13,7 +13,7 @@ package-lock.json
 *-error.log
 
 # compile source
-lib
+/lib
 
 # test artifacts
 *xunit.xml

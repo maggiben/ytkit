@@ -6,10 +6,10 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch Program",
+      "name": "Launch search",
       "skipFiles": ["<node_internals>/**"],
       "program": "${workspaceFolder}/bin/run",
-      "cwd": "/Users/bmaggi/salesforce/tmp/dreamhouse-lwcn",
+      "cwd": "${workspaceFolder}",
       "args": ["search", "-q", "banana", "-l", "10"],
       "console": "integratedTerminal",
       "internalConsoleOptions": "openOnSessionStart",
