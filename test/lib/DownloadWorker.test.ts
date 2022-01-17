@@ -43,6 +43,7 @@ const passThorughTimeoutStream = (timeout: number) => {
 
 describe('DownloadWorker', () => {
   const title = 'My Title';
+  const videoId = 'ABC12345';
   const container = 'mp4';
   const output = `${title}.${container}`;
   const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
@@ -58,6 +59,7 @@ describe('DownloadWorker', () => {
   } as unknown as ytdl.videoFormat;
   const formats = [format] as unknown as ytdl.videoFormat[];
   const videoDetails = {
+    videoId,
     title,
     author: {
       name: 'Author Name',
@@ -83,7 +85,7 @@ describe('DownloadWorker', () => {
     postMessage: sinon.spy(),
   };
   beforeEach(() => {
-    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').withArgs(output).returns(writeStreamStub);
+    createWriteStreamStub = sandbox.stub(fs, 'createWriteStream').returns(writeStreamStub);
     getInfoStub = sandbox.stub(ytdl, 'getInfo').withArgs(videoUrl).resolves(videoInfo);
     downloadFromInfoStub = sandbox
       .stub(ytdl, 'downloadFromInfo')
@@ -136,6 +138,47 @@ describe('DownloadWorker', () => {
     expect(exitStub.callCount).to.be.equal(1);
     expect(createWriteStreamStub.callCount).to.be.equal(1);
     expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(output);
+    expect(downloadWorker).to.have.keys([
+      'contentLength',
+      'downloadOptions',
+      'encoderOptions',
+      'flags',
+      'item',
+      'output',
+      'outputStream',
+      'parentPort',
+      'downloadStream',
+      'timeout',
+      'timeoutStream',
+      'videoFormat',
+      'videoInfo',
+    ]);
+  });
+
+  it('DownloadWorker downloads and saves a video with output', async () => {
+    const downloadWorkerOptions: DownloadWorker.Options = {
+      item: {
+        title: 'MyVideo',
+        index: 1,
+        id: 'aqz-KE-bpKQ',
+        shortUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+        url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+        author: {
+          name: 'Blender',
+          url: 'https://www.youtube.com/c/blander',
+          channelID: '1234',
+        },
+      } as ytpl.Item,
+      output: '{videoDetails.videoId}',
+      parentPort: parentPortStub as unknown as workerThreads.MessagePort,
+    };
+    const downloadWorker = await DownloadWorker.create(downloadWorkerOptions);
+    expect(downloadWorker).to.be.instanceOf(DownloadWorker);
+    expect(getInfoStub.callCount).to.be.equal(1);
+    expect(downloadFromInfoStub.callCount).to.be.equal(1);
+    expect(exitStub.callCount).to.be.equal(1);
+    expect(createWriteStreamStub.callCount).to.be.equal(1);
+    expect(createWriteStreamStub.firstCall.firstArg).to.be.equal(`${videoId}.${container}`);
     expect(downloadWorker).to.have.keys([
       'contentLength',
       'downloadOptions',
