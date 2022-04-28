@@ -1,9 +1,9 @@
 /*
- * @file         : download.ts
+ * @file         : video.ts
  * @summary      : video download command
  * @version      : 1.0.0
  * @project      : YtKit
- * @description  : downloads a video or videos given a video or playlist url
+ * @description  : downloads a video given a video url
  * @author       : Benjamin Maggi
  * @email        : benjaminmaggi@gmail.com
  * @date         : 05 Jul 2021
@@ -36,29 +36,16 @@
 import { Readable } from 'stream';
 import * as fs from 'fs';
 import * as path from 'path';
-import { OutputArgs } from '@oclif/parser';
-import StreamSpeed = require('streamspeed');
-import ytdl = require('ytdl-core');
-import { JsonMap, ensureString, ensureArray } from '@salesforce/ts-types';
+import * as ytdl from 'ytdl-core';
+import * as progressStream from 'progress-stream';
+import { ensureString, ensureArray } from '@salesforce/ts-types';
 import { SingleBar } from 'cli-progress';
-import { YtKitCommand } from '../YtKitCommand';
-import { flags, FlagsConfig } from '../YtKitFlags';
-import * as utils from '../utils/utils';
+import { YtKitCommand } from '../../YtKitCommand';
+import { flags, FlagsConfig } from '../../YtKitFlags';
+import { utils, getDownloadOptions, videoMeta, IOutputVideoMeta } from '../../utils';
 
-declare interface IOutputVideoMeta {
-  label: string;
-  from: Record<string, unknown>;
-  path: string;
-  requires?: string | boolean | ((value: unknown) => boolean);
-  transformValue?: <T>(value: T) => T;
-}
-
-export interface IFilter {
-  [name: string]: (format: Record<string, string>) => boolean;
-}
-
-export default class Download extends YtKitCommand {
-  public static id = 'download';
+export default class Video extends YtKitCommand {
+  public static id = 'video:download';
   public static readonly description = 'download video to a file or to stdout';
   public static readonly examples = ['$ ytdl download -u https://www.youtube.com/watch?v=aqz-KE-bpKQ'];
   public static readonly flagsConfig: FlagsConfig = {
@@ -68,11 +55,11 @@ export default class Download extends YtKitCommand {
       required: true,
     }),
     quality: flags.string({
-      description: 'Video quality to download, default: highest',
+      description: 'Video quality to download, default: highest can use ITAG',
     }),
     filter: flags.enum({
       description: 'Can be video, videoonly, audio, audioonly',
-      options: ['video', 'videoonly', 'audio', 'audioonly'],
+      options: ['audioandvideo', 'videoandaudio', 'video', 'videoonly', 'audio', 'audioonly'],
     }),
     range: flags.string({
       description: 'Byte range to download, ie 10355705-12452856',
@@ -83,11 +70,17 @@ export default class Download extends YtKitCommand {
     'filter-resolution': flags.string({
       description: 'Filter in format resolution',
     }),
+    'filter-codecs': flags.string({
+      description: 'Filter in format codecs',
+    }),
     'unfilter-container': flags.string({
       description: 'Filter out format container',
     }),
     'unfilter-resolution': flags.string({
       description: 'Filter out format container',
+    }),
+    'unfilter-codecs': flags.string({
+      description: 'Filter out format codecs',
     }),
     begin: flags.string({
       description: 'Time to begin video, format by 1:30.123 and 1m30s',
@@ -98,38 +91,52 @@ export default class Download extends YtKitCommand {
     output: flags.string({
       char: 'o',
       description: 'Save to file, template by {prop}, default: stdout or {title}',
+      // default: '{videoDetails.title}',
     }),
   };
 
-  // The parsed args for easy reference by this command; assigned in init
-  protected args!: OutputArgs;
-  // The parsed varargs for easy reference by this command
-  protected varargs?: JsonMap;
   protected readStream!: Readable;
   protected ytdlOptions!: ytdl.downloadOptions;
   // The parsed flags for easy reference by this command; assigned in init
   protected output!: string;
   protected extension?: string | unknown;
-
   // video info
   protected videoInfo?: ytdl.videoInfo;
   // video format
   protected videoFormat?: ytdl.videoFormat;
 
-  public async run(): Promise<ytdl.videoInfo | string | undefined> {
-    this.ytdlOptions = this.buildDownloadOptions();
+  private progressStream?: progressStream.ProgressStream;
 
-    this.setFilters();
+  public async run(): Promise<ytdl.videoInfo | ytdl.videoInfo[] | string | number[] | void | unknown> {
+    this.ytdlOptions = getDownloadOptions(this.flags);
     this.setOutput();
 
-    if (this.flags.urlonly) {
-      const url = await this.getDownloadUrl();
-      if (url) {
-        this.ux.cli.url(url, url);
-        return url;
-      }
-    }
+    const videoId = ytdl.validateURL(this.getFlag('url')) && ytdl.getVideoID(this.getFlag('url'));
 
+    if (videoId) {
+      if (this.flags.urlonly) {
+        const url = await this.getDownloadUrl();
+        if (url) {
+          this.ux.cli.url(url, url);
+          return url;
+        }
+      }
+      return this.downloadVideo();
+    }
+    throw new Error('Invalid video url');
+  }
+
+  /**
+   * Generates a download url.
+   *
+   * @returns {string | undefined} download url
+   */
+  private async getDownloadUrl(): Promise<string | undefined> {
+    const info = await ytdl.getInfo(this.getFlag<string>('url'));
+    return info ? ytdl.chooseFormat(info.formats, this.ytdlOptions).url : undefined;
+  }
+
+  private async downloadVideo(): Promise<ytdl.videoInfo | undefined> {
     const videoInfo = await this.getVideoInfo();
     if (videoInfo) {
       this.readStream = ytdl.downloadFromInfo(videoInfo, this.ytdlOptions);
@@ -144,99 +151,6 @@ export default class Download extends YtKitCommand {
       }
       return videoInfo;
     }
-  }
-
-  /**
-   * Generates a download url
-   *
-   * @returns {void}
-   */
-  public async getDownloadUrl(): Promise<string | undefined> {
-    const info = await ytdl.getInfo(this.getFlag<string>('url'));
-    return info ? ytdl.chooseFormat(info.formats, this.ytdlOptions).url : undefined;
-  }
-
-  /**
-   * Prepares video metadata information.
-   *
-   * @returns {IOutputVideoMeta[]} a collection of labels and values to print
-   */
-  private prepareVideoMetaBatch(): IOutputVideoMeta[] {
-    const batch = [
-      {
-        label: 'title',
-        from: this.videoInfo,
-        path: 'videoDetails.title',
-      },
-      {
-        label: 'author',
-        from: this.videoInfo,
-        path: 'videoDetails.author.name',
-      },
-      {
-        label: 'avg rating',
-        from: this.videoInfo,
-        path: 'videoDetails.averageRating',
-      },
-      {
-        label: 'views',
-        from: this.videoInfo,
-        path: 'videoDetails.viewCount',
-      },
-      {
-        label: 'publish date',
-        from: this.videoInfo,
-        path: 'videoDetails.publishDate',
-      },
-      {
-        label: 'length',
-        from: this.videoInfo,
-        path: 'videoDetails.lengthSeconds',
-        requires: utils.getValueFrom<ytdl.videoFormat[]>(this.videoInfo, 'formats').some((format) => format.isLive),
-        transformValue: (value: string): string => utils.toHumanTime(parseInt(value, 10)),
-      },
-      {
-        label: 'quality',
-        from: this.videoFormat,
-        path: 'quality',
-        requires: !utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
-      },
-      {
-        label: 'video bitrate:',
-        from: this.videoFormat,
-        path: 'bitrate',
-        requires: !utils.getValueFrom<string>(this.videoFormat, 'qualityLabel'),
-        transformValue: (value: string): string => utils.toHumanSize(parseInt(value, 10)),
-      },
-      {
-        label: 'audio bitrate',
-        from: this.videoFormat,
-        path: 'audioBitrate',
-        requires: !utils.getValueFrom<string>(this.videoFormat, 'audioBitrate'),
-        transformValue: (value: string): string => `${value}KB`,
-      },
-      {
-        label: 'codecs',
-        from: this.videoFormat,
-        path: 'codecs',
-      },
-      {
-        label: 'itag',
-        from: this.videoFormat,
-        path: 'itag',
-      },
-      {
-        label: 'container',
-        from: this.videoFormat,
-        path: 'container',
-      },
-      {
-        label: 'output',
-        from: this,
-        path: 'output',
-      },
-    ] as unknown[] as IOutputVideoMeta[];
-    return batch;
   }
 
   /**
@@ -255,7 +169,7 @@ export default class Download extends YtKitCommand {
    * @returns {void}
    */
   private printVideoMeta(): void {
-    this.prepareVideoMetaBatch().forEach((outputVideoMeta: IOutputVideoMeta) => {
+    videoMeta(this.videoInfo, this.videoFormat, this.output).forEach((outputVideoMeta: IOutputVideoMeta) => {
       const { label, from } = outputVideoMeta;
       const value = utils.getValueFrom<string>(from, outputVideoMeta.path, '');
       if (!outputVideoMeta.requires) {
@@ -265,28 +179,6 @@ export default class Download extends YtKitCommand {
         return this.logStyledProp(label, value);
       }
     });
-  }
-  /**
-   * Builds download options based on the following input flags
-   * quality: Video quality to download.
-   * range: A byte range in the form INT-INT that specifies part of the file to download
-   *
-   * @returns {@link ytdl.downloadOptions} the downalod options
-   */
-  private buildDownloadOptions(): ytdl.downloadOptions {
-    const options: ytdl.downloadOptions = {};
-    const qualityFlag = this.getFlag<string>('quality');
-    const quality = /,/.test(qualityFlag) ? qualityFlag.split(',') : qualityFlag;
-    const range = this.getFlag<string>('range');
-
-    if (range) {
-      const ranges = range.split('-').map((r: string) => parseInt(r, 10));
-      options.range = { start: ranges[0], end: ranges[1] };
-    }
-    if (quality) {
-      options.quality = quality;
-    }
-    return options;
   }
 
   /**
@@ -363,7 +255,7 @@ export default class Download extends YtKitCommand {
         /* remove the error listener, we don't need it anymore */
         return resolve({ videoInfo, videoFormat });
       });
-      this.readStream.on('error', reject);
+      this.readStream.once('error', reject);
     });
   }
 
@@ -376,6 +268,22 @@ export default class Download extends YtKitCommand {
   private setVideoOutput(): fs.WriteStream | NodeJS.WriteStream {
     if (!this.output) {
       /* if we made it here we're 100% sure we're not on a TTY device */
+      // process.stdout
+      //   .once('close', () => {
+      //     this.ux.log('output stream closed');
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(0);
+      //   })
+      //   .once('end', () => {
+      //     this.ux.log('output stream ended');
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(0);
+      //   })
+      //   .once('error', (error) => {
+      //     this.ux.log(`output stream error ${error as string}`);
+      //     this.readStream.unpipe(process.stdout);
+      //     process.exit(1);
+      //   });
       return this.readStream.pipe(process.stdout);
     }
     /* build a proper filename */
@@ -403,81 +311,17 @@ export default class Download extends YtKitCommand {
     if (sizeUnknown) {
       this.printLiveVideoSize(this.readStream);
     } else if (utils.getValueFrom(this.videoFormat, 'contentLength')) {
-      return this.printVideoSize(parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
+      return this.printProgress(parseInt(utils.getValueFrom(this.videoFormat, 'contentLength'), 10));
     } else {
       this.readStream.once('response', (response) => {
         if (utils.getValueFrom(response, 'headers.content-length')) {
           const size = parseInt(utils.getValueFrom(response, 'headers.content-length'), 10);
-          return this.printVideoSize(size);
+          return this.printProgress(size);
         } else {
           return this.printLiveVideoSize(this.readStream);
         }
       });
     }
-  }
-
-  /**
-   * Sets the filter options
-   *
-   * @returns {void}
-   */
-  private setFilters(): void {
-    // Create filters.
-    const filters: Array<[string, (format: ytdl.videoFormat) => boolean]> = [];
-
-    /**
-     * @param {string} name
-     * @param {string} field
-     * @param {string} regexpStr
-     * @param {boolean|undefined} negated
-     */
-    const createFilter = (name: string, field: string, regexpStr: string, negated?: boolean): void => {
-      const regexp = new RegExp(regexpStr, 'i');
-      filters.push([
-        name,
-        (format: ytdl.videoFormat): boolean =>
-          Boolean(negated !== regexp.test(format[field as keyof ytdl.videoFormat] as string)),
-      ]);
-    };
-
-    ['container', 'resolution:qualityLabel'].forEach((field) => {
-      // eslint-disable-next-line prefer-const
-      let [fieldName, fieldKey] = field.split(':');
-      fieldKey = fieldKey || fieldName;
-      let optsKey = `filter-${fieldName}`;
-      const value = this.getFlag<string>(optsKey);
-      const name = `${fieldName}=${value}`;
-      if (this.getFlag<string>(optsKey)) {
-        createFilter(name, fieldKey, value, false);
-      }
-      optsKey = 'un' + optsKey;
-      if (this.getFlag<string>(optsKey)) {
-        const optsValue = this.getFlag<string>(optsKey);
-        createFilter(name, fieldKey, optsValue, true);
-      }
-    });
-
-    // Support basic ytdl-core filters manually, so that other
-    // cli filters are supported when used together.
-    const hasVideo = (format: ytdl.videoFormat): boolean => !!format.qualityLabel;
-    const hasAudio = (format: ytdl.videoFormat): boolean => !!format.audioBitrate;
-
-    switch (this.flags.filter) {
-      case 'video':
-        filters.push(['video', hasVideo]);
-        break;
-      case 'videoonly':
-        filters.push(['videoonly', (format: ytdl.videoFormat): boolean => hasVideo(format) && !hasAudio(format)]);
-        break;
-      case 'audio':
-        filters.push(['audio', hasAudio]);
-        break;
-      case 'audioonly':
-        filters.push(['audioonly', (format: ytdl.videoFormat): boolean => !hasVideo(format) && hasAudio(format)]);
-        break;
-    }
-
-    this.ytdlOptions.filter = (format: ytdl.videoFormat): boolean => filters.every((filter) => filter[1](format));
   }
 
   /**
@@ -510,41 +354,37 @@ export default class Download extends YtKitCommand {
   }
 
   /**
-   * Prints video size with a progress bar as it downloads.
+   * Prints progress bar as it downloads.
    *
    * @param {number} size
    * @returns {void}
    */
-  private printVideoSize(size: number): void {
-    const progress = this.ux.progress({
-      format: '[{bar}] {percentage}% | Speed: {speed}',
+  private printProgress(length: number): void {
+    this.progressStream = progressStream({
+      length,
+      time: 100,
+      drain: true,
+    });
+    const progressbar = this.ux.progress({
+      format: '[{bar}] | {percentage}% | ETA: {timeleft} | Speed: {speed}',
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
-      total: size,
+      total: length,
     }) as SingleBar;
-    progress.start(size, 0, {
+    progressbar.start(length, 0, {
       speed: 'N/A',
     });
-    const streamSpeed = new StreamSpeed();
-    streamSpeed.add(this.readStream);
-    // Keep track of progress.
-    const getSpeed = (): { speed: string } => ({
-      speed: StreamSpeed.toHuman(streamSpeed.getSpeed(), { timeUnit: 's', precision: 3 }),
+    this.readStream.pipe(this.progressStream);
+    this.progressStream.on('progress', (progress) => {
+      progressbar.update(progress.transferred, {
+        percentage: progress.percentage,
+        timeleft: utils.toHumanTime(progress.eta),
+        speed: utils.toHumanSize(progress.speed),
+      });
     });
-
-    this.readStream.on('data', (data: Buffer) => {
-      progress.increment(data.length, getSpeed());
-    });
-
-    // Update speed every second, in case download is rate limited,
-    // which is the case with `audioonly` formats.
-    const interval = setInterval(() => {
-      progress.increment(0, getSpeed());
-    }, 750);
-
-    this.readStream.on('end', () => {
-      progress.stop();
-      clearInterval(interval);
+    this.readStream.once('end', () => {
+      this.readStream.unpipe(this.progressStream);
+      progressbar.stop();
     });
   }
 
@@ -553,7 +393,7 @@ export default class Download extends YtKitCommand {
    *
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
-  private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    return await ytdl.getInfo(this.getFlag<string>('url'));
+  private async getVideoInfo(): Promise<ytdl.videoInfo> {
+    return ytdl.getInfo(this.getFlag<string>('url'));
   }
 }

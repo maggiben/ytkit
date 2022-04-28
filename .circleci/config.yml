@@ -6,8 +6,8 @@
 #
 version: 2.1
 orbs:
-  snyk: snyk/snyk@0.1.0
-  docker: circleci/docker@1.6.0
+  snyk: snyk/snyk@1.1.2
+  docker: circleci/docker@2.0.1
 jobs:
   node-latest: &test
     docker:
@@ -35,6 +35,10 @@ jobs:
           key: v1-npm-{{checksum ".circleci/config.yml"}}-{{checksum "yarn.lock"}}
           paths:
             - ~/cli/node_modules
+  node-16:
+    <<: *test
+    docker:
+      - image: node:16
   node-14:
     <<: *test
     docker:
@@ -149,6 +153,7 @@ workflows:
   'ytkit':
     jobs:
       - node-latest
+      - node-16
       - node-14
       - node-12
       - cache:
@@ -161,6 +166,7 @@ workflows:
           requires:
             - cache
             - node-latest
+            - node-16
             - node-14
             - node-12
           filters:

@@ -33,7 +33,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-import ytdl = require('ytdl-core');
+import * as ytdl from 'ytdl-core';
 import { AnyJson } from '@salesforce/ts-types';
 import * as utils from '../utils/utils';
 import { YtKitCommand } from '../YtKitCommand';
@@ -65,12 +65,17 @@ export default class Info extends YtKitCommand {
 
   protected videoInfo?: ytdl.videoInfo;
 
-  public async run(): Promise<ytdl.videoInfo | undefined> {
-    this.videoInfo = await this.getVideoInfo();
-    if (this.videoInfo) {
-      this.showVideoInfo();
+  public async run(): Promise<ytdl.videoInfo | string> {
+    try {
+      this.videoInfo = await this.getVideoInfo();
+      if (this.videoInfo) {
+        this.showVideoInfo();
+      }
+      return this.videoInfo;
+    } catch (error) {
+      this.ux.error(error as Error);
+      throw new Error((error as Error).message);
     }
-    return this.videoInfo;
   }
 
   /**
@@ -189,7 +194,11 @@ export default class Info extends YtKitCommand {
    *
    * @returns {Promise<ytdl.videoInfo | undefined>} the video info object or undefined if it fails
    */
-  private async getVideoInfo(): Promise<ytdl.videoInfo | undefined> {
-    return await ytdl.getInfo(this.getFlag<string>('url'));
+  private async getVideoInfo(): Promise<ytdl.videoInfo> {
+    try {
+      return await ytdl.getInfo(this.getFlag<string>('url'));
+    } catch (error) {
+      throw new Error((error as Error).message);
+    }
   }
 }

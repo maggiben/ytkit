@@ -2,12 +2,12 @@ import { expect, test } from '@oclif/test';
 import { get } from '@salesforce/ts-types';
 import * as sinon from 'sinon';
 import { JsonMap } from '@salesforce/ts-types';
-import ytdl = require('ytdl-core');
+import * as ytdl from 'ytdl-core';
 import { UX } from '../../src/Ux';
 import * as util from '../../src/utils/utils';
 import Info from '../../src/commands/info';
 
-const videoUrl = 'https://www.youtube.com/watch?v=MglX7zcg0gw';
+const videoUrl = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
 const formats = [
   {
     itag: '123',
@@ -330,7 +330,6 @@ describe('video info table formats with no audioBitrate', () => {
     tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
   });
   afterEach(() => {
-    getInfoStub.restore();
     sandbox.restore();
   });
   test
@@ -402,7 +401,6 @@ describe('video info table formats with codec', () => {
     tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
   });
   afterEach(() => {
-    getInfoStub.restore();
     sandbox.restore();
   });
   test
@@ -475,7 +473,6 @@ describe('video info table formats with no codec', () => {
     tableStub = sandbox.stub(UX.prototype, 'table').returns(UX.prototype);
   });
   afterEach(() => {
-    getInfoStub.restore();
     sandbox.restore();
   });
   test

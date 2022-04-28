@@ -67,14 +67,36 @@ export const toHumanTime = (seconds: number): string => {
  * @param {number} bytes
  * @return {string}
  */
-const units = ' KMGTPEZYXWVU';
+const UNITS = ' KMGTPEZYXWVU';
 export const toHumanSize = (bytes: number): string => {
   if (bytes <= 0) {
     return '0';
   }
   const t2 = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), 12);
-  return `${Math.round((bytes * 100) / Math.pow(1024, t2)) / 100}${units.charAt(t2).replace(' ', '')}B`;
+  return `${Math.round((bytes * 100) / Math.pow(1024, t2)) / 100}${UNITS.charAt(t2).replace(' ', '')}B`;
 };
+
+/**
+ * Converts human size input to number of bytes.
+ *
+ * @param {string} size ie. 128KB 96KB
+ * @return {number} number in bytes
+ */
+export function fromHumanSize(size: string): number {
+  if (!size) {
+    return 0;
+  }
+
+  const num = parseFloat(size);
+  const unit = size[num.toString().length];
+  const unitIndex = UNITS.indexOf(unit);
+
+  if (unitIndex < 0) {
+    return num;
+  }
+
+  return Math.pow(1024, unitIndex) * num;
+}
 
 /**
  * Template a string with variables denoted by {prop}.
@@ -98,7 +120,7 @@ export const tmpl = (str: string, objs: any[]): string => {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ThrottledFunction<T extends (...args: any) => any> = (...args: Parameters<T>) => ReturnType<T>;
+export type ThrottledFunction<T extends (...args: any[]) => any> = (...args: Parameters<T>) => ReturnType<T>;
 
 /**
  * Creates a throttled function that only invokes the provided function (`func`) at most once per within a given number of milliseconds
@@ -169,4 +191,32 @@ export function getValueFromMeta<T>(
     return getValueFrom<T>(from, path, defaultValue);
   }
   return defaultValue as T;
+}
+
+export function getYoutubeVideoId(url: string): string | undefined {
+  const regExp = new RegExp(
+    /(?:http|https|)(?::\/\/|)(?:www.|)(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/ytscreeningroom\?v=|\/feeds\/api\/videos\/|\/user\S*[^\w\-\s]|\S*[^\w\-\s]))([\w-]{11})[a-z0-9;:@#?&%=+/$_.-]*/
+  );
+  const match = url.match(regExp);
+  if (match && match[1]) {
+    return match[1];
+  }
+}
+/**
+ * Get playlist id from url
+ *
+ * @param {string} url the youtube url
+ * @returns {string|undefined} the playlist id
+ */
+export function getYoutubePlaylistId(url: string): string | undefined {
+  const regExp = new RegExp(
+    /(?:http|https|)(?::\/\/|)(?:www.|)(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/ytscreeningroom\?v=|\/feeds\/api\/videos\/|\/user\S*[^\w\-\s]|\S*[^\w\-\s]))([\w-]{12,})[a-z0-9;:@#?&%=+/$_.-]*/
+  );
+  if (url.includes('list=')) {
+    const match = url.match(regExp);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  return;
 }

@@ -37,4 +37,7 @@
 
 module.exports = {
   extends: ['eslint-config-salesforce-typescript'],
+  rules: {
+    'no-return-await': 'warn',
+  },
 };
