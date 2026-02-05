@@ -1,4 +1,4 @@
-FROM node:latest
+FROM node:25.6.0-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG YTKIT_CLI_VERSION=latest
